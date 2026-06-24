@@ -7,9 +7,9 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { useState, type ReactNode } from 'react'
 import {
-  LayoutDashboard, Ticket, AlertTriangle,
-  Users, FileText, CheckSquare, Wrench, Sun, Moon,
-  Eye, Pencil, LogOut, Menu, ChevronLeft, BarChart2, BookOpen, Wand2, PackageCheck, RotateCcw, ClipboardList, Layers,
+  LayoutDashboard, AlertTriangle, Users, FileText, 
+  CheckSquare, Wrench, Sun, Moon, Eye, Pencil, 
+  LogOut, Menu, ChevronLeft, BarChart2, BookOpen, Layers
 } from 'lucide-react'
 
 type NavItem = { to: string; label: string; Icon: React.ElementType; end?: boolean }
@@ -25,25 +25,20 @@ const NAV: NavSection[] = [
   {
     section: 'Service',
     items: [
-      { to: '/astea',      label: 'Ticket Wizard', Icon: Wand2 },
-      { to: '/cs-tickets', label: 'CS Tickets',    Icon: Ticket },
-      { to: '/rga-form',   label: 'RGA Form',      Icon: RotateCcw },
-      { to: '/issues',     label: 'Issues',        Icon: AlertTriangle },
+      { to: '/issues', label: 'Issues', Icon: AlertTriangle },
     ],
   },
   {
     section: 'Parts',
     items: [
-      { to: '/parts-transfer', label: 'Parts Transfer', Icon: PackageCheck },
-      { to: '/bom',            label: 'BOM / Parts',    Icon: Layers },
+      { to: '/bom', label: 'BOM / Parts', Icon: Layers },
     ],
   },
   {
     section: 'Field Ops',
     items: [
-      { to: '/operations',        label: 'Operations',        Icon: Wrench },
-      { to: '/daily-tech-reports',label: 'Tech Reports',      Icon: ClipboardList },
-      { to: '/todos',             label: 'To-Do',             Icon: CheckSquare },
+      { to: '/operations', label: 'Operations', Icon: Wrench },
+      { to: '/todos',      label: 'To-Do',      Icon: CheckSquare },
     ],
   },
   {
@@ -63,6 +58,7 @@ const NAV: NavSection[] = [
 ]
 
 export function Layout({ children }: { children: ReactNode }) {
+  // ... (The rest of your Layout component remains exactly the same from here down)
   const { logout, user } = useAuth()
   const { theme, toggle } = useTheme()
   const { editMode, toggleEditMode } = useEditMode()
