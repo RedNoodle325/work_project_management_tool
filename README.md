@@ -1,4 +1,4 @@
-# Work Project Managemetn Tool
+# Work Project Management Tool
 
 A field service and commissioning management app for tracking HVAC/cooling system installations, service tickets, scheduling, and supply chain.
 
