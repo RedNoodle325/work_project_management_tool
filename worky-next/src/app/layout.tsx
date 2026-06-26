@@ -3,7 +3,7 @@ import './globals.css'
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: "Zak's Office",
+  title: "Project Management Tool",
   icons: {
     icon: '/logo.png',
     apple: '/logo.png',
