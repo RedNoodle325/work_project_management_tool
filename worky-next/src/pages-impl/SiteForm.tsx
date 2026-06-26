@@ -366,4 +366,8 @@ export function SiteForm() {
           <div className="form-grid">
             <div className="form-group full">
               <label>Street</label>
-              <input value={address} onChange={e => setAddress(e.target.value
+              <input 
+                value={address} 
+                onChange={e => setAddress(e.target.value)} 
+                placeholder="123 Main St" 
+              />
