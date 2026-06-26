@@ -46,6 +46,8 @@ export function SiteForm() {
   const [name, setName] = useState('')
   const [projectName, setProjectName] = useState('')
   const [projectNumber, setProjectNumber] = useState('')
+  const [unitModels, setUnitModels] = useState('')
+  const [unitCounts, setUnitCounts] = useState('')
   const [address, setAddress] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
@@ -104,53 +106,25 @@ export function SiteForm() {
     load()
   }, [id, isEditing])
 
-  const handleDelete = async () => {
-    if (!id || !confirm('Delete this site? This cannot be undone.')) return
-    try {
-      await API.sites.delete(id)
-      toast('Site deleted')
-      router.push('/')
-    } catch (e) {
-      toast('Error: ' + (e instanceof Error ? e.message : String(e)), 'error')
-    }
-  }
-
-  const addJobRow = () => {
-    setJobRows(rows => [...rows, { job_number: '', description: '', is_primary: false }])
-  }
-
-  const removeJobRow = (idx: number) => {
-    setJobRows(rows => {
-      const next = rows.filter((_, i) => i !== idx)
-      if (rows[idx].is_primary && next.length > 0) {
-        next[0] = { ...next[0], is_primary: true }
-      }
-      return next
-    })
-  }
-
-  const updateJobRow = (idx: number, field: keyof JobRow, value: string | boolean) => {
-    setJobRows(rows => rows.map((r, i) => {
-      if (field === 'is_primary' && value === true) {
-        return { ...r, is_primary: i === idx }
-      }
-      if (i !== idx) return r
-      return { ...r, [field]: value }
-    }))
-  }
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    
+    // Validation
+    if (!projectName || !projectNumber || !unitModels || !unitCounts || !address || !city || !state || !zip) {
+      toast('Please fill in all required fields.', 'error')
+      return
+    }
+
     setSaving(true)
 
     const data: Partial<Site> = {
       name: name || projectName || undefined,
-      project_name: projectName || undefined,
-      project_number: projectNumber || undefined,
-      address: address || undefined,
-      city: city || undefined,
-      state: state || undefined,
-      zip: zip || undefined,
+      project_name: projectName,
+      project_number: projectNumber,
+      address,
+      city,
+      state,
+      zip,
       region: region || undefined,
       site_type: siteType || undefined,
       status: status || undefined,
@@ -173,6 +147,7 @@ export function SiteForm() {
         toast('Site created')
       }
 
+      // Save job numbers
       const validJobs = jobRows.filter(j => j.job_number.trim())
       for (const job of validJobs) {
         const payload = { job_number: job.job_number.trim(), description: job.description.trim() || undefined }
@@ -191,149 +166,65 @@ export function SiteForm() {
     }
   }
 
-  const backHref = isEditing && id ? `/sites/${id}` : '/'
-
-  if (loading) {
-    return <div style={{ color: 'var(--text3)', padding: 40, textAlign: 'center' }}>Loading…</div>
-  }
-
-  if (error) {
-    return <div style={{ color: 'var(--red)', padding: 40 }}>Error: {error}</div>
-  }
-
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href={backHref} className="btn btn-secondary btn-sm">← Back</Link>
-          <div>
-            <h1 style={{ margin: 0 }}>{isEditing ? 'Edit Site' : 'New Site'}</h1>
-            {isEditing && (projectName || name) && (
-              <div className="page-subtitle">{projectName || name}</div>
-            )}
-          </div>
-        </div>
-        {isEditing && (
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={handleDelete}
-            style={{ background: 'var(--red)22', color: 'var(--red)', border: '1px solid var(--red)44' }}
-          >
-            Delete Site
-          </button>
-        )}
-      </div>
-
       <form onSubmit={handleSubmit} style={{ maxWidth: 900 }}>
+        {/* Basic Info */}
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title" style={{ marginBottom: 16 }}>Basic Info</div>
+          <div className="card-title">Required Information</div>
           <div className="form-grid">
             <div className="form-group">
               <label>Site Name *</label>
-              <input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. QTS Reno Data Center" />
+              <input required value={name} onChange={e => setName(e.target.value)} />
             </div>
             <div className="form-group">
-              <label>Project Name</label>
-              <input value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="e.g. QTS Reno Phase 2" />
+              <label>Project Name *</label>
+              <input required value={projectName} onChange={e => setProjectName(e.target.value)} />
             </div>
             <div className="form-group">
-              <label>Project Number</label>
-              <input
-                value={projectNumber}
-                onChange={e => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 5)
-                  setProjectNumber(val)
-                }}
-                placeholder="e.g. 10456 or 40123"
-                maxLength={5}
-              />
-              {projectNumber.length === 5 && (
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
-                  {(projectNumber.startsWith('10') || projectNumber.startsWith('11')) 
-                    ? '🏭 Built in Montreal' 
-                    : projectNumber.startsWith('40') 
-                    ? '🏜️ Built in Mesa, AZ' 
-                    : '⚠️ Unknown facility prefix'}
-                </div>
-              )}
+              <label>Project Number *</label>
+              <input required value={projectNumber} onChange={e => setProjectNumber(e.target.value)} placeholder="5-digit #"/>
             </div>
             <div className="form-group">
-              <label>Owner / Customer</label>
-              <input value={owner} onChange={e => setOwner(e.target.value)} placeholder="e.g. Quality Technology Services" />
+              <label>Unit Models *</label>
+              <input required value={unitModels} onChange={e => setUnitModels(e.target.value)} placeholder="e.g. AHU-500" />
             </div>
             <div className="form-group">
-              <label>Astea Site ID</label>
-              <input value={asteaSiteId} onChange={e => setAsteaSiteId(e.target.value)} placeholder="e.g. QUAL055-GA167" style={{ fontFamily: 'monospace' }} />
-            </div>
-            <div className="form-group">
-              <label>Site Type</label>
-              <select value={siteType} onChange={e => setSiteType(e.target.value)}>
-                <option value="">— Select —</option>
-                {SITE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Region</label>
-              <select value={region} onChange={e => setRegion(e.target.value)}>
-                <option value="">— Select —</option>
-                {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
+              <label># of Units *</label>
+              <input required type="number" value={unitCounts} onChange={e => setUnitCounts(e.target.value)} />
             </div>
           </div>
         </div>
 
+        {/* Address */}
         <div className="card" style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div className="card-title" style={{ margin: 0 }}>Job Numbers</div>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={addJobRow}>+ Add Job #</button>
-          </div>
-          <p style={{ fontSize: 12, color: 'var(--text3)', margin: '0 0 12px' }}>Astea order numbers for this site.</p>
-          <div>
-            {jobRows.map((row, idx) => (
-              <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                <input placeholder="e.g. 22366582" value={row.job_number} onChange={e => updateJobRow(idx, 'job_number', e.target.value)} style={{ flex: '0 0 180px', fontFamily: 'monospace' }} />
-                <input placeholder="Description (optional)" value={row.description} onChange={e => updateJobRow(idx, 'description', e.target.value)} style={{ flex: 1 }} />
-                <label style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', fontSize: 13, cursor: 'pointer' }}>
-                  <input type="radio" name="jn_primary" checked={row.is_primary} onChange={() => updateJobRow(idx, 'is_primary', true)} /> Primary
-                </label>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => removeJobRow(idx)} style={{ padding: '4px 10px' }}>✕</button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title" style={{ marginBottom: 16 }}>Site Address</div>
+          <div className="card-title">Site Address *</div>
           <div className="form-grid">
             <div className="form-group full">
-              <label>Street</label>
-              <input value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St" />
+              <label>Street *</label>
+              <input required value={address} onChange={e => setAddress(e.target.value)} />
             </div>
             <div className="form-group">
-              <label>City</label>
-              <input value={city} onChange={e => setCity(e.target.value)} />
+              <label>City *</label>
+              <input required value={city} onChange={e => setCity(e.target.value)} />
             </div>
             <div className="form-group">
-              <label>State</label>
-              <select value={state} onChange={e => setState(e.target.value)}>
+              <label>State *</label>
+              <select required value={state} onChange={e => setState(e.target.value)}>
                 <option value="">— Select —</option>
                 {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div className="form-group">
-              <label>Zip</label>
-              <input value={zip} onChange={e => setZip(e.target.value)} />
+              <label>Zip *</label>
+              <input required value={zip} onChange={e => setZip(e.target.value)} />
             </div>
           </div>
         </div>
 
-        <div className="form-actions" style={{ padding: '0 0 32px' }}>
-          <Link href={backHref} className="btn btn-secondary">Cancel</Link>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Site'}
-          </button>
-        </div>
+        <button type="submit" className="btn btn-primary" disabled={saving}>
+          {saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Site'}
+        </button>
       </form>
     </div>
   )
