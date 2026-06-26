@@ -45,6 +45,7 @@ export function SiteForm() {
   // Form fields
   const [name, setName] = useState('')
   const [projectName, setProjectName] = useState('')
+  const [projectNumber, setProjectNumber] = useState('')
   const [address, setAddress] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
@@ -72,6 +73,7 @@ export function SiteForm() {
           ])
           setName(site.name || '')
           setProjectName(site.project_name || '')
+          setProjectNumber(site.project_number || '')
           setAddress(site.address || '')
           setCity(site.city || '')
           setState(site.state || '')
@@ -146,6 +148,7 @@ export function SiteForm() {
     const data: Partial<Site> = {
       name: name || projectName || undefined,
       project_name: projectName || undefined,
+      project_number: projectNumber || undefined,
       address: address || undefined,
       city: city || undefined,
       state: state || undefined,
@@ -250,6 +253,28 @@ export function SiteForm() {
               />
             </div>
             <div className="form-group">
+              <label>Project Number</label>
+              <input
+                value={projectNumber}
+                onChange={e => {
+                  // Strip non-digits and limit to 5 characters
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 5)
+                  setProjectNumber(val)
+                }}
+                placeholder="e.g. 10456 or 40123"
+                maxLength={5}
+              />
+              {projectNumber.length === 5 && (
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                  {(projectNumber.startsWith('10') || projectNumber.startsWith('11')) 
+                    ? '🏭 Built in Montreal' 
+                    : projectNumber.startsWith('40') 
+                    ? '🏜️ Built in Mesa, AZ' 
+                    : '⚠️ Unknown facility prefix'}
+                </div>
+              )}
+            </div>
+            <div className="form-group">
               <label>Owner / Customer</label>
               <input
                 value={owner}
@@ -341,83 +366,4 @@ export function SiteForm() {
           <div className="form-grid">
             <div className="form-group full">
               <label>Street</label>
-              <input value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St" />
-            </div>
-            <div className="form-group">
-              <label>City</label>
-              <input value={city} onChange={e => setCity(e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>State</label>
-              <select value={state} onChange={e => setState(e.target.value)}>
-                <option value="">— Select —</option>
-                {US_STATES.map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Zip</label>
-              <input value={zip} onChange={e => setZip(e.target.value)} />
-            </div>
-          </div>
-        </div>
-
-        {/* Shipping */}
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title" style={{ marginBottom: 16 }}>Shipping Info</div>
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Shipping Name / Attention Line</label>
-              <input
-                value={shippingName}
-                onChange={e => setShippingName(e.target.value)}
-                placeholder="CUSTOMER C/O MUNTERS"
-              />
-            </div>
-            <div className="form-group">
-              <label>Shipping Contact</label>
-              <input
-                value={shippingContact}
-                onChange={e => setShippingContact(e.target.value)}
-                placeholder="Contact name or phone"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Status */}
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title" style={{ marginBottom: 16 }}>Status</div>
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Site Status</label>
-              <select value={status} onChange={e => setStatus(e.target.value)}>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="pending">Pending</option>
-                <option value="complete">Complete</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Warranty Status</label>
-              <select value={warrantyStatus} onChange={e => setWarrantyStatus(e.target.value)}>
-                <option value="">— None —</option>
-                <option value="in_warranty">In Warranty</option>
-                <option value="extended_warranty">Extended Warranty</option>
-                <option value="out_of_warranty">Out of Warranty</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="form-actions" style={{ padding: '0 0 32px' }}>
-          <Link href={backHref} className="btn btn-secondary">Cancel</Link>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Site'}
-          </button>
-        </div>
-      </form>
-    </div>
-  )
-}
+              <input value={address} onChange={e => setAddress(e.target.value
