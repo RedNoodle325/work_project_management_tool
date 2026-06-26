@@ -122,7 +122,6 @@ export function SiteForm() {
   const removeJobRow = (idx: number) => {
     setJobRows(rows => {
       const next = rows.filter((_, i) => i !== idx)
-      // if we removed the primary, promote first
       if (rows[idx].is_primary && next.length > 0) {
         next[0] = { ...next[0], is_primary: true }
       }
@@ -133,7 +132,6 @@ export function SiteForm() {
   const updateJobRow = (idx: number, field: keyof JobRow, value: string | boolean) => {
     setJobRows(rows => rows.map((r, i) => {
       if (field === 'is_primary' && value === true) {
-        // radio — clear all, set this one
         return { ...r, is_primary: i === idx }
       }
       if (i !== idx) return r
@@ -175,7 +173,6 @@ export function SiteForm() {
         toast('Site created')
       }
 
-      // Save job numbers
       const validJobs = jobRows.filter(j => j.job_number.trim())
       for (const job of validJobs) {
         const payload = { job_number: job.job_number.trim(), description: job.description.trim() || undefined }
@@ -206,7 +203,6 @@ export function SiteForm() {
 
   return (
     <div>
-      {/* Header */}
       <div className="page-header" style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Link href={backHref} className="btn btn-secondary btn-sm">← Back</Link>
@@ -230,34 +226,22 @@ export function SiteForm() {
       </div>
 
       <form onSubmit={handleSubmit} style={{ maxWidth: 900 }}>
-
-        {/* Basic Info */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title" style={{ marginBottom: 16 }}>Basic Info</div>
           <div className="form-grid">
             <div className="form-group">
               <label>Site Name *</label>
-              <input
-                required
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="e.g. QTS Reno Data Center"
-              />
+              <input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. QTS Reno Data Center" />
             </div>
             <div className="form-group">
               <label>Project Name</label>
-              <input
-                value={projectName}
-                onChange={e => setProjectName(e.target.value)}
-                placeholder="e.g. QTS Reno Phase 2"
-              />
+              <input value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="e.g. QTS Reno Phase 2" />
             </div>
             <div className="form-group">
               <label>Project Number</label>
               <input
                 value={projectNumber}
                 onChange={e => {
-                  // Strip non-digits and limit to 5 characters
                   const val = e.target.value.replace(/\D/g, '').slice(0, 5)
                   setProjectNumber(val)
                 }}
@@ -276,98 +260,81 @@ export function SiteForm() {
             </div>
             <div className="form-group">
               <label>Owner / Customer</label>
-              <input
-                value={owner}
-                onChange={e => setOwner(e.target.value)}
-                placeholder="e.g. Quality Technology Services"
-              />
+              <input value={owner} onChange={e => setOwner(e.target.value)} placeholder="e.g. Quality Technology Services" />
             </div>
             <div className="form-group">
               <label>Astea Site ID</label>
-              <input
-                value={asteaSiteId}
-                onChange={e => setAsteaSiteId(e.target.value)}
-                placeholder="e.g. QUAL055-GA167"
-                style={{ fontFamily: 'monospace' }}
-              />
+              <input value={asteaSiteId} onChange={e => setAsteaSiteId(e.target.value)} placeholder="e.g. QUAL055-GA167" style={{ fontFamily: 'monospace' }} />
             </div>
             <div className="form-group">
               <label>Site Type</label>
               <select value={siteType} onChange={e => setSiteType(e.target.value)}>
                 <option value="">— Select —</option>
-                {SITE_TYPES.map(t => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
+                {SITE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div className="form-group">
               <label>Region</label>
               <select value={region} onChange={e => setRegion(e.target.value)}>
                 <option value="">— Select —</option>
-                {REGIONS.map(r => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
+                {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
           </div>
         </div>
 
-        {/* Job Numbers */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <div className="card-title" style={{ margin: 0 }}>Job Numbers</div>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={addJobRow}>
-              + Add Job #
-            </button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={addJobRow}>+ Add Job #</button>
           </div>
-          <p style={{ fontSize: 12, color: 'var(--text3)', margin: '0 0 12px' }}>
-            Astea order numbers for this site (e.g. <code style={{ fontSize: 11 }}>22366582</code>).
-          </p>
+          <p style={{ fontSize: 12, color: 'var(--text3)', margin: '0 0 12px' }}>Astea order numbers for this site.</p>
           <div>
             {jobRows.map((row, idx) => (
               <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                <input
-                  placeholder="e.g. 22366582"
-                  value={row.job_number}
-                  onChange={e => updateJobRow(idx, 'job_number', e.target.value)}
-                  style={{ flex: '0 0 180px', fontFamily: 'monospace' }}
-                />
-                <input
-                  placeholder="Description (optional)"
-                  value={row.description}
-                  onChange={e => updateJobRow(idx, 'description', e.target.value)}
-                  style={{ flex: 1 }}
-                />
+                <input placeholder="e.g. 22366582" value={row.job_number} onChange={e => updateJobRow(idx, 'job_number', e.target.value)} style={{ flex: '0 0 180px', fontFamily: 'monospace' }} />
+                <input placeholder="Description (optional)" value={row.description} onChange={e => updateJobRow(idx, 'description', e.target.value)} style={{ flex: 1 }} />
                 <label style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', fontSize: 13, cursor: 'pointer' }}>
-                  <input
-                    type="radio"
-                    name="jn_primary"
-                    checked={row.is_primary}
-                    onChange={() => updateJobRow(idx, 'is_primary', true)}
-                  />
-                  Primary
+                  <input type="radio" name="jn_primary" checked={row.is_primary} onChange={() => updateJobRow(idx, 'is_primary', true)} /> Primary
                 </label>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => removeJobRow(idx)}
-                  style={{ padding: '4px 10px' }}
-                >
-                  ✕
-                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => removeJobRow(idx)} style={{ padding: '4px 10px' }}>✕</button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Address */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title" style={{ marginBottom: 16 }}>Site Address</div>
           <div className="form-grid">
             <div className="form-group full">
               <label>Street</label>
-              <input 
-                value={address} 
-                onChange={e => setAddress(e.target.value)} 
-                placeholder="123 Main St" 
-              />
+              <input value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Main St" />
+            </div>
+            <div className="form-group">
+              <label>City</label>
+              <input value={city} onChange={e => setCity(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>State</label>
+              <select value={state} onChange={e => setState(e.target.value)}>
+                <option value="">— Select —</option>
+                {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Zip</label>
+              <input value={zip} onChange={e => setZip(e.target.value)} />
+            </div>
+          </div>
+        </div>
+
+        <div className="form-actions" style={{ padding: '0 0 32px' }}>
+          <Link href={backHref} className="btn btn-secondary">Cancel</Link>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Site'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
