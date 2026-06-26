@@ -83,9 +83,13 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* Logo */}
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <img src="/logo.png" alt="Hackazak" style={{ height: 36, width: 36, objectFit: 'contain' }} />
-            <span className="sidebar-logo-m">Zak&apos;s Office</span>
-          </div>
+            <Image 
+              src={logo} 
+              alt="Hackazak" 
+              width={36} 
+              height={36} 
+              style={{ objectFit: 'contain' }} 
+            /></div>
         </div>
 
         <nav style={{ flex: 1, overflowY: 'auto' }}>
