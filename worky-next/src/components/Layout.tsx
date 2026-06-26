@@ -9,7 +9,8 @@ import { useState, type ReactNode } from 'react'
 import {
   LayoutDashboard, AlertTriangle, Users, FileText, 
   CheckSquare, Wrench, Sun, Moon, Eye, Pencil, 
-  LogOut, Menu, ChevronLeft, BarChart2, BookOpen, Layers
+  LogOut, Menu, ChevronLeft, BarChart2, BookOpen, Layers,
+  MapPin
 } from 'lucide-react'
 
 type NavItem = { to: string; label: string; Icon: React.ElementType; end?: boolean }
@@ -44,8 +45,9 @@ const NAV: NavSection[] = [
   {
     section: 'Sites',
     items: [
-      { to: '/contacts', label: 'Contacts', Icon: Users },
-      { to: '/notes',    label: 'Notes',    Icon: FileText },
+      { to: '/sites',    label: 'All Sites', Icon: MapPin },
+      { to: '/contacts', label: 'Contacts',  Icon: Users },
+      { to: '/notes',    label: 'Notes',     Icon: FileText },
     ],
   },
   {
@@ -58,7 +60,6 @@ const NAV: NavSection[] = [
 ]
 
 export function Layout({ children }: { children: ReactNode }) {
-  // ... (The rest of your Layout component remains exactly the same from here down)
   const { logout, user } = useAuth()
   const { theme, toggle } = useTheme()
   const { editMode, toggleEditMode } = useEditMode()
