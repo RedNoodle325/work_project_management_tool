@@ -133,7 +133,7 @@ export function Dashboard() {
               fontFamily: "'Inter', system-ui, sans-serif",
               fontSize: 16, fontWeight: 700, letterSpacing: -0.3, color: 'var(--text)',
             }}>
-              Worky McStreamline
+              Project Overview Dashboard
             </div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
               Field Ops · {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
