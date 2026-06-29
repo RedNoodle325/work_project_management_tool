@@ -14,7 +14,7 @@ interface PartItem {
 }
 
 const TICKET_TYPE_LABELS: Record<string, string> = {
-  cs_ticket:    'CS Ticket — Customer Support',
+  cs_ticket:    'ASR',
   parts_order:  'Parts Order',
   service_line: 'Service Line',
 }

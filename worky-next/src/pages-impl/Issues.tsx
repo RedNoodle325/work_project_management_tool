@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { API } from '../api'
-import type { Issue, Site } from '../types'
+import type { Issue, Site, ServiceTicket } from '../types'
 import { Modal } from '../components/Modal'
 import { StatusBadge } from '../components/StatusBadge'
 import { useToastFn } from '@/app/providers'
@@ -42,12 +42,13 @@ function fmtDate(d?: string) {
 interface IssueModalProps {
   issue: Issue | null
   sites: Site[]
+  asrs: ServiceTicket[]
   onSave: (i: Issue) => void
   onDelete?: (id: string) => void
   onClose: () => void
 }
 
-function IssueModal({ issue, sites, onSave, onDelete, onClose }: IssueModalProps) {
+function IssueModal({ issue, sites, asrs, onSave, onDelete, onClose }: IssueModalProps) {
   const toast = useToastFn()
   const [saving, setSaving] = useState(false)
   const [siteId, setSiteId] = useState(issue?.site_id ?? '')
@@ -60,11 +61,15 @@ function IssueModal({ issue, sites, onSave, onDelete, onClose }: IssueModalProps
   const [cxIssueType, setCxIssueType] = useState(issue?.cx_issue_type ?? '')
   const [cxalloyUrl, setCxalloyUrl] = useState(issue?.cxalloy_url ?? '')
   const [resolutionNotes, setResolutionNotes] = useState(issue?.resolution_notes ?? '')
+  const [asrId, setAsrId] = useState(issue?.service_ticket_id ?? '')
+  const issueSiteId = issue?.site_id ?? siteId
+  const availableAsrs = asrs.filter(asr => asr.site_id === issueSiteId)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim()) return toast('Title is required', 'error')
     if (!issue && !siteId) return toast('Site is required', 'error')
+    if (!asrId) return toast('ASR is required', 'error')
     setSaving(true)
     const data: Partial<Issue> = {
       title: title.trim(),
@@ -76,6 +81,7 @@ function IssueModal({ issue, sites, onSave, onDelete, onClose }: IssueModalProps
       cx_issue_type: cxIssueType || undefined,
       cxalloy_url: cxalloyUrl.trim() || undefined,
       resolution_notes: resolutionNotes.trim() || undefined,
+      service_ticket_id: asrId,
     }
     try {
       if (issue) {
@@ -121,6 +127,20 @@ function IssueModal({ issue, sites, onSave, onDelete, onClose }: IssueModalProps
               </select>
             </div>
           )}
+          <div className="form-group full">
+            <label>ASR *</label>
+            <select required value={asrId} onChange={e => setAsrId(e.target.value)} disabled={!issueSiteId}>
+              <option value="">— Select ASR —</option>
+              {availableAsrs.map(asr => (
+                <option key={asr.id} value={asr.id}>
+                  {asr.c2_number || asr.title}{asr.c2_number && asr.title ? ` — ${asr.title}` : ''}
+                </option>
+              ))}
+            </select>
+            {issueSiteId && availableAsrs.length === 0 && (
+              <div style={{ color: 'var(--yellow)', fontSize: 11, marginTop: 4 }}>This site has no ASRs yet.</div>
+            )}
+          </div>
           <div className="form-group full">
             <label>Title *</label>
             <input required value={title} onChange={e => setTitle(e.target.value)} placeholder="Brief description of the issue" />
@@ -230,13 +250,15 @@ function parseCSV(text: string): Record<string, string>[] {
 
 interface CxImportModalProps {
   sites: Site[]
+  asrs: ServiceTicket[]
   onImported: () => void
   onClose: () => void
 }
 
-function CxImportModal({ sites, onImported, onClose }: CxImportModalProps) {
+function CxImportModal({ sites, asrs, onImported, onClose }: CxImportModalProps) {
   const toast = useToastFn()
   const [siteId, setSiteId] = useState('')
+  const [asrId, setAsrId] = useState('')
   const [rows, setRows] = useState<Record<string, string>[]>([])
   const [filename, setFilename] = useState('')
   const [importing, setImporting] = useState(false)
@@ -255,6 +277,7 @@ function CxImportModal({ sites, onImported, onClose }: CxImportModalProps) {
 
   async function handleImport() {
     if (!siteId) return toast('Select a site first', 'error')
+    if (!asrId) return toast('Select an ASR first', 'error')
     if (!rows.length) return toast('No rows parsed from CSV', 'error')
     setImporting(true)
     const issues = rows.map(r => ({
@@ -272,6 +295,7 @@ function CxImportModal({ sites, onImported, onClose }: CxImportModalProps) {
       cx_issue_type:    pickCol(r, 'issue type', 'type', 'category'),
       cx_source:        pickCol(r, 'source'),
       cxalloy_url:      pickCol(r, 'url', 'link', 'issue url', 'issue link', 'href'),
+      service_ticket_id: asrId,
     })).filter(i => i.cxalloy_issue_id || i.title)
 
     if (!issues.length) return (setImporting(false), toast('No valid issues found — check CSV column names', 'error'))
@@ -292,9 +316,19 @@ function CxImportModal({ sites, onImported, onClose }: CxImportModalProps) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div className="form-group">
           <label>Site *</label>
-          <select value={siteId} onChange={e => setSiteId(e.target.value)}>
+          <select value={siteId} onChange={e => { setSiteId(e.target.value); setAsrId('') }}>
             <option value="">— Select Site —</option>
             {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>ASR *</label>
+          <select value={asrId} onChange={e => setAsrId(e.target.value)} disabled={!siteId}>
+            <option value="">— Select ASR —</option>
+            {asrs.filter(asr => asr.site_id === siteId).map(asr => (
+              <option key={asr.id} value={asr.id}>{asr.c2_number || asr.title}</option>
+            ))}
           </select>
         </div>
 
@@ -342,6 +376,7 @@ export function Issues() {
 
   const [issues, setIssues] = useState<Issue[]>([])
   const [sites, setSites] = useState<Site[]>([])
+  const [asrs, setAsrs] = useState<ServiceTicket[]>([])
   const [loading, setLoading] = useState(true)
 
   const [search, setSearch] = useState('')
@@ -354,8 +389,8 @@ export function Issues() {
   const [showImport, setShowImport] = useState(false)
 
   useEffect(() => {
-    Promise.all([API.issues.listAll(), API.sites.list()])
-      .then(([i, s]) => { setIssues(i); setSites(s) })
+    Promise.all([API.issues.listAll(), API.sites.list(), API.serviceTickets.listAll()])
+      .then(([i, s, serviceRecords]) => { setIssues(i); setSites(s); setAsrs(serviceRecords) })
       .catch(err => toast('Failed to load: ' + err.message, 'error'))
       .finally(() => setLoading(false))
   }, [])
@@ -468,6 +503,7 @@ export function Issues() {
                 <th>Issue ID</th>
                 <th>Site</th>
                 <th>Equipment</th>
+                <th>ASR</th>
                 <th style={{ minWidth: 200 }}>Description</th>
                 <th>Priority</th>
                 <th>Status</th>
@@ -477,7 +513,7 @@ export function Issues() {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text3)', padding: 32 }}>No issues match your filters</td></tr>
+                <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text3)', padding: 32 }}>No issues match your filters</td></tr>
               ) : filtered.flatMap(i => {
                 const site = i.site_id ? siteMap[i.site_id] : undefined
                 const isOpen = expandedId === i.id
@@ -499,6 +535,9 @@ export function Issues() {
                       ) : '—'}
                     </td>
                     <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text2)' }}>{i.unit_tag || '—'}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: 11, color: i.service_ticket_id ? 'var(--text2)' : 'var(--yellow)' }}>
+                      {asrs.find(asr => asr.id === i.service_ticket_id)?.c2_number || 'Unassigned'}
+                    </td>
                     <td style={{ maxWidth: 260 }}>
                       {i.description ? (
                         <span style={{ fontSize: 12, color: 'var(--text3)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.4 } as React.CSSProperties}>
@@ -523,7 +562,7 @@ export function Issues() {
 
                 const detail = isOpen ? (
                   <tr key={i.id + '_detail'} style={{ background: 'var(--bg3)' }}>
-                    <td colSpan={8} style={{ padding: '0 16px 16px 32px', borderBottom: '2px solid var(--border)' }}>
+                    <td colSpan={9} style={{ padding: '0 16px 16px 32px', borderBottom: '2px solid var(--border)' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px 20px', paddingTop: 12, marginBottom: (i.description || i.resolution_notes) ? 12 : 0 }}>
                         {i.cx_issue_type && <div><div className="section-title">Issue Type</div><div style={{ fontSize: 12, color: 'var(--text2)' }}>{i.cx_issue_type}</div></div>}
                         {i.cx_zone && <div><div className="section-title">Zone</div><div style={{ fontSize: 12, color: 'var(--text2)' }}>{i.cx_zone}</div></div>}
@@ -659,6 +698,9 @@ export function Issues() {
                       {site.name}
                     </Link>
                   )}
+                  <span style={{ fontFamily: 'monospace', color: i.service_ticket_id ? 'var(--text3)' : 'var(--yellow)' }}>
+                    {asrs.find(asr => asr.id === i.service_ticket_id)?.c2_number || 'Unassigned ASR'}
+                  </span>
                   {site && i.priority && <span style={{ opacity: 0.4 }}>·</span>}
                   {i.priority && (
                     <span style={{ color: priColor, fontWeight: 700 }}>
@@ -748,6 +790,7 @@ export function Issues() {
         <IssueModal
           issue={editingIssue}
           sites={sites}
+          asrs={asrs}
           onSave={saved => {
             setIssues(prev => {
               const idx = prev.findIndex(i => i.id === saved.id)
@@ -761,6 +804,7 @@ export function Issues() {
       {showImport && (
         <CxImportModal
           sites={sites}
+          asrs={asrs}
           onImported={() => {
             API.issues.listAll().then(setIssues).catch(() => {})
           }}

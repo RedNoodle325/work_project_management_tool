@@ -339,29 +339,31 @@ function SiteNoteModal({ note, siteId, onClose, onSaved, onDeleted }: SiteNoteMo
 interface IssueModalProps {
   issue: Partial<Issue> | null
   siteId: string
+  asrs: ServiceTicket[]
   onClose: () => void
   onSaved: (i: Issue) => void
   onDeleted?: (id: string) => void
 }
 
-function IssueModal({ issue, siteId, onClose, onSaved, onDeleted }: IssueModalProps) {
+function IssueModal({ issue, siteId, asrs, onClose, onSaved, onDeleted }: IssueModalProps) {
   const toast = useToastFn()
   const [title, setTitle] = useState(issue?.title || '')
   const [description, setDescription] = useState(issue?.description || '')
   const [unitTag, setUnitTag] = useState(issue?.unit_tag || '')
   const [priority, setPriority] = useState(issue?.priority || 'medium')
   const [status, setStatus] = useState(issue?.status || 'open')
+  const [asrId, setAsrId] = useState(issue?.service_ticket_id || '')
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async () => {
-    if (!title.trim()) return
+    if (!title.trim() || !asrId) return
     setSaving(true)
     try {
       let saved: Issue
       if (issue?.id) {
-        saved = await API.issues.update(issue.id, { title, description, unit_tag: unitTag, priority, status })
+        saved = await API.issues.update(issue.id, { title, description, unit_tag: unitTag, priority, status, service_ticket_id: asrId })
       } else {
-        saved = await API.issues.create(siteId, { title, description, unit_tag: unitTag, priority, status, site_id: siteId })
+        saved = await API.issues.create(siteId, { title, description, unit_tag: unitTag, priority, status, site_id: siteId, service_ticket_id: asrId })
       }
       toast(issue?.id ? 'Issue updated' : 'Issue created')
       onSaved(saved)
@@ -394,6 +396,18 @@ function IssueModal({ issue, siteId, onClose, onSaved, onDeleted }: IssueModalPr
       <div className="form-group" style={{ marginBottom: 12 }}>
         <label>Equipment / Unit Tag</label>
         <input value={unitTag} onChange={e => setUnitTag(e.target.value)} placeholder="e.g. COND-001" style={{ fontFamily: 'monospace' }} />
+      </div>
+      <div className="form-group" style={{ marginBottom: 12 }}>
+        <label>ASR *</label>
+        <select required value={asrId} onChange={e => setAsrId(e.target.value)}>
+          <option value="">— Select ASR —</option>
+          {asrs.map(asr => (
+            <option key={asr.id} value={asr.id}>
+              {asr.c2_number || asr.title}{asr.c2_number && asr.title ? ` — ${asr.title}` : ''}
+            </option>
+          ))}
+        </select>
+        {asrs.length === 0 && <div style={{ color: 'var(--yellow)', fontSize: 11, marginTop: 4 }}>Create an ASR before adding an issue.</div>}
       </div>
       <div className="form-group" style={{ marginBottom: 12 }}>
         <label>Description</label>
@@ -431,7 +445,7 @@ function IssueModal({ issue, siteId, onClose, onSaved, onDeleted }: IssueModalPr
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSubmit} disabled={saving || !title.trim()}>
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={saving || !title.trim() || !asrId}>
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
@@ -440,21 +454,23 @@ function IssueModal({ issue, siteId, onClose, onSaved, onDeleted }: IssueModalPr
   )
 }
 
-// ── CS Ticket Modal ───────────────────────────────────────────────────────────
+// ── ASR Modal ─────────────────────────────────────────────────────────────────
 interface CsTicketModalProps {
   ticket: Partial<ServiceTicket> | null
   siteId: string
+  projectNumber?: string
   onClose: () => void
   onSaved: (t: ServiceTicket) => void
   onDeleted?: (id: string) => void
 }
 
-function CsTicketModal({ ticket, siteId, onClose, onSaved, onDeleted }: CsTicketModalProps) {
+function CsTicketModal({ ticket, siteId, projectNumber, onClose, onSaved, onDeleted }: CsTicketModalProps) {
   const toast = useToastFn()
   const [title, setTitle] = useState(ticket?.title || '')
   const [description, setDescription] = useState(ticket?.description || '')
   const [status, setStatus] = useState(ticket?.status || 'open')
-  const [c2Number, setC2Number] = useState(ticket?.c2_number || '')
+  const [numberMode, setNumberMode] = useState<'auto' | 'manual'>('auto')
+  const [asrNumber, setAsrNumber] = useState(ticket?.c2_number || '')
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async () => {
@@ -465,17 +481,16 @@ function CsTicketModal({ ticket, siteId, onClose, onSaved, onDeleted }: CsTicket
       if (ticket?.id) {
         saved = await API.serviceTickets.update(ticket.id, {
           title, description, status,
-          c2_number: c2Number || undefined,
         })
       } else {
         saved = await API.serviceTickets.create(siteId, {
           title, description, status,
-          c2_number: c2Number || undefined,
+          c2_number: numberMode === 'manual' ? asrNumber.trim() : undefined,
           parts_ordered: [],
           service_lines: [],
         })
       }
-      toast(ticket?.id ? 'Ticket updated' : 'Ticket created')
+      toast(ticket?.id ? 'ASR updated' : 'ASR created')
       onSaved(saved)
       onClose()
     } catch (e) {
@@ -486,10 +501,10 @@ function CsTicketModal({ ticket, siteId, onClose, onSaved, onDeleted }: CsTicket
   }
 
   const handleDelete = async () => {
-    if (!ticket?.id || !confirm('Delete this ticket?')) return
+    if (!ticket?.id || !confirm('Delete this ASR?')) return
     try {
       await API.serviceTickets.delete(ticket.id)
-      toast('Ticket deleted')
+      toast('ASR deleted')
       onDeleted?.(ticket.id)
       onClose()
     } catch (e) {
@@ -498,7 +513,7 @@ function CsTicketModal({ ticket, siteId, onClose, onSaved, onDeleted }: CsTicket
   }
 
   return (
-    <Modal title={ticket?.id ? 'Edit CS Ticket' : 'New CS Ticket'} onClose={onClose}>
+    <Modal title={ticket?.id ? 'Edit ASR' : 'New ASR'} onClose={onClose}>
       <div className="form-group" style={{ marginBottom: 12 }}>
         <label>Title *</label>
         <input value={title} onChange={e => setTitle(e.target.value)} autoFocus />
@@ -518,13 +533,25 @@ function CsTicketModal({ ticket, siteId, onClose, onSaved, onDeleted }: CsTicket
           </select>
         </div>
         <div className="form-group" style={{ flex: 1 }}>
-          <label>C2 Number</label>
-          <input
-            value={c2Number}
-            onChange={e => setC2Number(e.target.value)}
-            style={{ fontFamily: 'monospace' }}
-            placeholder="e.g. C2-12345"
-          />
+          <label>ASR Number</label>
+          {ticket?.id ? (
+            <input value={ticket.c2_number || '—'} disabled style={{ fontFamily: 'monospace' }} />
+          ) : (
+            <>
+              <select value={numberMode} onChange={e => setNumberMode(e.target.value as 'auto' | 'manual')}>
+                <option value="auto">Generate next available</option>
+                <option value="manual">Enter existing ASR</option>
+              </select>
+              {numberMode === 'manual' && (
+                <input
+                  value={asrNumber}
+                  onChange={e => setAsrNumber(e.target.value)}
+                  placeholder={`ASR-${projectNumber || 'PROJECT'}-0001`}
+                  style={{ fontFamily: 'monospace', marginTop: 6 }}
+                />
+              )}
+            </>
+          )}
         </div>
       </div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
@@ -538,7 +565,7 @@ function CsTicketModal({ ticket, siteId, onClose, onSaved, onDeleted }: CsTicket
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSubmit} disabled={saving || !title.trim()}>
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={saving || !title.trim() || (!ticket?.id && numberMode === 'manual' && !asrNumber.trim())}>
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
@@ -772,7 +799,7 @@ export function SiteDetail() {
           <div style={{ fontSize: 24, fontWeight: 700, color: openTickets.length > 0 ? 'var(--yellow)' : 'var(--text2)' }}>
             {openTickets.length}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Active CS Tickets</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Active ASRs</div>
         </div>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px' }}>
           <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>
@@ -895,6 +922,7 @@ export function SiteDetail() {
                       <tr>
                         <th>Equipment</th>
                         <th>Issue</th>
+                        <th>ASR</th>
                         <th>Priority</th>
                         <th>Status</th>
                         <th style={{ width: 60 }}></th>
@@ -920,6 +948,9 @@ export function SiteDetail() {
                                   {i.description.slice(0, 120)}
                                 </div>
                               )}
+                            </td>
+                            <td style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text2)' }}>
+                              {serviceTickets.find(asr => asr.id === i.service_ticket_id)?.c2_number || 'Unassigned'}
                             </td>
                             <td style={{ color: pc, fontSize: 11, fontWeight: 600 }}>
                               {i.priority ? i.priority.charAt(0).toUpperCase() + i.priority.slice(1) : '—'}
@@ -953,6 +984,7 @@ export function SiteDetail() {
                         <tr>
                           <th>Equipment</th>
                           <th>Issue</th>
+                          <th>ASR</th>
                           <th>Priority</th>
                           <th>Status</th>
                           <th style={{ width: 60 }}></th>
@@ -969,6 +1001,9 @@ export function SiteDetail() {
                                 {i.unit_tag || '—'}
                               </td>
                               <td style={{ fontSize: 12 }}>{i.title || '—'}</td>
+                              <td style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text2)' }}>
+                                {serviceTickets.find(asr => asr.id === i.service_ticket_id)?.c2_number || 'Unassigned'}
+                              </td>
                               <td style={{ color: pc, fontSize: 11, fontWeight: 600 }}>
                                 {i.priority ? i.priority.charAt(0).toUpperCase() + i.priority.slice(1) : '—'}
                               </td>
@@ -1124,13 +1159,13 @@ export function SiteDetail() {
         )}
       </ColCard>
 
-      {/* CS Tickets */}
+      {/* ASRs and their part orders */}
       <ColCard
         className="site-detail-parts"
         defaultOpen
         title={
           <>
-            Part Order Status <span style={{ fontWeight: 400, color: 'var(--text3)' }}>({serviceTickets.reduce((count, ticket) => count + (Array.isArray(ticket.parts_ordered) ? ticket.parts_ordered.length : 0), 0)} parts)</span>
+            ASRs &amp; Part Order Status <span style={{ fontWeight: 400, color: 'var(--text3)' }}>({serviceTickets.length} ASRs · {serviceTickets.reduce((count, ticket) => count + (Array.isArray(ticket.parts_ordered) ? ticket.parts_ordered.length : 0), 0)} parts)</span>
             {openTickets.length > 0 && (
               <span style={{
                 marginLeft: 8, background: 'var(--red)22', color: 'var(--red)',
@@ -1144,14 +1179,14 @@ export function SiteDetail() {
         }
         right={
           <button className="btn btn-sm btn-primary" onClick={() => setCsTicketModal(null)}>
-            + Service Ticket
+            + ASR
           </button>
         }
       >
         <div style={{ marginTop: 4 }}>
           {serviceTickets.length === 0 ? (
             <div style={{ color: 'var(--text3)', fontSize: 13 }}>
-              No part orders yet. Add a service ticket when parts are needed.
+              No ASRs yet. Create an ASR before assigning issues.
             </div>
           ) : (
             [...serviceTickets]
@@ -1180,7 +1215,7 @@ export function SiteDetail() {
                           }}>{sl}</span>
                           {t.c2_number && (
                             <span style={{ fontSize: 11, color: 'var(--text3)' }}>
-                              C2: <span style={{ fontFamily: 'monospace', color: 'var(--text2)' }}>{t.c2_number}</span>
+                              ASR: <span style={{ fontFamily: 'monospace', color: 'var(--text2)' }}>{t.c2_number}</span>
                             </span>
                           )}
                         </div>
@@ -1493,6 +1528,7 @@ export function SiteDetail() {
         <IssueModal
           issue={issueModal}
           siteId={id}
+          asrs={serviceTickets}
           onClose={() => setIssueModal(false)}
           onSaved={saved => {
             setIssues(prev => issueModal?.id
@@ -1508,6 +1544,7 @@ export function SiteDetail() {
         <CsTicketModal
           ticket={csTicketModal}
           siteId={id}
+          projectNumber={site.project_number}
           onClose={() => setCsTicketModal(false)}
           onSaved={saved => {
             setServiceTickets(prev => csTicketModal?.id

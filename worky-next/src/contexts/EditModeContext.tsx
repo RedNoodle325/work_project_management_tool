@@ -11,17 +11,25 @@ const EditModeContext = createContext<EditModeContextValue>({
 })
 
 export function EditModeProvider({ children }: { children: ReactNode }) {
-  const [editMode, setEditMode] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true
-    return localStorage.getItem('munters-edit-mode') !== 'off'
-  })
+  // Use the same initial value on the server and client, then restore the
+  // persisted browser setting after hydration.
+  const [editMode, setEditMode] = useState(true)
 
   useEffect(() => {
-    localStorage.setItem('munters-edit-mode', editMode ? 'on' : 'off')
-    document.body.classList.toggle('read-only', !editMode)
-  }, [editMode])
+    const timer = window.setTimeout(() => {
+      const restored = localStorage.getItem('munters-edit-mode') !== 'off'
+      setEditMode(restored)
+      document.body.classList.toggle('read-only', !restored)
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [])
 
-  const toggleEditMode = () => setEditMode(e => !e)
+  const toggleEditMode = () => setEditMode(current => {
+    const next = !current
+    localStorage.setItem('munters-edit-mode', next ? 'on' : 'off')
+    document.body.classList.toggle('read-only', !next)
+    return next
+  })
 
   return (
     <EditModeContext.Provider value={{ editMode, toggleEditMode }}>

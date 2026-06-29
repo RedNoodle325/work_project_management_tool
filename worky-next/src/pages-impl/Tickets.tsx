@@ -8,7 +8,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import type { Site, Ticket } from '../types'
 
 const TICKET_TYPE_LABELS: Record<string, string> = {
-  cs_ticket:    'CS Ticket',
+  cs_ticket:    'ASR',
   parts_order:  'Parts Order',
   service_line: 'Service Line',
 }

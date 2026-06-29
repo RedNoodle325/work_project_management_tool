@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { API } from '../api'
-import type { Unit, Site, Note, Issue } from '../types'
+import type { Unit, Site, Note, Issue, ServiceTicket } from '../types'
 import { Modal } from '../components/Modal'
 import { StatusBadge } from '../components/StatusBadge'
 import { ContactPicker } from '../components/ContactPicker'
@@ -168,30 +168,32 @@ interface IssueModalProps {
   issue: Partial<Issue> | null
   unitId: string
   siteId?: string
+  asrs: ServiceTicket[]
   onClose: () => void
   onSaved: (issue: Issue) => void
   onDeleted?: (id: string) => void
 }
 
-function IssueModal({ issue, unitId, siteId, onClose, onSaved, onDeleted }: IssueModalProps) {
+function IssueModal({ issue, unitId, siteId, asrs, onClose, onSaved, onDeleted }: IssueModalProps) {
   const toast = useToastFn()
   const [title, setTitle] = useState(issue?.title || '')
   const [description, setDescription] = useState(issue?.description || '')
   const [priority, setPriority] = useState(issue?.priority || 'medium')
   const [status, setStatus] = useState(issue?.status || 'open')
+  const [asrId, setAsrId] = useState(issue?.service_ticket_id || '')
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async () => {
-    if (!title.trim()) return
+    if (!title.trim() || !asrId) return
     setSaving(true)
     try {
       let saved: Issue
       if (issue?.id) {
-        saved = await API.issues.update(issue.id, { title, description, priority, status })
+        saved = await API.issues.update(issue.id, { title, description, priority, status, service_ticket_id: asrId })
       } else if (siteId) {
         saved = await API.issues.create(siteId, {
           title, description, priority, status,
-          unit_id: unitId, site_id: siteId,
+          unit_id: unitId, site_id: siteId, service_ticket_id: asrId,
         })
       } else {
         toast('No site ID available', 'error')
@@ -229,6 +231,17 @@ function IssueModal({ issue, unitId, siteId, onClose, onSaved, onDeleted }: Issu
         <label>Description</label>
         <textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} />
       </div>
+      <div className="form-group" style={{ marginBottom: 12 }}>
+        <label>ASR *</label>
+        <select required value={asrId} onChange={e => setAsrId(e.target.value)}>
+          <option value="">— Select ASR —</option>
+          {asrs.map(asr => (
+            <option key={asr.id} value={asr.id}>
+              {asr.c2_number || asr.title}{asr.c2_number && asr.title ? ` — ${asr.title}` : ''}
+            </option>
+          ))}
+        </select>
+      </div>
       <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
         <div className="form-group" style={{ flex: 1 }}>
           <label>Priority</label>
@@ -261,7 +274,7 @@ function IssueModal({ issue, unitId, siteId, onClose, onSaved, onDeleted }: Issu
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSubmit} disabled={saving || !title.trim()}>
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={saving || !title.trim() || !asrId}>
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
@@ -280,6 +293,7 @@ export function UnitDetail() {
   const [site, setSite] = useState<Site | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [issues, setIssues] = useState<Issue[]>([])
+  const [asrs, setAsrs] = useState<ServiceTicket[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -291,15 +305,17 @@ export function UnitDetail() {
     const unitId = id
     async function load() {
       try {
-        const [unitData, unitNotes, unitIssues, allSites] = await Promise.all([
+        const [unitData, unitNotes, unitIssues, allSites, serviceRecords] = await Promise.all([
           API.units.get(unitId),
           API.notes.listUnit(unitId).catch(() => [] as Note[]),
           API.issues.listUnit(unitId).catch(() => [] as Issue[]),
           API.sites.list().catch(() => [] as Site[]),
+          API.serviceTickets.listAll().catch(() => [] as ServiceTicket[]),
         ])
         setUnit(unitData)
         setNotes(unitNotes)
         setIssues(unitIssues)
+        setAsrs(serviceRecords.filter(asr => asr.site_id === unitData.site_id))
         setSite(allSites.find(s => s.id === unitData.site_id) || null)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load unit')
@@ -652,6 +668,7 @@ export function UnitDetail() {
           issue={issueModal}
           unitId={id}
           siteId={unit.site_id}
+          asrs={asrs}
           onClose={() => setIssueModal(false)}
           onSaved={saved => {
             setIssues(prev => issueModal?.id

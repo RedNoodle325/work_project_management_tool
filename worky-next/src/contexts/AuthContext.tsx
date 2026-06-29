@@ -19,18 +19,29 @@ const AuthContext = createContext<AuthContextValue>({
 })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    if (typeof window === 'undefined') return null
-    try {
-      const stored = localStorage.getItem('auth_user')
-      if (!stored || stored === 'undefined' || stored === 'null') return null
-      return JSON.parse(stored)
-    } catch { return null }
-  })
+  // Authentication is restored in the effect so the initial client markup
+  // always matches the server-rendered markup.
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!getToken()) { setLoading(false); return }
+    if (!getToken()) {
+      localStorage.removeItem('auth_user')
+      const loadingTimer = window.setTimeout(() => setLoading(false), 0)
+      return () => window.clearTimeout(loadingTimer)
+    }
+
+    const restoreTimer = window.setTimeout(() => {
+      try {
+        const stored = localStorage.getItem('auth_user')
+        if (stored && stored !== 'undefined' && stored !== 'null') {
+          setUser(JSON.parse(stored))
+        }
+      } catch {
+        localStorage.removeItem('auth_user')
+      }
+    }, 0)
+
     API.auth.me()
       .then(u => {
         const authUser: AuthUser = { id: '', email: (u as {email:string}).email, name: (u as {display_name?:string}).display_name }
@@ -39,6 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => { clearToken(); setUser(null) })
       .finally(() => setLoading(false))
+
+    return () => window.clearTimeout(restoreTimer)
   }, [])
 
   const login = async (email: string, password: string) => {

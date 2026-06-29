@@ -326,7 +326,8 @@ function TicketModal({ ticket, sites, issues, onSave, onDelete, onClose }: Ticke
   const [description, setDescription] = useState(ticket?.description ?? '')
   const [siteId, setSiteId] = useState(ticket?.site_id ?? '')
   const [status, setStatus] = useState(ticket?.status ?? 'open')
-  const [c2Number, setC2Number] = useState(ticket?.c2_number ?? '')
+  const [numberMode, setNumberMode] = useState<'auto' | 'manual'>('auto')
+  const [asrNumber, setAsrNumber] = useState(ticket?.c2_number ?? '')
   const [scopeOfWork, setScopeOfWork] = useState(ticket?.scope_of_work ?? '')
   const [parts, setParts] = useState<PartOrdered[]>(
     Array.isArray(ticket?.parts_ordered) ? ticket!.parts_ordered : []
@@ -366,7 +367,7 @@ function TicketModal({ ticket, sites, issues, onSave, onDelete, onClose }: Ticke
       title: title.trim(),
       description: description.trim() || undefined,
       status,
-      c2_number: c2Number.trim() || undefined,
+      c2_number: !ticket && numberMode === 'manual' ? asrNumber.trim() : undefined,
       scope_of_work: scopeOfWork.trim() || undefined,
       parts_ordered: parts.filter(p => p.description),
       service_lines: lines.filter(l => l.astea_id).map(l => ({ astea_id: l.astea_id, description: l.description || undefined })),
@@ -375,12 +376,12 @@ function TicketModal({ ticket, sites, issues, onSave, onDelete, onClose }: Ticke
       if (ticket) {
         const updated = await API.serviceTickets.update(ticket.id, data)
         onSave(updated)
-        toast('CS ticket saved')
+        toast('ASR saved')
       } else {
         if (!siteId) { toast('Site is required', 'error'); setSaving(false); return }
-        const created = await API.serviceTickets.create(siteId, { ...data, site_id: siteId })
+      const created = await API.serviceTickets.create(siteId, { ...data, site_id: siteId })
         onSave(created)
-        toast('CS ticket created')
+        toast('ASR created')
       }
       onClose()
     } catch (err: unknown) {
@@ -392,11 +393,11 @@ function TicketModal({ ticket, sites, issues, onSave, onDelete, onClose }: Ticke
 
   async function handleDelete() {
     if (!ticket) return
-    if (!confirm('Delete this CS ticket?')) return
+    if (!confirm('Delete this ASR?')) return
     try {
       await API.serviceTickets.delete(ticket.id)
       onDelete(ticket.id)
-      toast('CS ticket deleted')
+      toast('ASR deleted')
       onClose()
     } catch (err: unknown) {
       toast('Error: ' + (err as Error).message, 'error')
@@ -404,7 +405,7 @@ function TicketModal({ ticket, sites, issues, onSave, onDelete, onClose }: Ticke
   }
 
   return (
-    <Modal title={ticket ? 'Edit CS Ticket' : 'New CS Ticket'} onClose={onClose} maxWidth={700}>
+    <Modal title={ticket ? 'Edit ASR' : 'New ASR'} onClose={onClose} maxWidth={700}>
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="form-group full">
@@ -435,8 +436,25 @@ function TicketModal({ ticket, sites, issues, onSave, onDelete, onClose }: Ticke
             </select>
           </div>
           <div className="form-group">
-            <label>C2 Number <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}>(warranty claim)</span></label>
-            <input value={c2Number} onChange={e => setC2Number(e.target.value)} placeholder="e.g. C2-00123456" style={{ fontFamily: 'monospace' }} />
+            <label>ASR Number</label>
+            {ticket ? (
+              <input value={ticket.c2_number || '—'} disabled style={{ fontFamily: 'monospace' }} />
+            ) : (
+              <>
+                <select value={numberMode} onChange={e => setNumberMode(e.target.value as 'auto' | 'manual')}>
+                  <option value="auto">Generate next available</option>
+                  <option value="manual">Enter existing ASR</option>
+                </select>
+                {numberMode === 'manual' && (
+                  <input
+                    value={asrNumber}
+                    onChange={e => setAsrNumber(e.target.value)}
+                    placeholder={`ASR-${sites.find(s => s.id === siteId)?.project_number || 'PROJECT'}-0001`}
+                    style={{ fontFamily: 'monospace', marginTop: 6 }}
+                  />
+                )}
+              </>
+            )}
           </div>
         </div>
 
@@ -563,7 +581,7 @@ function TicketModal({ ticket, sites, issues, onSave, onDelete, onClose }: Ticke
           ) : <span />}
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{ticket ? 'Save Changes' : 'Create Ticket'}</button>
+            <button type="submit" className="btn btn-primary" disabled={saving || (!ticket && numberMode === 'manual' && !asrNumber.trim())}>{ticket ? 'Save Changes' : 'Create ASR'}</button>
           </div>
         </div>
       </form>
@@ -705,15 +723,15 @@ export function CSTickets() {
       {/* Header */}
       <div className="page-header" style={{ marginBottom: 20 }}>
         <div>
-          <h1 style={{ margin: 0 }}>CS Tickets</h1>
+          <h1 style={{ margin: 0 }}>ASRs</h1>
           <div className="page-subtitle">{counts['open'] ?? 0} open tickets</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <label className="btn btn-secondary" style={{ cursor: 'pointer' }} title="Import CS tickets from Astea XML export">
+          <label className="btn btn-secondary" style={{ cursor: 'pointer' }} title="Import ASRs from Astea XML export">
             ↑ Import XML
             <input ref={xmlInputRef} type="file" accept=".xml,text/xml" style={{ display: 'none' }} onChange={handleXmlImport} />
           </label>
-          <button className="btn btn-primary" onClick={() => setEditingTicket(null)}>+ New CS Ticket</button>
+          <button className="btn btn-primary" onClick={() => setEditingTicket(null)}>+ New ASR</button>
         </div>
       </div>
 
@@ -762,7 +780,7 @@ export function CSTickets() {
       {/* Ticket list */}
       <div>
         {filtered.length === 0 ? (
-          <div className="card" style={{ color: 'var(--text3)', textAlign: 'center', padding: 40 }}>No CS tickets match your filters</div>
+          <div className="card" style={{ color: 'var(--text3)', textAlign: 'center', padding: 40 }}>No ASRs match your filters</div>
         ) : (
           filtered.map(t => (
             <TicketCard

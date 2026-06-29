@@ -87,7 +87,12 @@ export const API = {
   units: {
     list: (params?: { site_id?: string }) =>
       apiFetch<Unit[]>('/units' + (params?.site_id ? `?site_id=${params.site_id}` : '')),
-    get: (id: string) => apiFetch<Unit>(`/units/${id}`),
+    get: async (id: string) => {
+      const units = await apiFetch<Unit[]>(`/units?id=${encodeURIComponent(id)}`)
+      const unit = units[0]
+      if (!unit) throw new Error('Unit not found')
+      return unit
+    },
     create: (data: Partial<Unit>) =>
       apiFetch<Unit>('/units', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Partial<Unit>) =>
@@ -158,7 +163,7 @@ export const API = {
       }),
   },
 
-  // Service tickets (CS tickets)
+  // ASRs (stored in the service_tickets table for backward compatibility)
   serviceTickets: {
     listAll: () => apiFetch<ServiceTicket[]>('/service-tickets'),
     listSite: (siteId: string) => apiFetch<ServiceTicket[]>(`/sites/${siteId}/service-tickets`),

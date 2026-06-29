@@ -7,13 +7,15 @@ export async function GET(req: NextRequest) {
   if (error) return error
 
   const { searchParams } = new URL(req.url)
+  const id = searchParams.get('id') ?? null
   const siteId = searchParams.get('site_id') ?? null
   const unitType = searchParams.get('unit_type') ?? null
   const commissionLevel = searchParams.get('commission_level') ?? null
 
   const units = await sql`
     SELECT * FROM public.units
-    WHERE (${siteId}::UUID IS NULL OR site_id = ${siteId})
+    WHERE (${id}::UUID IS NULL OR id = ${id})
+    AND (${siteId}::UUID IS NULL OR site_id = ${siteId})
     AND (${unitType}::TEXT IS NULL OR unit_type = ${unitType})
     AND (${commissionLevel}::TEXT IS NULL OR commission_level = ${commissionLevel})
     ORDER BY job_number, line_number
