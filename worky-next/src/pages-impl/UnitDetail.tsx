@@ -463,7 +463,7 @@ export function UnitDetail() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div className="card-title">
-            Issues
+            Work History · Issues
             {openIssues.length > 0 && (
               <span style={{
                 marginLeft: 8,
@@ -584,7 +584,7 @@ export function UnitDetail() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div className="card-title">
-            Notes <span style={{ fontWeight: 400, color: 'var(--text3)' }}>({notes.length})</span>
+            Work History · Notes <span style={{ fontWeight: 400, color: 'var(--text3)' }}>({notes.length})</span>
           </div>
           <button className="btn btn-sm btn-primary" onClick={() => setNoteModal(null)}>
             + Add Note

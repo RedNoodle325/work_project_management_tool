@@ -1227,3 +1227,41 @@ select option { background: var(--bg2); }
   border-top: 1px solid var(--border);
   margin: .8em 0;
 }
+
+/* ── Site workspace ──────────────────────────── */
+.site-detail-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.site-detail-header { order: 1; }
+.site-detail-info { order: 2; }
+.site-detail-stats { order: 3; }
+.site-detail-issues { order: 4; }
+.site-detail-contacts { order: 5; }
+.site-detail-notes { order: 6; }
+.site-detail-parts { order: 7; }
+.site-detail-units { order: 8; }
+.site-detail-page > :not(.site-detail-header):not(.site-detail-info):not(.site-detail-stats):not(.site-detail-issues):not(.site-detail-contacts):not(.site-detail-notes):not(.site-detail-parts):not(.site-detail-units) {
+  order: 9;
+}
+
+.site-map-frame {
+  width: 100%;
+  height: 220px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+@media (min-width: 1000px) {
+  .site-detail-info .grid-2 {
+    grid-template-columns: minmax(260px, .8fr) minmax(440px, 1.6fr);
+  }
+  .site-detail-info .site-map-frame {
+    height: 190px;
+  }
+}
+
+@media (max-width: 768px) {
+  .site-map-frame { height: 180px; }
+}

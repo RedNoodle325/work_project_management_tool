@@ -101,16 +101,17 @@ const CS_STATUS_LABEL: Record<string, string> = {
 
 // ── Collapsible Card ──────────────────────────────────────────────────────────
 function ColCard({
-  title, right, children, defaultOpen = false,
+  title, right, children, defaultOpen = false, className = '',
 }: {
   title: React.ReactNode
   right?: React.ReactNode
   children: React.ReactNode
   defaultOpen?: boolean
+  className?: string
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
+    <div className={`card ${className}`} style={{ marginBottom: 16 }}>
       <div
         style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -738,9 +739,9 @@ export function SiteDetail() {
   }
 
   return (
-    <div>
+    <div className="site-detail-page">
       {/* Header */}
-      <div className="page-header" style={{ marginBottom: 20 }}>
+      <div className="page-header site-detail-header" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Link href="/" className="btn btn-secondary btn-sm">← Dashboard</Link>
           <div>
@@ -756,7 +757,7 @@ export function SiteDetail() {
       </div>
 
       {/* Stats row */}
-      <div className="stat-grid" style={{ marginBottom: 16 }}>
+      <div className="stat-grid site-detail-stats" style={{ marginBottom: 16 }}>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px' }}>
           <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text)' }}>{units.length}</div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Units</div>
@@ -782,7 +783,7 @@ export function SiteDetail() {
       </div>
 
       {/* Site Info */}
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card site-detail-info" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div className="card-title">Site Information</div>
           <Link href={`/sites/${id}/edit`} className="btn btn-secondary btn-sm">Edit</Link>
@@ -839,10 +840,10 @@ export function SiteDetail() {
           {addr && (
             <div style={{ gridColumn: '1 / -1' }}>
               <div className="section-title" style={{ marginBottom: 4 }}>Map</div>
-              <div style={{ position: 'relative', width: '100%', paddingBottom: '100%' }}>
+              <div className="site-map-frame">
                 <iframe
                   src={`https://maps.google.com/maps?q=${encodeURIComponent(addr)}&output=embed&z=14`}
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0, borderRadius: 6 }}
+                  style={{ width: '100%', height: '100%', border: 0, borderRadius: 6 }}
                   loading="lazy"
                   title="Site map"
                 />
@@ -854,6 +855,7 @@ export function SiteDetail() {
 
       {/* Issues */}
       <ColCard
+        className="site-detail-issues"
         defaultOpen
         title={
           <>
@@ -995,23 +997,28 @@ export function SiteDetail() {
       </ColCard>
 
       {/* Units */}
-      {units.length > 0 && (
-        <ColCard
-          title={
-            <>Units <span style={{ fontWeight: 400, color: 'var(--text3)' }}>({units.length})</span></>
-          }
-          right={
-            <Link href={`/sites/${id}/units/new`} className="btn btn-sm btn-primary">
-              + New Unit
-            </Link>
-          }
-        >
+      <ColCard
+        className="site-detail-units"
+        defaultOpen
+        title={
+          <>Units <span style={{ fontWeight: 400, color: 'var(--text3)' }}>({units.length})</span></>
+        }
+        right={
+          <Link href={`/sites/${id}/units/new`} className="btn btn-sm btn-primary">
+            + New Unit
+          </Link>
+        }
+      >
+        {units.length === 0 ? (
+          <div style={{ color: 'var(--text3)', fontSize: 13 }}>No units have been added to this site yet.</div>
+        ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Tag</th>
                   <th>Type</th>
+                  <th>Serial Number</th>
                   <th>Model</th>
                   <th>Status</th>
                   <th>Install Date</th>
@@ -1029,11 +1036,12 @@ export function SiteDetail() {
                       </Link>
                     </td>
                     <td><UnitTypeBadge type={u.unit_type} /></td>
+                    <td style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--text2)' }}>{u.serial_number || '—'}</td>
                     <td style={{ fontSize: 12, color: 'var(--text2)' }}>{u.model || '—'}</td>
                     <td>{u.status ? <StatusBadge status={u.status} size="sm" /> : '—'}</td>
                     <td style={{ fontSize: 12, color: 'var(--text2)' }}>{fmt(u.install_date)}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      <Link href={`/units/${u.id}`} className="btn btn-sm btn-secondary">View</Link>
+                      <Link href={`/units/${u.id}`} className="btn btn-sm btn-secondary">History</Link>
                       <Link href={`/units/${u.id}/edit`} className="btn btn-sm btn-secondary" style={{ marginLeft: 4 }}>Edit</Link>
                     </td>
                   </tr>
@@ -1041,11 +1049,13 @@ export function SiteDetail() {
               </tbody>
             </table>
           </div>
-        </ColCard>
-      )}
+        )}
+      </ColCard>
 
       {/* Contacts */}
       <ColCard
+        className="site-detail-contacts"
+        defaultOpen
         title={<>Contacts <span style={{ fontWeight: 400, color: 'var(--text3)' }}>({contacts.length})</span></>}
         right={
           <button className="btn btn-sm btn-primary" onClick={() => setContactModal(null)}>
@@ -1116,9 +1126,11 @@ export function SiteDetail() {
 
       {/* CS Tickets */}
       <ColCard
+        className="site-detail-parts"
+        defaultOpen
         title={
           <>
-            CS Tickets <span style={{ fontWeight: 400, color: 'var(--text3)' }}>({serviceTickets.length})</span>
+            Part Order Status <span style={{ fontWeight: 400, color: 'var(--text3)' }}>({serviceTickets.reduce((count, ticket) => count + (Array.isArray(ticket.parts_ordered) ? ticket.parts_ordered.length : 0), 0)} parts)</span>
             {openTickets.length > 0 && (
               <span style={{
                 marginLeft: 8, background: 'var(--red)22', color: 'var(--red)',
@@ -1132,14 +1144,14 @@ export function SiteDetail() {
         }
         right={
           <button className="btn btn-sm btn-primary" onClick={() => setCsTicketModal(null)}>
-            + New CS Ticket
+            + Service Ticket
           </button>
         }
       >
         <div style={{ marginTop: 4 }}>
           {serviceTickets.length === 0 ? (
             <div style={{ color: 'var(--text3)', fontSize: 13 }}>
-              No CS tickets yet. Create one to track service orders, parts, and dispatches.
+              No part orders yet. Add a service ticket when parts are needed.
             </div>
           ) : (
             [...serviceTickets]
@@ -1239,11 +1251,12 @@ export function SiteDetail() {
 
       {/* Contact Log / Notes */}
       <ColCard
+        className="site-detail-notes"
         defaultOpen
-        title={<>Contact Log <span style={{ fontWeight: 400, color: 'var(--text3)' }}>({notes.length})</span></>}
+        title={<>Notes <span style={{ fontWeight: 400, color: 'var(--text3)' }}>({notes.length})</span></>}
         right={
           <button className="btn btn-sm btn-primary" onClick={() => setNoteModal(null)}>
-            + Log Contact
+            + Add Note
           </button>
         }
       >
