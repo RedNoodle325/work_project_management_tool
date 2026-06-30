@@ -1,6 +1,6 @@
 import { AuthGuard } from '@/components/AuthGuard'
-import { UnitDetail } from '@/pages-impl/UnitDetail'
+import { XnrgyUnitWorkspace } from '@/pages-impl/XnrgyUnitWorkspace'
 
 export default function Page() {
-  return <AuthGuard><UnitDetail /></AuthGuard>
+  return <AuthGuard><XnrgyUnitWorkspace /></AuthGuard>
 }

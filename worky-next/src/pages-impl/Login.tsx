@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
-import { useAuth } from '../contexts/AuthContext'
+import { ArrowRight, LockKeyhole, Mail } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
 export function Login() {
   const { login } = useAuth()
@@ -9,72 +10,6 @@ export function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      await login(email, password)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--bg)', padding: 16,
-    }}>
-      <div style={{
-        background: 'var(--bg2)', border: '1px solid var(--border)',
-        borderRadius: 16, padding: '40px 36px', width: '100%', maxWidth: 400,
-        boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{
-            width: 52, height: 52, background: 'var(--accent)', borderRadius: 14,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 26, fontWeight: 800, color: '#fff', marginBottom: 16,
-            letterSpacing: '-0.02em',
-          }}>Z</div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>Zak's Office</h1>
-          <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 6 }}>Sign in to continue</p>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group" style={{ marginBottom: 14 }}>
-            <label>Email</label>
-            <input
-              type="email" required autoFocus
-              value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="you@example.com"
-            />
-          </div>
-          <div className="form-group" style={{ marginBottom: 24 }}>
-            <label>Password</label>
-            <input
-              type="password" required
-              value={password} onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-            />
-          </div>
-          {error && (
-            <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 16, background: '#7f1d1d22', padding: '8px 12px', borderRadius: 8 }}>
-              {error}
-            </div>
-          )}
-          <button
-            type="submit" className="btn btn-primary"
-            style={{ width: '100%', justifyContent: 'center', padding: '11px 16px', borderRadius: 8, fontSize: 14 }}
-            disabled={loading}
-          >
-            {loading ? 'Signing in…' : 'Sign In'}
-          </button>
-        </form>
-      </div>
-    </div>
-  )
+  async function submit(event: FormEvent) { event.preventDefault(); setError(''); setLoading(true); try { await login(email, password) } catch (error) { setError(error instanceof Error ? error.message : 'Sign in failed') } finally { setLoading(false) } }
+  return <main className="x-login"><section className="x-login-brand"><img src="/brand/xnrgy-mark.svg" alt="XNRGY" /><div><span>Site intelligence</span><h1>The details are the work.</h1><p>Notes, equipment history, field issues, contacts, and the complete project paper trail—organized by the sites they belong to.</p></div><small>XNRGY Climate Systems · Internal workspace</small></section><section className="x-login-form"><form onSubmit={submit}><span className="x-kicker">Welcome back</span><h2>Sign in to your workspace</h2><p>Use your project tracker account.</p><label><span>Email address</span><div><Mail size={16} /><input type="email" required autoFocus value={email} onChange={event => setEmail(event.target.value)} placeholder="you@xnrgy.com" /></div></label><label><span>Password</span><div><LockKeyhole size={16} /><input type="password" required value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter your password" /></div></label>{error && <div className="x-error">{error}</div>}<button disabled={loading}>{loading ? 'Signing in…' : 'Sign in'}<ArrowRight size={16} /></button></form></section></main>
 }

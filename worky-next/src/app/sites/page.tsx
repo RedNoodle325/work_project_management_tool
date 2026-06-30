@@ -1,6 +1,6 @@
 import { AuthGuard } from '@/components/AuthGuard'
-import { Sites } from '@/pages-impl/Sites'
+import { XnrgySites } from '@/pages-impl/XnrgySites'
 
 export default function Page() {
-  return <AuthGuard><Sites /></AuthGuard>
+  return <AuthGuard><XnrgySites /></AuthGuard>
 }

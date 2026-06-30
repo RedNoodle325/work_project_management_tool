@@ -1,6 +1,6 @@
 import { AuthGuard } from '@/components/AuthGuard'
-import { Dashboard } from '@/pages-impl/Dashboard'
+import { XnrgyDashboard } from '@/pages-impl/XnrgyDashboard'
 
 export default function Page() {
-  return <AuthGuard><Dashboard /></AuthGuard>
+  return <AuthGuard><XnrgyDashboard /></AuthGuard>
 }

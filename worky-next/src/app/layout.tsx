@@ -3,10 +3,11 @@ import './globals.css'
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: "Project Management Tool",
+  title: "XNRGY Site Intelligence",
+  description: "Notes-first project and site operations workspace",
   icons: {
-    icon: '/logo.png',
-    apple: '/logo.png',
+    icon: '/brand/xnrgy-mark.svg',
+    apple: '/brand/xnrgy-mark.svg',
   },
 }
 
