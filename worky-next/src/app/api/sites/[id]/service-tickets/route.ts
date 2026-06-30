@@ -43,16 +43,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const created = await sql.begin(async tx => {
+    // postgres.js transaction clients are callable tags at runtime. Its current
+    // TransactionSql declaration loses that call signature under this Next/TS
+    // toolchain, so retain the runtime object with the parent client's type.
+    const trx = tx as unknown as typeof sql
     // Serialize ASR allocation per site so simultaneous requests cannot receive
     // the same number.
-    await tx`SELECT pg_advisory_xact_lock(hashtext(${id}))`
+    await trx`SELECT pg_advisory_xact_lock(hashtext(${id}))`
 
     let asrNumber = requestedNumber
     if (asrNumber) {
-      const [duplicate] = await tx`SELECT id FROM public.service_tickets WHERE c2_number = ${asrNumber} LIMIT 1`
+      const [duplicate] = await trx`SELECT id FROM public.service_tickets WHERE c2_number = ${asrNumber} LIMIT 1`
       if (duplicate) throw new Error(`ASR ${asrNumber} already exists.`)
     } else {
-      const [sequence] = await tx`
+      const [sequence] = await trx`
         SELECT COALESCE(MAX(RIGHT(c2_number, 4)::INTEGER), 0) AS max_serial
         FROM public.service_tickets
         WHERE site_id = ${id}
@@ -65,7 +69,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       asrNumber = `${prefix}${String(nextSerial).padStart(4, '0')}`
     }
 
-    const [record] = await tx`
+    const [record] = await trx`
       INSERT INTO public.service_tickets
         (site_id, title, description, status, c2_number, parts_ordered, service_lines, scope_of_work)
       VALUES

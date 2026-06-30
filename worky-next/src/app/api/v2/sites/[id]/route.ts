@@ -57,10 +57,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: `ASR number must use ${prefix}####` }, { status: 400 })
     }
     const asr = await sql.begin(async tx => {
-      await tx`select pg_advisory_xact_lock(hashtext(${body.project_id}))`
+      const trx = tx as unknown as typeof sql
+      await trx`select pg_advisory_xact_lock(hashtext(${body.project_id}))`
       let number = manualNumber
       if (!number) {
-        const [sequence] = await tx`
+        const [sequence] = await trx`
           select coalesce(max(right(asr_number, 4)::integer), 0) as max_serial
           from public.asrs
           where project_id = ${body.project_id}
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         `
         number = `${prefix}${String(Number(sequence.max_serial) + 1).padStart(4, '0')}`
       }
-      const [row] = await tx`insert into public.asrs (site_id, project_id, asr_number, title, description, status) values (${id}, ${body.project_id}, ${number}, ${body.title}, ${body.description ?? null}, ${body.status ?? 'open'}) returning *`
+      const [row] = await trx`insert into public.asrs (site_id, project_id, asr_number, title, description, status) values (${id}, ${body.project_id}, ${number}, ${body.title}, ${body.description ?? null}, ${body.status ?? 'open'}) returning *`
       return row
     })
     return NextResponse.json(asr, { status: 201 })
