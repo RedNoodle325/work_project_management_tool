@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { AlertTriangle, ArrowLeft, Boxes, Download, FileText, Mail, MapPin, Paperclip, Pencil, Phone, Plus, Send, Trash2, Upload, UserRound, Wrench, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Boxes, Check, Copy, Download, FileText, Mail, MapPin, Paperclip, Pencil, Phone, Plus, Send, Trash2, Upload, UserRound, Wrench, X } from 'lucide-react'
 import { V2 } from '@/api/v2'
 import type { AttachmentV2, SiteWorkspaceV2 } from '@/types/v2'
 
@@ -15,6 +15,7 @@ export function XnrgySiteWorkspace() {
   const router = useRouter()
   const [data, setData] = useState<SiteWorkspaceV2 | null>(null)
   const [editing, setEditing] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [tab, setTab] = useState<Tab>('updates')
   const [error, setError] = useState('')
   const load = () => V2.sites.get(id).then(setData).catch(error => setError(error.message))
@@ -23,6 +24,8 @@ export function XnrgySiteWorkspace() {
   if (!data) return <div className="x-state"><h1>Opening site</h1><p>Gathering notes, equipment, and documents…</p></div>
   const site = data.site
   const openIssues = data.issues.filter(issue => !['resolved', 'closed'].includes(issue.status))
+  const mailingAddress = [site.address, [site.city, site.state].filter(Boolean).join(', ') + (site.postal_code ? ` ${site.postal_code}` : '')].filter(Boolean).join('\n')
+  async function copyAddress() { await navigator.clipboard.writeText(mailingAddress); setCopied(true); window.setTimeout(() => setCopied(false), 1600) }
   async function deleteSite() {
     if (!window.confirm(`Delete ${site.name}? This permanently removes its units, issues, updates, and files.`)) return
     try { await V2.sites.delete(id); router.push('/sites') } catch (error) { setError((error as Error).message) }
@@ -31,7 +34,7 @@ export function XnrgySiteWorkspace() {
   return <div className="x-site-page">
     <header className="x-site-header">
       <Link href="/sites" className="x-back"><ArrowLeft size={16} /> All sites</Link>
-      <div className="x-site-heading"><div><div className="x-breadcrumb">{site.customer_name}{site.campus_code && <> <span>/</span> {site.campus_code}</>}</div><h1>{site.name}</h1><p><MapPin size={14} /> {site.city}, {site.state} · {site.lifecycle_phase}</p></div><div><div className={`x-health-pill is-${site.status}`}><i />{site.status}</div><div className="x-head-actions" style={{ marginTop: 10 }}><button onClick={() => setEditing(true)}><Pencil size={14} /> Edit</button><button onClick={deleteSite}><Trash2 size={14} /> Delete</button></div></div></div>
+      <div className="x-site-heading"><div><div className="x-breadcrumb">{site.customer_name}{site.campus_code && <> <span>/</span> {site.campus_code}</>}</div><h1>{site.name}</h1><p><MapPin size={14} /> {site.address && `${site.address} · `}{site.city}, {site.state}{site.postal_code && ` ${site.postal_code}`} · {site.lifecycle_phase}</p></div><div><div className={`x-health-pill is-${site.status}`}><i />{site.status}</div><div className="x-head-actions" style={{ marginTop: 10 }}><button onClick={copyAddress} disabled={!mailingAddress}>{copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copied' : 'Copy address'}</button><button onClick={() => setEditing(true)}><Pencil size={14} /> Edit</button><button onClick={deleteSite}><Trash2 size={14} /> Delete</button></div></div></div>
       <div className="x-site-summary"><p>{site.latest_update || site.status_summary || 'No current status has been posted yet.'}</p><div><span><AlertTriangle size={15} /> {openIssues.length} open issues</span><span><Boxes size={15} /> {data.units.length} units</span><span><Paperclip size={15} /> {data.attachments.length} files</span></div></div>
     </header>
 
@@ -83,12 +86,12 @@ function formatBytes(value: number) { if (value < 1024) return `${value} B`; if 
 
 function SiteEditor({ data, close, saved }: { data: SiteWorkspaceV2; close: () => void; saved: () => void }) {
   const site = data.site
-  const [form, setForm] = useState({ name: site.name, site_code: site.site_code || '', building: site.building || '', city: site.city || '', state: site.state || '', address: '', status: site.status, lifecycle_phase: site.lifecycle_phase, notes: '' })
+  const [form, setForm] = useState({ name: site.name, site_code: site.site_code || '', building: site.building || '', city: site.city || '', state: site.state || '', address: site.address || '', postal_code: site.postal_code || '', status: site.status, lifecycle_phase: site.lifecycle_phase, notes: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const set = (key: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm(current => ({ ...current, [key]: event.target.value }))
   async function submit(event: FormEvent) { event.preventDefault(); setSaving(true); setError(''); try { await V2.sites.update(site.id, form); saved() } catch (error) { setError((error as Error).message) } finally { setSaving(false) } }
-  return <div className="x-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}><form className="x-modal" onSubmit={submit}><header><div><span className="x-kicker">Site settings</span><h2>Edit {site.name}</h2></div><button type="button" onClick={close}><X size={18} /></button></header><label className="x-field"><span>Site name</span><input value={form.name} onChange={set('name')} required /></label><div className="x-form-row"><label className="x-field"><span>Site code</span><input value={form.site_code} onChange={set('site_code')} /></label><label className="x-field"><span>Building</span><input value={form.building} onChange={set('building')} /></label></div>{!site.location_id && <><div className="x-form-row"><label className="x-field"><span>City</span><input value={form.city} onChange={set('city')} required /></label><label className="x-field"><span>State / province</span><input value={form.state} onChange={set('state')} required /></label></div><label className="x-field"><span>Street address</span><input value={form.address} onChange={set('address')} /></label></>}<div className="x-form-row"><label className="x-field"><span>Status</span><select value={form.status} onChange={set('status')}>{['planning','active','attention','critical','offline','complete','inactive'].map(value => <option key={value}>{value}</option>)}</select></label><label className="x-field"><span>Lifecycle</span><select value={form.lifecycle_phase} onChange={set('lifecycle_phase')}>{['planning','construction','commissioning','warranty','service','closed'].map(value => <option key={value}>{value}</option>)}</select></label></div><label className="x-field"><span>Notes</span><textarea value={form.notes} onChange={set('notes')} rows={3} /></label>{error && <p className="x-error">{error}</p>}<footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save site'}</button></footer></form></div>
+  return <div className="x-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}><form className="x-modal" onSubmit={submit}><header><div><span className="x-kicker">Site settings</span><h2>Edit {site.name}</h2></div><button type="button" onClick={close}><X size={18} /></button></header><label className="x-field"><span>Site name</span><input value={form.name} onChange={set('name')} required /></label><div className="x-form-row"><label className="x-field"><span>Site code</span><input value={form.site_code} onChange={set('site_code')} /></label><label className="x-field"><span>Building</span><input value={form.building} onChange={set('building')} /></label></div>{!site.location_id && <><div className="x-form-row"><label className="x-field"><span>City</span><input value={form.city} onChange={set('city')} required /></label><label className="x-field"><span>State / province</span><input value={form.state} onChange={set('state')} required /></label></div><div className="x-form-row"><label className="x-field"><span>Street address</span><input value={form.address} onChange={set('address')} /></label><label className="x-field"><span>ZIP / postal code</span><input value={form.postal_code} onChange={set('postal_code')} /></label></div></>}<div className="x-form-row"><label className="x-field"><span>Status</span><select value={form.status} onChange={set('status')}>{['planning','active','attention','critical','offline','complete','inactive'].map(value => <option key={value}>{value}</option>)}</select></label><label className="x-field"><span>Lifecycle</span><select value={form.lifecycle_phase} onChange={set('lifecycle_phase')}>{['planning','construction','commissioning','warranty','service','closed'].map(value => <option key={value}>{value}</option>)}</select></label></div><label className="x-field"><span>Notes</span><textarea value={form.notes} onChange={set('notes')} rows={3} /></label>{error && <p className="x-error">{error}</p>}<footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save site'}</button></footer></form></div>
 }
 
 function UnitCreator({ siteId, close, saved }: { siteId: string; close: () => void; saved: () => void }) {

@@ -52,8 +52,8 @@ export async function POST(request: NextRequest) {
     if (!customerId) return NextResponse.json({ error: 'Customer is required' }, { status: 400 })
     if (!locationId && (!body.city || !body.state)) return NextResponse.json({ error: 'City and state are required for a standalone site' }, { status: 400 })
     const [row] = await sql`
-      insert into public.sites (location_id, customer_id, name, site_code, building, city, state, address, lifecycle_phase, status, notes)
-      values (${locationId}, ${customerId}, ${body.name}, ${body.site_code ?? null}, ${body.building ?? null}, ${locationId ? null : body.city}, ${locationId ? null : body.state}, ${locationId ? null : body.address ?? null}, ${body.lifecycle_phase ?? 'planning'}, ${body.status ?? 'planning'}, ${body.notes ?? null})
+      insert into public.sites (location_id, customer_id, name, site_code, building, city, state, address, postal_code, lifecycle_phase, status, notes)
+      values (${locationId}, ${customerId}, ${body.name}, ${body.site_code ?? null}, ${body.building ?? null}, ${locationId ? null : body.city}, ${locationId ? null : body.state}, ${locationId ? null : body.address ?? null}, ${locationId ? null : body.postal_code ?? null}, ${body.lifecycle_phase ?? 'planning'}, ${body.status ?? 'planning'}, ${body.notes ?? null})
       returning *
     `
     return NextResponse.json(row, { status: 201 })
