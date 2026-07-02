@@ -28,6 +28,8 @@ export const V2 = {
   },
   sites: {
     get: (id: string) => request<SiteWorkspaceV2>(`/sites/${id}`),
+    update: (id: string, data: Record<string, unknown>) => request(`/sites/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) => request(`/sites/${id}`, { method: 'DELETE' }),
     createRelated: (id: string, data: Record<string, unknown>) => request(`/sites/${id}`, { method: 'POST', body: JSON.stringify(data) }),
     attachments: (id: string) => request<AttachmentV2[]>(`/sites/${id}/attachments`),
     upload: async (id: string, form: FormData) => {
@@ -49,5 +51,7 @@ export const V2 = {
   },
   units: {
     get: (id: string) => request<Record<string, unknown>>(`/units/${id}`),
+    update: (id: string, data: Record<string, unknown>) => request(`/units/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) => request(`/units/${id}`, { method: 'DELETE' }),
   },
 }

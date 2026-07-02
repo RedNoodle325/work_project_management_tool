@@ -23,7 +23,8 @@ export interface LocationV2 {
 
 export interface SiteSummaryV2 {
   id: string
-  location_id: string
+  location_id?: string
+  customer_id: string
   name: string
   site_code?: string
   building?: string
@@ -40,6 +41,7 @@ export interface SiteSummaryV2 {
 
 export interface HierarchyCustomerV2 extends CustomerV2 {
   locations: LocationV2[]
+  sites: SiteSummaryV2[]
 }
 
 export interface ProjectV2 {
@@ -130,7 +132,7 @@ export interface AttachmentV2 {
 }
 
 export interface SiteWorkspaceV2 {
-  site: SiteSummaryV2 & { customer_id: string; customer_name: string; location_id: string; campus_code: string; city: string; state: string }
+  site: SiteSummaryV2 & { customer_name: string; campus_code?: string; city: string; state: string }
   projects: ProjectV2[]
   units: UnitV2[]
   contacts: ContactV2[]

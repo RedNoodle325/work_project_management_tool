@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/requireAuth'
+import { deleteFile } from '@/lib/storage'
 import sql from '@/lib/db'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -91,4 +92,53 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json(row, { status: 201 })
   }
   return NextResponse.json({ error: 'Unsupported site entity' }, { status: 400 })
+}
+
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { error } = await requireAuth(request)
+  if (error) return error
+  const { id } = await params
+  const body = await request.json()
+  if (!String(body.name || '').trim()) return NextResponse.json({ error: 'Site name is required' }, { status: 400 })
+
+  const [current] = await sql`select location_id, status, lifecycle_phase from public.sites where id = ${id}`
+  if (!current) return NextResponse.json({ error: 'Site not found' }, { status: 404 })
+  if (!current.location_id && (!String(body.city || '').trim() || !String(body.state || '').trim())) {
+    return NextResponse.json({ error: 'City and state are required for a standalone site' }, { status: 400 })
+  }
+
+  await sql`
+    update public.sites set
+      name = ${String(body.name).trim()},
+      site_code = ${body.site_code || null},
+      building = ${body.building || null},
+      city = ${current.location_id ? null : body.city},
+      state = ${current.location_id ? null : body.state},
+      address = ${current.location_id ? null : body.address || null},
+      status = ${body.status || current.status},
+      lifecycle_phase = ${body.lifecycle_phase || current.lifecycle_phase},
+      notes = ${body.notes || null}
+    where id = ${id}
+  `
+  const [row] = await sql`select * from public.site_overview where id = ${id}`
+  return NextResponse.json(row)
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { error } = await requireAuth(request)
+  if (error) return error
+  const { id } = await params
+  const attachments = await sql`select storage_path from public.attachments where site_id = ${id}`
+  const deleted = await sql.begin(async tx => {
+    const trx = tx as unknown as typeof sql
+    const rows = await trx`select id from public.sites where id = ${id} for update`
+    if (!rows[0]) return false
+    await trx`delete from public.issues where site_id = ${id}`
+    await trx`delete from public.asrs where site_id = ${id}`
+    await trx`delete from public.sites where id = ${id}`
+    return true
+  })
+  if (!deleted) return NextResponse.json({ error: 'Site not found' }, { status: 404 })
+  await Promise.allSettled(attachments.map(file => deleteFile('site-files', file.storage_path)))
+  return NextResponse.json({ deleted: true })
 }
