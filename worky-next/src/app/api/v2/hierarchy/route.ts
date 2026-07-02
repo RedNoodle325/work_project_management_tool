@@ -9,11 +9,12 @@ export async function GET(request: NextRequest) {
   const [customers, locations, sites] = await Promise.all([
     sql`select id, name, code, status from public.customers order by name`,
     sql`select id, customer_id, campus_code, name, city, state, status from public.locations order by campus_code`,
-    sql`select * from public.site_overview order by customer_name, campus_code, name`,
+    sql`select * from public.site_overview order by customer_name, campus_code nulls first, name`,
   ])
 
   return NextResponse.json(customers.map(customer => ({
     ...customer,
+    sites: sites.filter(site => site.customer_id === customer.id && !site.location_id),
     locations: locations
       .filter(location => location.customer_id === customer.id)
       .map(location => ({
@@ -41,9 +42,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(row, { status: 201 })
   }
   if (body.kind === 'site') {
+    const locationId = body.location_id || null
+    let customerId = body.customer_id || null
+    if (locationId) {
+      const [location] = await sql`select customer_id from public.locations where id = ${locationId}`
+      if (!location) return NextResponse.json({ error: 'Campus not found' }, { status: 400 })
+      customerId = location.customer_id
+    }
+    if (!customerId) return NextResponse.json({ error: 'Customer is required' }, { status: 400 })
+    if (!locationId && (!body.city || !body.state)) return NextResponse.json({ error: 'City and state are required for a standalone site' }, { status: 400 })
     const [row] = await sql`
-      insert into public.sites (location_id, name, site_code, building, lifecycle_phase, status, notes)
-      values (${body.location_id}, ${body.name}, ${body.site_code ?? null}, ${body.building ?? null}, ${body.lifecycle_phase ?? 'planning'}, ${body.status ?? 'planning'}, ${body.notes ?? null})
+      insert into public.sites (location_id, customer_id, name, site_code, building, city, state, address, lifecycle_phase, status, notes)
+      values (${locationId}, ${customerId}, ${body.name}, ${body.site_code ?? null}, ${body.building ?? null}, ${locationId ? null : body.city}, ${locationId ? null : body.state}, ${locationId ? null : body.address ?? null}, ${body.lifecycle_phase ?? 'planning'}, ${body.status ?? 'planning'}, ${body.notes ?? null})
       returning *
     `
     return NextResponse.json(row, { status: 201 })

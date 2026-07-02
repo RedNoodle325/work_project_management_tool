@@ -2,8 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
-import { AlertTriangle, ArrowLeft, Boxes, CalendarDays, Download, FileText, Mail, MapPin, Paperclip, Phone, Plus, Send, Upload, UserRound, Wrench } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import { AlertTriangle, ArrowLeft, Boxes, Download, FileText, Mail, MapPin, Paperclip, Pencil, Phone, Plus, Send, Trash2, Upload, UserRound, Wrench, X } from 'lucide-react'
 import { V2 } from '@/api/v2'
 import type { AttachmentV2, SiteWorkspaceV2 } from '@/types/v2'
 
@@ -12,20 +12,26 @@ const categories = ['other', 'po', 'quote', 'invoice', 'submittal', 'email', 'ph
 
 export function XnrgySiteWorkspace() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [data, setData] = useState<SiteWorkspaceV2 | null>(null)
+  const [editing, setEditing] = useState(false)
   const [tab, setTab] = useState<Tab>('updates')
   const [error, setError] = useState('')
   const load = () => V2.sites.get(id).then(setData).catch(error => setError(error.message))
-  useEffect(() => { load() }, [id])
+  useEffect(() => { V2.sites.get(id).then(setData).catch(error => setError(error.message)) }, [id])
   if (error) return <div className="x-state"><h1>Couldn’t open this site</h1><p>{error}</p></div>
   if (!data) return <div className="x-state"><h1>Opening site</h1><p>Gathering notes, equipment, and documents…</p></div>
   const site = data.site
   const openIssues = data.issues.filter(issue => !['resolved', 'closed'].includes(issue.status))
+  async function deleteSite() {
+    if (!window.confirm(`Delete ${site.name}? This permanently removes its units, issues, updates, and files.`)) return
+    try { await V2.sites.delete(id); router.push('/sites') } catch (error) { setError((error as Error).message) }
+  }
 
   return <div className="x-site-page">
     <header className="x-site-header">
       <Link href="/sites" className="x-back"><ArrowLeft size={16} /> All sites</Link>
-      <div className="x-site-heading"><div><div className="x-breadcrumb">{site.customer_name} <span>/</span> {site.campus_code}</div><h1>{site.name}</h1><p><MapPin size={14} /> {site.city}, {site.state} · {site.lifecycle_phase}</p></div><div className={`x-health-pill is-${site.status}`}><i />{site.status}</div></div>
+      <div className="x-site-heading"><div><div className="x-breadcrumb">{site.customer_name}{site.campus_code && <> <span>/</span> {site.campus_code}</>}</div><h1>{site.name}</h1><p><MapPin size={14} /> {site.city}, {site.state} · {site.lifecycle_phase}</p></div><div><div className={`x-health-pill is-${site.status}`}><i />{site.status}</div><div className="x-head-actions" style={{ marginTop: 10 }}><button onClick={() => setEditing(true)}><Pencil size={14} /> Edit</button><button onClick={deleteSite}><Trash2 size={14} /> Delete</button></div></div></div>
       <div className="x-site-summary"><p>{site.latest_update || site.status_summary || 'No current status has been posted yet.'}</p><div><span><AlertTriangle size={15} /> {openIssues.length} open issues</span><span><Boxes size={15} /> {data.units.length} units</span><span><Paperclip size={15} /> {data.attachments.length} files</span></div></div>
     </header>
 
@@ -35,10 +41,11 @@ export function XnrgySiteWorkspace() {
       {tab === 'updates' && <Updates data={data} siteId={id} reload={load} />}
       {tab === 'issues' && <Issues data={data} />}
       {tab === 'parts' && <Parts data={data} />}
-      {tab === 'units' && <Units data={data} />}
+      {tab === 'units' && <Units data={data} siteId={id} reload={load} />}
       {tab === 'contacts' && <Contacts data={data} />}
       {tab === 'files' && <Files files={data.attachments} siteId={id} reload={load} />}
     </main>
+    {editing && <SiteEditor data={data} close={() => setEditing(false)} saved={() => { setEditing(false); load() }} />}
   </div>
 }
 
@@ -63,13 +70,32 @@ function Updates({ data, siteId, reload }: { data: SiteWorkspaceV2; siteId: stri
 
 function Issues({ data }: { data: SiteWorkspaceV2 }) { return <Section title="Issues & ASRs" intro="Every issue is tied to an ASR; several issues can share the same ASR."><div className="x-table"><div className="x-table-head"><span>Issue</span><span>Unit</span><span>ASR</span><span>Priority</span><span>Status</span></div>{data.issues.map(issue => <div className="x-table-row" key={issue.id}><strong>{issue.title}</strong><span>{issue.unit_tag || 'Site-wide'}</span><code>{issue.asr_number}</code><em className={`is-${issue.priority}`}>{issue.priority}</em><span>{issue.status}</span></div>)}</div>{!data.issues.length && <Empty text="No issues have been recorded for this site." />}</Section> }
 function Parts({ data }: { data: SiteWorkspaceV2 }) { return <div className="x-two-col"><Section title="Part orders" intro="Quotes, orders, and receipts connected to ASRs.">{data.part_orders.map(order => <Record key={String(order.id)} icon={<FileText />} title={String(order.order_number || order.supplier || 'Parts request')} meta={`${String(order.asr_number)} · ${String(order.status)}`} />)}{!data.part_orders.length && <Empty text="No part orders yet." />}</Section><Section title="Service visits" intro="Scheduled and completed work at this site.">{data.service_visits.map(visit => <Record key={String(visit.id)} icon={<Wrench />} title={String(visit.summary || visit.asr_number)} meta={`${String(visit.status)}${visit.scheduled_for ? ` · ${formatDate(String(visit.scheduled_for))}` : ''}`} />)}{!data.service_visits.length && <Empty text="No service visits yet." />}</Section></div> }
-function Units({ data }: { data: SiteWorkspaceV2 }) { return <Section title="Equipment" intro="Open a unit to see its serial information and full work history."><div className="x-unit-grid">{data.units.map(unit => <Link href={`/units/${unit.id}`} key={unit.id}><div><Boxes size={18} /><span>{unit.status}</span></div><h3>{unit.tag}</h3><p>{[unit.manufacturer, unit.model].filter(Boolean).join(' ') || 'Equipment details not entered'}</p><small>Serial · {unit.serial_number || 'Not entered'}</small></Link>)}</div>{!data.units.length && <Empty text="No units have been added." />}</Section> }
+function Units({ data, siteId, reload }: { data: SiteWorkspaceV2; siteId: string; reload: () => void }) { const [adding, setAdding] = useState(false); return <Section title="Equipment" intro="Open a unit to see its serial information and full work history." action={<button onClick={() => setAdding(true)}><Plus size={15} /> Add unit</button>}><div className="x-unit-grid">{data.units.map(unit => <Link href={`/units/${unit.id}`} key={unit.id}><div><Boxes size={18} /><span>{unit.status}</span></div><h3>{unit.tag}</h3><p>{[unit.manufacturer, unit.model].filter(Boolean).join(' ') || 'Equipment details not entered'}</p><small>Serial · {unit.serial_number || 'Not entered'}</small></Link>)}</div>{!data.units.length && <Empty text="No units have been added." />}{adding && <UnitCreator siteId={siteId} close={() => setAdding(false)} saved={() => { setAdding(false); reload() }} />}</Section> }
 function Contacts({ data }: { data: SiteWorkspaceV2 }) { return <Section title="Site contacts" intro="People and roles that stay associated with this site."><div className="x-contact-grid">{data.contacts.map(contact => <article key={contact.id}><div><UserRound size={20} /></div><h3>{contact.name}</h3><p>{contact.role || contact.title || contact.company || 'Site contact'}</p>{contact.email && <a href={`mailto:${contact.email}`}><Mail size={14} />{contact.email}</a>}{contact.phone && <a href={`tel:${contact.phone}`}><Phone size={14} />{contact.phone}</a>}{contact.is_primary && <span>Primary contact</span>}</article>)}</div>{!data.contacts.length && <Empty text="No contacts are associated with this site." />}</Section> }
 function Files({ files, siteId, reload }: { files: AttachmentV2[]; siteId: string; reload: () => void }) { const picker = useRef<HTMLInputElement>(null); const [category, setCategory] = useState('other'); const [busy, setBusy] = useState(false); const groups = useMemo(() => categories.map(category => ({ category, files: files.filter(file => file.category === category) })).filter(group => group.files.length), [files]); async function upload(list: FileList | null) { if (!list?.length) return; setBusy(true); try { for (const file of Array.from(list)) { const form = new FormData(); form.set('file', file); form.set('category', category); await V2.sites.upload(siteId, form) } reload() } finally { setBusy(false); if (picker.current) picker.current.value = '' } } return <Section title="Document library" intro="Private, site-specific storage for the paper trail."><div className="x-library-tools"><select value={category} onChange={event => setCategory(event.target.value)}>{categories.map(value => <option key={value} value={value}>{value.toUpperCase()}</option>)}</select><button onClick={() => picker.current?.click()} disabled={busy}><Upload size={15} />{busy ? 'Uploading…' : 'Upload files'}</button><input ref={picker} hidden type="file" multiple onChange={event => upload(event.target.files)} /></div>{groups.map(group => <div className="x-file-group" key={group.category}><h3>{group.category}</h3>{group.files.map(file => <button key={file.id} onClick={() => V2.attachments.open(file.id)}><FileText size={18} /><span><strong>{file.file_name}</strong><small>{formatBytes(file.size_bytes)} · {formatDate(file.created_at)}{file.update_summary ? ` · ${file.update_summary}` : ''}</small></span><Download size={16} /></button>)}</div>)}{!files.length && <Empty text="Upload a PO, quote, invoice, submittal, email PDF, or report." />}</Section> }
 
-function Section({ title, intro, children }: { title: string; intro: string; children: React.ReactNode }) { return <section className="x-section"><header><div><h2>{title}</h2><p>{intro}</p></div></header>{children}</section> }
+function Section({ title, intro, children, action }: { title: string; intro: string; children: React.ReactNode; action?: React.ReactNode }) { return <section className="x-section"><header><div><h2>{title}</h2><p>{intro}</p></div>{action && <div className="x-library-tools">{action}</div>}</header>{children}</section> }
 function Record({ icon, title, meta }: { icon: React.ReactNode; title: string; meta: string }) { return <div className="x-record"><span>{icon}</span><div><strong>{title}</strong><small>{meta}</small></div></div> }
 function Empty({ text }: { text: string }) { return <div className="x-empty">{text}</div> }
 function Count({ value }: { value: number }) { return value ? <span>{value}</span> : null }
 function formatDate(value: string) { return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }
 function formatBytes(value: number) { if (value < 1024) return `${value} B`; if (value < 1048576) return `${(value / 1024).toFixed(1)} KB`; return `${(value / 1048576).toFixed(1)} MB` }
+
+function SiteEditor({ data, close, saved }: { data: SiteWorkspaceV2; close: () => void; saved: () => void }) {
+  const site = data.site
+  const [form, setForm] = useState({ name: site.name, site_code: site.site_code || '', building: site.building || '', city: site.city || '', state: site.state || '', address: '', status: site.status, lifecycle_phase: site.lifecycle_phase, notes: '' })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const set = (key: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm(current => ({ ...current, [key]: event.target.value }))
+  async function submit(event: FormEvent) { event.preventDefault(); setSaving(true); setError(''); try { await V2.sites.update(site.id, form); saved() } catch (error) { setError((error as Error).message) } finally { setSaving(false) } }
+  return <div className="x-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}><form className="x-modal" onSubmit={submit}><header><div><span className="x-kicker">Site settings</span><h2>Edit {site.name}</h2></div><button type="button" onClick={close}><X size={18} /></button></header><label className="x-field"><span>Site name</span><input value={form.name} onChange={set('name')} required /></label><div className="x-form-row"><label className="x-field"><span>Site code</span><input value={form.site_code} onChange={set('site_code')} /></label><label className="x-field"><span>Building</span><input value={form.building} onChange={set('building')} /></label></div>{!site.location_id && <><div className="x-form-row"><label className="x-field"><span>City</span><input value={form.city} onChange={set('city')} required /></label><label className="x-field"><span>State / province</span><input value={form.state} onChange={set('state')} required /></label></div><label className="x-field"><span>Street address</span><input value={form.address} onChange={set('address')} /></label></>}<div className="x-form-row"><label className="x-field"><span>Status</span><select value={form.status} onChange={set('status')}>{['planning','active','attention','critical','offline','complete','inactive'].map(value => <option key={value}>{value}</option>)}</select></label><label className="x-field"><span>Lifecycle</span><select value={form.lifecycle_phase} onChange={set('lifecycle_phase')}>{['planning','construction','commissioning','warranty','service','closed'].map(value => <option key={value}>{value}</option>)}</select></label></div><label className="x-field"><span>Notes</span><textarea value={form.notes} onChange={set('notes')} rows={3} /></label>{error && <p className="x-error">{error}</p>}<footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save site'}</button></footer></form></div>
+}
+
+function UnitCreator({ siteId, close, saved }: { siteId: string; close: () => void; saved: () => void }) {
+  const [form, setForm] = useState({ tag: '', serial_number: '', manufacturer: '', model: '', unit_type: '', location_in_site: '', status: 'active', notes: '' })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const set = (key: string) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm(current => ({ ...current, [key]: event.target.value }))
+  async function submit(event: FormEvent) { event.preventDefault(); setSaving(true); setError(''); try { await V2.sites.createRelated(siteId, { kind: 'unit', ...form }); saved() } catch (error) { setError((error as Error).message) } finally { setSaving(false) } }
+  return <div className="x-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}><form className="x-modal" onSubmit={submit}><header><div><span className="x-kicker">Equipment</span><h2>Add unit</h2></div><button type="button" onClick={close}><X size={18} /></button></header><div className="x-form-row"><label className="x-field"><span>Unit tag</span><input value={form.tag} onChange={set('tag')} required /></label><label className="x-field"><span>Serial number</span><input value={form.serial_number} onChange={set('serial_number')} /></label></div><div className="x-form-row"><label className="x-field"><span>Manufacturer</span><input value={form.manufacturer} onChange={set('manufacturer')} /></label><label className="x-field"><span>Model</span><input value={form.model} onChange={set('model')} /></label></div><div className="x-form-row"><label className="x-field"><span>Unit type</span><input value={form.unit_type} onChange={set('unit_type')} /></label><label className="x-field"><span>Location in site</span><input value={form.location_in_site} onChange={set('location_in_site')} /></label></div><label className="x-field"><span>Status</span><select value={form.status} onChange={set('status')}>{['planned','installed','commissioning','active','attention','offline','retired'].map(value => <option key={value}>{value}</option>)}</select></label><label className="x-field"><span>Notes</span><textarea value={form.notes} onChange={set('notes')} rows={3} /></label>{error && <p className="x-error">{error}</p>}<footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Adding…' : 'Add unit'}</button></footer></form></div>
+}

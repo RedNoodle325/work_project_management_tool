@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { V2 } from '@/api/v2'
 
-interface UnitRecord { id: string; tag: string; serial_number?: string; manufacturer?: string; model?: string; unit_type?: string; location_in_site?: string; status: string; site_id: string; site_name: string; campus_code: string; customer_name: string; project_number?: string; notes?: string }
+interface UnitRecord { id: string; tag: string; serial_number?: string; manufacturer?: string; model?: string; unit_type?: string; location_in_site?: string; status: string; site_id: string; site_name: string; campus_code?: string; customer_name: string; project_number?: string; notes?: string }
 interface HistoryIssue { id: string; title: string; status: string; priority: string; description?: string; asr_number: string; reported_at: string }
 interface WorkRecord { id: string; work_performed: string; result?: string; technician_name?: string; asr_number: string; performed_at: string }
 interface PartRecord { id: string; description: string; part_number?: string; quantity: number; order_status: string; asr_number: string }
@@ -25,7 +25,7 @@ export function UnitWorkspaceV2Page() {
   ].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return <div className="ops-page">
-    <div className="ops-breadcrumb"><Link href="/sites">{unit.customer_name}</Link><span>/</span><span>{unit.campus_code}</span><span>/</span><Link href={`/sites/${unit.site_id}`}>{unit.site_name}</Link><span>/</span><strong>{unit.tag}</strong></div>
+    <div className="ops-breadcrumb"><Link href="/sites">{unit.customer_name}</Link><span>/</span>{unit.campus_code && <><span>{unit.campus_code}</span><span>/</span></>}<Link href={`/sites/${unit.site_id}`}>{unit.site_name}</Link><span>/</span><strong>{unit.tag}</strong></div>
     <header className="ops-site-hero"><div className={`ops-site-status ops-site-status-${unit.status}`}><span className={`ops-health ops-health-${unit.status}`} />{unit.status}</div><div><p className="ops-eyebrow">Equipment record</p><h1>{unit.tag}</h1><p>{unit.manufacturer} {unit.model}</p></div></header>
     <section className="ops-unit-facts">
       <Fact label="Serial number" value={unit.serial_number} mono /><Fact label="Manufacturer" value={unit.manufacturer} /><Fact label="Model" value={unit.model} /><Fact label="Type" value={unit.unit_type} /><Fact label="Location" value={unit.location_in_site} /><Fact label="Project" value={unit.project_number} mono />

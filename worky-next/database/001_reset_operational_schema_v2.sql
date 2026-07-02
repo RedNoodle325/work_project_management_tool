@@ -58,10 +58,14 @@ create table public.locations (
 
 create table public.sites (
   id uuid primary key default gen_random_uuid(),
-  location_id uuid not null references public.locations(id) on delete cascade,
+  location_id uuid references public.locations(id) on delete cascade,
+  customer_id uuid not null references public.customers(id) on delete cascade,
   name text not null,
   site_code text,
   building text,
+  city text,
+  state text,
+  address text,
   address_override text,
   status text not null default 'planning' check (status in ('planning', 'active', 'attention', 'critical', 'offline', 'complete', 'inactive')),
   status_summary text,
@@ -71,8 +75,13 @@ create table public.sites (
   last_update_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (location_id, name)
+  check (location_id is not null or (city is not null and state is not null))
 );
+
+create unique index sites_location_name_unique_ci
+  on public.sites (location_id, lower(name)) where location_id is not null;
+create unique index sites_standalone_name_unique_ci
+  on public.sites (customer_id, lower(name)) where location_id is null;
 
 create table public.projects (
   id uuid primary key default gen_random_uuid(),
@@ -281,9 +290,9 @@ create or replace view public.site_overview as
 select
   s.*,
   l.campus_code,
-  l.city,
-  l.state,
-  l.customer_id,
+  coalesce(s.city, l.city) as city,
+  coalesce(s.state, l.state) as state,
+  coalesce(s.address, l.address) as address,
   c.name as customer_name,
   (select count(*) from public.units u where u.site_id = s.id) as unit_count,
   (select count(*) from public.issues i where i.site_id = s.id and i.status not in ('resolved','closed')) as open_issue_count,
@@ -291,7 +300,7 @@ select
   (select count(*) from public.part_orders po join public.asrs a on a.id = po.asr_id where a.site_id = s.id and po.status not in ('received','installed','cancelled')) as pending_part_order_count,
   (select su.summary from public.site_updates su where su.site_id = s.id order by su.created_at desc limit 1) as latest_update
 from public.sites s
-join public.locations l on l.id = s.location_id
-join public.customers c on c.id = l.customer_id;
+left join public.locations l on l.id = s.location_id
+join public.customers c on c.id = s.customer_id;
 
 commit;

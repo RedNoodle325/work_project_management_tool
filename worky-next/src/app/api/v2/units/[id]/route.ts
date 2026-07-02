@@ -9,12 +9,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const [units, issues, work, parts] = await Promise.all([
     sql`
-      select u.*, s.name as site_name, s.location_id, l.campus_code, l.customer_id, c.name as customer_name,
+      select u.*, s.name as site_name, s.location_id, l.campus_code, s.customer_id, c.name as customer_name,
              p.project_number
       from public.units u
       join public.sites s on s.id = u.site_id
-      join public.locations l on l.id = s.location_id
-      join public.customers c on c.id = l.customer_id
+      left join public.locations l on l.id = s.location_id
+      join public.customers c on c.id = s.customer_id
       left join public.projects p on p.id = u.project_id
       where u.id = ${id}
     `,
@@ -24,4 +24,38 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   ])
   if (!units[0]) return NextResponse.json({ error: 'Unit not found' }, { status: 404 })
   return NextResponse.json({ unit: units[0], issues, service_work: work, parts })
+}
+
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { error } = await requireAuth(request)
+  if (error) return error
+  const { id } = await params
+  const body = await request.json()
+  if (!String(body.tag || '').trim()) return NextResponse.json({ error: 'Unit tag is required' }, { status: 400 })
+  const [current] = await sql`select status from public.units where id = ${id}`
+  if (!current) return NextResponse.json({ error: 'Unit not found' }, { status: 404 })
+  const rows = await sql`
+    update public.units set
+      tag = ${String(body.tag).trim()},
+      serial_number = ${body.serial_number || null},
+      manufacturer = ${body.manufacturer || null},
+      model = ${body.model || null},
+      unit_type = ${body.unit_type || null},
+      location_in_site = ${body.location_in_site || null},
+      status = ${body.status || current.status},
+      notes = ${body.notes || null}
+    where id = ${id}
+    returning *
+  `
+  if (!rows[0]) return NextResponse.json({ error: 'Unit not found' }, { status: 404 })
+  return NextResponse.json(rows[0])
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { error } = await requireAuth(request)
+  if (error) return error
+  const { id } = await params
+  const rows = await sql`delete from public.units where id = ${id} returning id`
+  if (!rows[0]) return NextResponse.json({ error: 'Unit not found' }, { status: 404 })
+  return NextResponse.json({ deleted: true })
 }

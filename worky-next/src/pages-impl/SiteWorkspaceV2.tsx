@@ -23,10 +23,10 @@ export function SiteWorkspaceV2Page() {
 
   return (
     <div className="ops-page">
-      <div className="ops-breadcrumb"><Link href="/sites">{site.customer_name}</Link><span>/</span><Link href="/sites">{site.campus_code}</Link><span>/</span><strong>{site.name}</strong></div>
+      <div className="ops-breadcrumb"><Link href="/sites">{site.customer_name}</Link><span>/</span>{site.campus_code && <><Link href="/sites">{site.campus_code}</Link><span>/</span></>}<strong>{site.name}</strong></div>
       <header className="ops-site-hero">
         <div className={`ops-site-status ops-site-status-${site.status}`}><span className={`ops-health ops-health-${site.status}`} />{site.status}</div>
-        <div><p className="ops-eyebrow">{site.campus_code} · {site.city}, {site.state}</p><h1>{site.name}</h1><p>{site.latest_update || site.status_summary || 'No current update recorded.'}</p></div>
+        <div><p className="ops-eyebrow">{[site.campus_code, `${site.city}, ${site.state}`].filter(Boolean).join(' · ')}</p><h1>{site.name}</h1><p>{site.latest_update || site.status_summary || 'No current update recorded.'}</p></div>
         <button className="ops-button ops-button-secondary" onClick={load}><RefreshCw size={15} /> Refresh</button>
       </header>
 

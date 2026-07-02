@@ -14,15 +14,15 @@ export async function GET(request: NextRequest) {
         (select count(*)::int from public.attachments a where a.update_id = su.id) as attachment_count
       from public.site_updates su
       join public.sites s on s.id = su.site_id
-      join public.locations l on l.id = s.location_id
-      join public.customers c on c.id = l.customer_id
+      left join public.locations l on l.id = s.location_id
+      join public.customers c on c.id = s.customer_id
       order by su.is_pinned desc, su.created_at desc limit 20
     `,
     sql`
       select a.*, s.name as site_name, l.campus_code
       from public.attachments a
       join public.sites s on s.id = a.site_id
-      join public.locations l on l.id = s.location_id
+      left join public.locations l on l.id = s.location_id
       order by a.created_at desc limit 8
     `,
   ])
