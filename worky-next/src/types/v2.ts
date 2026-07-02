@@ -28,6 +28,10 @@ export interface SiteSummaryV2 {
   name: string
   site_code?: string
   building?: string
+  address?: string
+  city?: string
+  state?: string
+  postal_code?: string
   status: SiteHealth
   lifecycle_phase: string
   status_summary?: string

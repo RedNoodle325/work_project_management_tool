@@ -5,6 +5,7 @@ alter table public.sites add column if not exists customer_id uuid references pu
 alter table public.sites add column if not exists city text;
 alter table public.sites add column if not exists state text;
 alter table public.sites add column if not exists address text;
+alter table public.sites add column if not exists postal_code text;
 
 update public.sites s
 set customer_id = l.customer_id
@@ -37,6 +38,7 @@ select
   coalesce(s.city, l.city) as city,
   coalesce(s.state, l.state) as state,
   coalesce(s.address, l.address) as address,
+  coalesce(s.postal_code, l.postal_code) as postal_code,
   s.address_override,
   s.status,
   s.status_summary,

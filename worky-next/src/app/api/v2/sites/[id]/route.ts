@@ -115,6 +115,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       city = ${current.location_id ? null : body.city},
       state = ${current.location_id ? null : body.state},
       address = ${current.location_id ? null : body.address || null},
+      postal_code = ${current.location_id ? null : body.postal_code || null},
       status = ${body.status || current.status},
       lifecycle_phase = ${body.lifecycle_phase || current.lifecycle_phase},
       notes = ${body.notes || null}
