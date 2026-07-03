@@ -35,12 +35,7 @@ a { color: inherit; }
 .x-sidebar nav a:hover { color: #fff; background: rgba(255,255,255,.07); }
 .x-sidebar nav a.active { color: #fff; background: rgba(255,255,255,.1); }
 .x-sidebar nav a i { position: absolute; right: -16px; width: 3px; height: 22px; border-radius: 4px 0 0 4px; background: var(--terra); }
-.x-sidebar-prompt { margin: auto 18px 20px; padding: 18px; border: 1px solid rgba(255,255,255,.11); border-radius: 12px; background: rgba(255,255,255,.055); }
-.x-sidebar-prompt > svg { color: #9dcc7e; }
-.x-sidebar-prompt strong { display: block; margin-top: 12px; font: 700 16px/1.15 var(--font); letter-spacing: .02em; }
-.x-sidebar-prompt p { color: rgba(255,255,255,.55); font-size: 11px; line-height: 1.55; }
-.x-sidebar-prompt a { display: inline-flex; align-items: center; color: #a8d58b; font-size: 11px; font-weight: 700; text-decoration: none; text-transform: uppercase; letter-spacing: .08em; }
-.x-sidebar footer { min-height: 78px; display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-top: 1px solid rgba(255,255,255,.1); }
+.x-sidebar footer { min-height: 78px; display: flex; align-items: center; gap: 10px; margin-top: auto; padding: 16px 20px; border-top: 1px solid rgba(255,255,255,.1); }
 .x-user-mark { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; color: var(--certainty); background: var(--galvanize); font-weight: 800; }
 .x-sidebar footer > div:nth-child(2) { min-width: 0; flex: 1; }
 .x-sidebar footer strong, .x-sidebar footer span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
