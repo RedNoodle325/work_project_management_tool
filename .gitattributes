@@ -1,3 +1,4 @@
 *.jpg filter=lfs diff=lfs merge=lfs -text
 *.png filter=lfs diff=lfs merge=lfs -text
 *.svg filter=lfs diff=lfs merge=lfs -text
+worky-next/public/brand/xnrgy-mark.svg -filter -diff -merge text
