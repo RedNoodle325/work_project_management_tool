@@ -116,6 +116,8 @@ create table public.units (
   install_date date,
   warranty_start_date date,
   warranty_end_date date,
+  commission_level text not null default 'none',
+  operational_status text,
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -314,7 +316,30 @@ select
   (select count(*) from public.issues i where i.site_id = s.id and i.status not in ('resolved','closed')) as open_issue_count,
   (select count(*) from public.asrs a where a.site_id = s.id and a.status not in ('complete','cancelled')) as active_asr_count,
   (select count(*) from public.part_orders po join public.asrs a on a.id = po.asr_id where a.site_id = s.id and po.status not in ('received','installed','cancelled')) as pending_part_order_count,
-  (select su.summary from public.site_updates su where su.site_id = s.id order by su.created_at desc limit 1) as latest_update
+  (select su.summary from public.site_updates su where su.site_id = s.id order by su.created_at desc limit 1) as latest_update,
+  (select count(*) from public.units u where u.site_id = s.id and (u.commission_level in ('L5','complete','completed','commissioned') or u.status in ('active','attention','offline','retired'))) as commissioned_unit_count,
+  (select count(*) from public.units u where u.site_id = s.id and (u.status = 'commissioning' or u.commission_level in ('L1','L2','L3','L4'))) as commissioning_unit_count,
+  case
+    when (select count(*) from public.units u where u.site_id = s.id) = 0 then 0
+    else floor(
+      100.0
+      * (select count(*) from public.units u where u.site_id = s.id and (u.commission_level in ('L5','complete','completed','commissioned') or u.status in ('active','attention','offline','retired')))
+      / nullif((select count(*) from public.units u where u.site_id = s.id), 0)
+    )::int
+  end as commissioning_percent,
+  (select count(*) from public.units u where u.site_id = s.id and u.warranty_end_date >= current_date) as warranty_active_unit_count,
+  (select count(*) from public.units u where u.site_id = s.id and u.warranty_end_date >= current_date and u.warranty_end_date <= current_date + interval '90 days') as warranty_expiring_unit_count,
+  (select count(*) from public.units u where u.site_id = s.id and u.warranty_end_date < current_date) as warranty_expired_unit_count,
+  (select count(*) from public.units u where u.site_id = s.id and u.warranty_end_date is null) as warranty_missing_unit_count,
+  coalesce((
+    select jsonb_object_agg(unit_status, status_count)
+    from (
+      select u.status as unit_status, count(*)::int as status_count
+      from public.units u
+      where u.site_id = s.id
+      group by u.status
+    ) unit_statuses
+  ), '{}'::jsonb) as unit_status_counts
 from public.sites s
 left join public.locations l on l.id = s.location_id
 join public.customers c on c.id = s.customer_id;

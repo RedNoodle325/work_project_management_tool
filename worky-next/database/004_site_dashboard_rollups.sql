@@ -1,31 +1,8 @@
--- Allow a site to belong directly to a customer without requiring a campus.
+-- Add site-list dashboard rollups for commissioning, warranty, and unit status.
 begin;
 
-alter table public.sites add column if not exists customer_id uuid references public.customers(id) on delete cascade;
-alter table public.sites add column if not exists city text;
-alter table public.sites add column if not exists state text;
-alter table public.sites add column if not exists address text;
-alter table public.sites add column if not exists postal_code text;
 alter table public.units add column if not exists commission_level text not null default 'none';
 alter table public.units add column if not exists operational_status text;
-
-update public.sites s
-set customer_id = l.customer_id
-from public.locations l
-where s.location_id = l.id and s.customer_id is null;
-
-alter table public.sites alter column customer_id set not null;
-alter table public.sites alter column location_id drop not null;
-alter table public.sites drop constraint if exists sites_location_id_name_key;
-
-create unique index if not exists sites_location_name_unique_ci
-  on public.sites (location_id, lower(name)) where location_id is not null;
-create unique index if not exists sites_standalone_name_unique_ci
-  on public.sites (customer_id, lower(name)) where location_id is null;
-
-alter table public.sites drop constraint if exists sites_standalone_location_check;
-alter table public.sites add constraint sites_standalone_location_check
-  check (location_id is not null or (city is not null and state is not null));
 
 drop view if exists public.site_overview;
 create view public.site_overview as

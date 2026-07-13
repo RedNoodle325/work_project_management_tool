@@ -25,8 +25,10 @@ export interface SiteSummaryV2 {
   id: string
   location_id?: string
   customer_id: string
+  customer_name?: string
   name: string
   site_code?: string
+  campus_code?: string
   building?: string
   address?: string
   city?: string
@@ -35,12 +37,21 @@ export interface SiteSummaryV2 {
   status: SiteHealth
   lifecycle_phase: string
   status_summary?: string
+  notes?: string
   last_update_at?: string
   unit_count: number
   open_issue_count: number
   active_asr_count: number
   pending_part_order_count: number
   latest_update?: string
+  commissioned_unit_count?: number
+  commissioning_unit_count?: number
+  commissioning_percent?: number
+  warranty_active_unit_count?: number
+  warranty_expiring_unit_count?: number
+  warranty_expired_unit_count?: number
+  warranty_missing_unit_count?: number
+  unit_status_counts?: Record<string, number>
 }
 
 export interface HierarchyCustomerV2 extends CustomerV2 {
