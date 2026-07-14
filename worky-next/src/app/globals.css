@@ -218,6 +218,9 @@ button.primary, .x-library-tools button { color: #fff; border-color: var(--ameth
 .x-context-panel dl div { display: flex; justify-content: space-between; gap: 20px; padding: 11px 0; border-top: 1px solid #eef0f1; }
 .x-context-panel dt { color: var(--muted); font-size: 10px; }
 .x-context-panel dd { margin: 0; font: 650 12px/1 var(--font); text-align: right; text-transform: capitalize; }
+.x-context-note { margin-top: 18px; padding: 15px; border: 1px solid #e8e0ef; border-radius: 8px; background: #faf7fc; }
+.x-context-note > span { color: var(--amethyst); font: 800 9px/1 var(--font); letter-spacing: .09em; text-transform: uppercase; }
+.x-context-note p { margin: 9px 0 0; color: var(--shadow); font-size: 12px; line-height: 1.55; white-space: pre-wrap; }
 .x-section { padding: 25px; }
 .x-section > header { display: flex; justify-content: space-between; margin-bottom: 20px; }
 .x-section > header h2 { margin: 0 0 5px; font: 650 25px/1 var(--font); }
