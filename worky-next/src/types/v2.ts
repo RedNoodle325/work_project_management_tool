@@ -150,6 +150,31 @@ export interface SiteUpdateV2 {
   attachment_count?: number
 }
 
+export interface SiteScheduleEventV2 {
+  id: string
+  site_id: string
+  title: string
+  planned_start: string
+  planned_working_days: number
+  current_start: string
+  current_working_days: number
+  weekends_are_workdays: boolean
+  actual_start?: string
+  actual_complete?: string
+  status: 'planned' | 'delayed' | 'in_progress' | 'complete' | 'cancelled'
+  notes?: string
+}
+
+export interface SiteScheduleChangeV2 {
+  id: string
+  schedule_event_id: string
+  field_name: string
+  previous_value?: string
+  new_value?: string
+  note?: string
+  changed_at: string
+}
+
 export interface AttachmentV2 {
   id: string
   site_id: string

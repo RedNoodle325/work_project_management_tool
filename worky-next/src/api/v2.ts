@@ -1,5 +1,5 @@
 import { getToken } from './index'
-import type { AttachmentV2, HierarchyCustomerV2, LeanIssueV2, SiteWorkspaceV2 } from '@/types/v2'
+import type { AttachmentV2, HierarchyCustomerV2, LeanIssueV2, SiteScheduleChangeV2, SiteScheduleEventV2, SiteWorkspaceV2 } from '@/types/v2'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken()
@@ -58,6 +58,11 @@ export const V2 = {
       const payload = await response.json().catch(() => null)
       if (!response.ok) throw new Error(payload?.error || `Import failed (${response.status})`)
       return payload as { created: number; updated: number; processed: number }
+    },
+    schedule: {
+      list: (id: string) => request<{ events: SiteScheduleEventV2[]; changes: SiteScheduleChangeV2[] }>(`/sites/${id}/schedule`),
+      create: (id: string, data: Record<string, unknown>) => request<SiteScheduleEventV2>(`/sites/${id}/schedule`, { method: 'POST', body: JSON.stringify(data) }),
+      update: (siteId: string, eventId: string, data: Record<string, unknown>) => request<SiteScheduleEventV2>(`/sites/${siteId}/schedule/${eventId}`, { method: 'PATCH', body: JSON.stringify(data) }),
     },
     attachments: (id: string) => request<AttachmentV2[]>(`/sites/${id}/attachments`),
     upload: async (id: string, form: FormData) => {
