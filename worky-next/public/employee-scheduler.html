@@ -20,6 +20,12 @@
 
     * { box-sizing: border-box; }
 
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
     body {
       margin: 0;
       font-family: Inter, Aptos, "Segoe UI", sans-serif;
@@ -49,6 +55,8 @@
       padding: 24px 32px 40px;
       display: grid;
       gap: 20px;
+      min-width: 0;
+      overflow: hidden;
     }
 
     .topbar {
@@ -134,7 +142,10 @@
       grid-template-columns: minmax(360px, 430px) 1fr;
       gap: 20px;
       align-items: start;
+      min-width: 0;
     }
+
+    .grid > * { min-width: 0; }
 
     h2 {
       margin: 0 0 14px;
@@ -202,6 +213,7 @@
     }
 
     .schedule-wrap {
+      max-width: 100%;
       overflow: auto;
     }
 
