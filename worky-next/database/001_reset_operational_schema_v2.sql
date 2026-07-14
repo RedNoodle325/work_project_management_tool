@@ -53,6 +53,17 @@ create table public.representatives (
 
 create unique index representatives_name_unique_ci on public.representatives (lower(name));
 
+create table public.resource_links (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  url text not null,
+  category text not null default 'general',
+  description text,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table public.locations (
   id uuid primary key default gen_random_uuid(),
   customer_id uuid not null references public.customers(id) on delete cascade,
@@ -283,7 +294,7 @@ end $$;
 do $$
 declare table_name text;
 begin
-  foreach table_name in array array['customers','representatives','locations','sites','projects','units','contacts','asrs','issues','service_visits','part_orders']
+  foreach table_name in array array['customers','representatives','resource_links','locations','sites','projects','units','contacts','asrs','issues','service_visits','part_orders']
   loop
     execute format('create trigger %I_touch_updated_at before update on public.%I for each row execute function public.touch_updated_at()', table_name, table_name);
   end loop;

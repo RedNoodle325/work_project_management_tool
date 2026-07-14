@@ -18,14 +18,16 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json()
   if (!body.name?.trim()) {
-    return NextResponse.json({ error: 'name required' }, { status: 400 })
+    return NextResponse.json({ error: 'Name is required' }, { status: 400 })
   }
+  const url = safeUrl(body.url)
+  if (!url) return NextResponse.json({ error: 'Enter a valid http or https link' }, { status: 400 })
 
   const rows = await sql`
     INSERT INTO public.resource_links (name, url, category, description, sort_order)
     VALUES (
       ${body.name.trim()},
-      ${body.url?.trim() ?? null},
+      ${url},
       ${body.category?.trim() ?? 'general'},
       ${body.description?.trim() ?? null},
       ${body.sort_order ?? 0}
@@ -33,4 +35,11 @@ export async function POST(request: NextRequest) {
     RETURNING *
   `
   return NextResponse.json(rows[0], { status: 201 })
+}
+
+function safeUrl(value: unknown) {
+  try {
+    const url = new URL(String(value || '').trim())
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : null
+  } catch { return null }
 }

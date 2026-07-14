@@ -26,8 +26,9 @@ a { color: inherit; }
 .x-logo { height: 92px; display: flex; align-items: center; gap: 12px; padding: 0 24px; border-bottom: 1px solid rgba(255,255,255,.1); }
 .x-logo img { width: 35px; height: 35px; object-fit: contain; }
 .x-logo div { display: flex; flex-direction: column; min-width: 0; }
-.x-logo strong, .x-mobile-head span { font: 700 22px/1 var(--font); letter-spacing: .15em; }
-.x-logo span { margin-top: 5px; color: rgba(255,255,255,.55); font: 600 10px/1 var(--font); letter-spacing: .17em; text-transform: uppercase; }
+.x-logo strong { font: 700 17px/1 var(--font); letter-spacing: .07em; white-space: nowrap; }
+.x-mobile-head span { font: 700 22px/1 var(--font); letter-spacing: .08em; }
+.x-logo span { margin-top: 6px; color: rgba(255,255,255,.55); font: 600 8px/1 var(--font); letter-spacing: .07em; text-transform: uppercase; white-space: nowrap; }
 .x-logo > button { display: none; margin-left: auto; color: #fff; background: none; border: 0; }
 .x-sidebar nav { padding: 28px 16px; }
 .x-sidebar nav > span { display: block; padding: 0 12px 10px; color: rgba(255,255,255,.38); font: 700 10px/1 var(--font); letter-spacing: .18em; text-transform: uppercase; }
@@ -157,6 +158,30 @@ button.primary, .x-library-tools button { color: #fff; border-color: var(--ameth
 .x-load-panel strong { font: 650 20px/1.2 var(--font); }
 .x-load-panel p { margin: 8px 0 16px; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .x-load-panel button { padding: 9px 13px; border: 0; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 700; }
+
+/* Resource library */
+.x-resource-add, .x-resource-empty button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 11px 15px; color: #fff; border: 0; border-radius: 8px; background: var(--amethyst); cursor: pointer; font-size: 12px; font-weight: 800; }
+.x-resource-groups { display: grid; gap: 28px; }
+.x-resource-group > header { display: flex; align-items: center; gap: 8px; margin-bottom: 11px; color: var(--amethyst); }
+.x-resource-group > header h2 { margin: 0; font: 700 16px/1 var(--font); }
+.x-resource-group > header span { min-width: 22px; height: 22px; display: grid; place-items: center; color: var(--muted); border-radius: 99px; background: #e9ecee; font-size: 10px; }
+.x-resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 13px; }
+.x-resource-card { position: relative; min-width: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; column-gap: 13px; padding: 17px; padding-bottom: 53px; border: 1px solid var(--line); border-radius: 11px; background: #fff; box-shadow: 0 8px 28px rgba(37,40,43,.03); }
+.x-resource-icon { width: 42px; height: 42px; display: grid; place-items: center; color: var(--amethyst); border-radius: 9px; background: #f2edf7; }
+.x-resource-copy { min-width: 0; }
+.x-resource-copy h3 { margin: 2px 0 6px; overflow: hidden; font: 650 18px/1.2 var(--font); text-overflow: ellipsis; white-space: nowrap; }
+.x-resource-copy p { margin: 0 0 8px; color: var(--shadow); font-size: 12px; line-height: 1.45; }
+.x-resource-copy small { display: block; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.x-resource-actions { display: flex; align-items: flex-start; gap: 3px; }
+.x-resource-actions button { display: grid; place-items: center; padding: 5px; color: var(--muted); border: 0; border-radius: 5px; background: transparent; cursor: pointer; }
+.x-resource-actions button:hover { color: var(--amethyst); background: #f2edf7; }
+.x-resource-actions button:last-child:hover { color: var(--danger); background: #faeaed; }
+.x-resource-card > a { position: absolute; inset: auto 0 0; height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--amethyst); border-top: 1px solid var(--line); background: #fcfafc; font-size: 11px; font-weight: 800; text-decoration: none; }
+.x-resource-card > a:hover { background: #f5f0f8; }
+.x-resource-empty { min-height: 260px; display: grid; place-items: center; align-content: center; gap: 9px; padding: 35px; color: var(--muted); border: 1px dashed #d5dadd; border-radius: 11px; background: rgba(255,255,255,.55); text-align: center; }
+.x-resource-empty > svg { color: var(--amethyst); }
+.x-resource-empty strong { color: var(--ink); font: 650 22px/1.2 var(--font); }
+.x-resource-empty p { max-width: 440px; margin: 0 0 8px; font-size: 13px; line-height: 1.5; }
 
 /* Site workspace */
 .x-site-page { padding-top: 30px; }

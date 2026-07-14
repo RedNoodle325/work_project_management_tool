@@ -11,15 +11,17 @@ export async function PUT(
 
   const { id } = await params
   const body = await request.json()
+  if (!body.name?.trim()) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+  const url = safeUrl(body.url)
+  if (!url) return NextResponse.json({ error: 'Enter a valid http or https link' }, { status: 400 })
 
   const rows = await sql`
     UPDATE public.resource_links SET
-      name        = COALESCE(${body.name?.trim()        ?? null}, name),
-      url         = COALESCE(${body.url?.trim()         ?? null}, url),
-      category    = COALESCE(${body.category?.trim()    ?? null}, category),
-      description = COALESCE(${body.description?.trim() ?? null}, description),
-      sort_order  = COALESCE(${body.sort_order          ?? null}, sort_order),
-      updated_at  = now()
+      name        = ${body.name.trim()},
+      url         = ${url},
+      category    = ${body.category?.trim() || 'general'},
+      description = ${body.description?.trim() || null},
+      sort_order  = ${body.sort_order ?? 0}
     WHERE id = ${id}
     RETURNING *
   `
@@ -37,4 +39,11 @@ export async function DELETE(
   const { id } = await params
   await sql`DELETE FROM public.resource_links WHERE id = ${id}`
   return new NextResponse(null, { status: 204 })
+}
+
+function safeUrl(value: unknown) {
+  try {
+    const url = new URL(String(value || '').trim())
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : null
+  } catch { return null }
 }
