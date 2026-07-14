@@ -8,7 +8,7 @@ const issueKeys = ['name', 'issue number', 'issue #', 'issue id', 'number']
 const descriptionKeys = ['description', 'details']
 const equipmentKeys = ['asset', 'equipment', 'equipment name', 'asset tag', 'equipment tag']
 const serialKeys = ['serial #', 'serial number', 'serial no', 'serial']
-const linkKeys = ['link', 'url', 'issue url']
+const linkKeys = ['link', 'url', 'issue url', 'issue link', 'cxalloy link', 'hyperlink']
 
 function text(value: ExcelJS.CellValue): string {
   if (value === null || value === undefined) return ''
@@ -23,6 +23,16 @@ function text(value: ExcelJS.CellValue): string {
 
 function normalize(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function sourceUrl(cell: ExcelJS.Cell): string {
+  const raw = cell.value as { hyperlink?: unknown } | null
+  const cellHyperlink = (cell as unknown as { hyperlink?: unknown }).hyperlink
+  const candidate = raw && typeof raw === 'object' && 'hyperlink' in raw
+    ? raw.hyperlink
+    : cellHyperlink || text(cell.value)
+  const value = String(candidate || '').trim()
+  return /^https?:\/\//i.test(value) ? value : ''
 }
 
 function findColumn(headers: Map<string, number>, keys: string[]) {
@@ -79,7 +89,7 @@ export async function POST(request: NextRequest) {
       description: text(row.getCell(descriptionColumn).value),
       equipmentName: equipmentColumn ? text(row.getCell(equipmentColumn).value) : '',
       serialNumber: serialColumn ? text(row.getCell(serialColumn).value) : '',
-      sourceUrl: linkColumn ? text(row.getCell(linkColumn).value) : '',
+      sourceUrl: (linkColumn ? sourceUrl(row.getCell(linkColumn)) : '') || sourceUrl(row.getCell(issueColumn)),
     })
   }
   if (!issues.length) return NextResponse.json({ error: 'No issue rows were found.' }, { status: 400 })

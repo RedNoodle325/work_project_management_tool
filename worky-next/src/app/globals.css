@@ -200,6 +200,7 @@ button.primary, .x-library-tools button { color: #fff; border-color: var(--ameth
 .x-lean-issue-row { padding: 15px; border-top: 1px solid #eef0f1; }
 .x-lean-issue-row > span strong, .x-lean-issue-row > span a { color: var(--amethyst); font: 750 12px/1.2 var(--font); text-decoration: none; }
 .x-lean-issue-row > span a { display: inline-flex; align-items: center; gap: 4px; }
+.x-lean-issue-row > span .x-lean-issue-link { display: inline-flex; margin-top: 5px; font-size: 9px; font-weight: 750; }
 .x-lean-issue-row > span small { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; }
 .x-lean-issue-row p { margin: 0; color: var(--shadow); font-size: 11px; line-height: 1.5; white-space: pre-wrap; }
 .x-lean-issue-row code { overflow-wrap: anywhere; color: var(--ink); font: 650 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
