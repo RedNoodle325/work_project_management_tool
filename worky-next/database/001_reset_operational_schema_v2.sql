@@ -201,13 +201,16 @@ create table public.issues (
   id uuid primary key default gen_random_uuid(),
   site_id uuid not null references public.sites(id) on delete cascade,
   unit_id uuid references public.units(id) on delete set null,
-  asr_id uuid not null references public.asrs(id) on delete restrict,
+  asr_id uuid references public.asrs(id) on delete restrict,
   title text not null,
   description text,
+  equipment_name text,
+  equipment_serial_number text,
   priority text not null default 'normal' check (priority in ('low', 'normal', 'high', 'critical')),
   status text not null default 'open' check (status in ('open', 'scheduled', 'in_progress', 'waiting_parts', 'resolved', 'closed')),
   source text,
   external_reference text,
+  source_url text,
   resolution text,
   reported_at timestamptz not null default now(),
   resolved_at timestamptz,
@@ -280,6 +283,7 @@ create index asrs_project_idx on public.asrs(project_id);
 create index issues_site_status_idx on public.issues(site_id, status);
 create index issues_unit_idx on public.issues(unit_id);
 create index issues_asr_idx on public.issues(asr_id);
+create index issues_external_reference_idx on public.issues(site_id, source, external_reference);
 create index updates_site_created_idx on public.site_updates(site_id, created_at desc);
 create index work_unit_performed_idx on public.service_work(unit_id, performed_at desc);
 create index part_orders_asr_idx on public.part_orders(asr_id);

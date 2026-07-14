@@ -4,11 +4,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useState, type ReactNode } from 'react'
-import { BookOpen, Building2, LayoutDashboard, LogOut, Menu, Search, X } from 'lucide-react'
+import { BookOpen, Building2, LayoutDashboard, ListChecks, LogOut, Menu, Search, X } from 'lucide-react'
 
 const nav = [
   { href: '/', label: 'Overview', icon: LayoutDashboard },
   { href: '/sites', label: 'Sites', icon: Building2 },
+  { href: '/issues', label: 'Issues', icon: ListChecks },
   { href: '/resources', label: 'Resources', icon: BookOpen },
 ]
 

@@ -183,6 +183,36 @@ button.primary, .x-library-tools button { color: #fff; border-color: var(--ameth
 .x-resource-empty strong { color: var(--ink); font: 650 22px/1.2 var(--font); }
 .x-resource-empty p { max-width: 440px; margin: 0 0 8px; font-size: 13px; line-height: 1.5; }
 
+/* Lean issue tracker */
+.x-issues-page { padding-top: 46px; }
+.x-issue-actions { display: flex; gap: 8px; }
+.x-issue-actions button { display: inline-flex; align-items: center; gap: 7px; padding: 11px 15px; color: var(--amethyst); border: 1px solid #ded5e8; border-radius: 8px; background: #faf7fc; cursor: pointer; font-size: 11px; font-weight: 800; }
+.x-issue-actions button.primary { color: #fff; border-color: var(--amethyst); background: var(--amethyst); }
+.x-issue-toolbar { display: flex; align-items: center; gap: 10px; margin: 24px 0 15px; }
+.x-issue-toolbar label { width: min(430px, 100%); display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.x-issue-toolbar label svg { color: var(--amethyst); }
+.x-issue-toolbar input { width: 100%; border: 0; outline: 0; }
+.x-issue-toolbar select { min-width: 180px; padding: 10px 30px 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.x-issue-toolbar > span { margin-left: auto; color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.x-lean-issues { overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: #fff; box-shadow: 0 8px 28px rgba(37,40,43,.03); }
+.x-lean-issue-head, .x-lean-issue-row { display: grid; grid-template-columns: minmax(150px,.75fr) minmax(330px,2fr) minmax(210px,1fr) minmax(145px,.75fr); gap: 18px; align-items: start; }
+.x-lean-issue-head { padding: 11px 15px; color: var(--muted); background: #f5f6f6; font: 800 9px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; }
+.x-lean-issue-row { padding: 15px; border-top: 1px solid #eef0f1; }
+.x-lean-issue-row > span strong, .x-lean-issue-row > span a { color: var(--amethyst); font: 750 12px/1.2 var(--font); text-decoration: none; }
+.x-lean-issue-row > span a { display: inline-flex; align-items: center; gap: 4px; }
+.x-lean-issue-row > span small { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; }
+.x-lean-issue-row p { margin: 0; color: var(--shadow); font-size: 11px; line-height: 1.5; white-space: pre-wrap; }
+.x-lean-issue-row code { overflow-wrap: anywhere; color: var(--ink); font: 650 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.x-lean-issue-row code.is-empty { color: #b7bdc0; }
+.x-lean-issues .x-resource-empty { margin: 18px; }
+.x-import-intro { margin: -4px 0 18px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.x-file-drop { min-height: 125px; display: grid; place-items: center; align-content: center; gap: 6px; margin-top: 16px; padding: 18px; color: var(--muted); border: 1px dashed #cbd1d4; border-radius: 9px; background: #fafbfb; cursor: pointer; text-align: center; }
+.x-file-drop svg { color: var(--amethyst); }
+.x-file-drop strong { color: var(--ink); font-size: 12px; }
+.x-file-drop span { font-size: 9px; }
+.x-file-drop input { display: none; }
+.x-import-success { padding: 10px 12px; color: #2f725a; border-radius: 6px; background: #e8f4ef; font-size: 10px; line-height: 1.5; }
+
 /* Site workspace */
 .x-site-page { padding-top: 30px; }
 .x-site-header { padding-bottom: 23px; }
@@ -380,6 +410,11 @@ button.primary, .x-library-tools button { color: #fff; border-color: var(--ameth
   .x-table { overflow-x: auto; }
   .x-table-head, .x-table-row { min-width: 720px; }
   .x-library-tools { margin-top: 0; justify-content: flex-start; }
+  .x-issue-toolbar { align-items: stretch; flex-direction: column; }
+  .x-issue-toolbar select { width: 100%; }
+  .x-issue-toolbar > span { margin-left: 0; }
+  .x-lean-issues { overflow-x: auto; }
+  .x-lean-issue-head, .x-lean-issue-row { min-width: 860px; }
 }
 @media (max-width: 480px) {
   .x-stat-row { grid-template-columns: 1fr 1fr; }

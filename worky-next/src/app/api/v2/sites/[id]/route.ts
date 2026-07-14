@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     sql`select c.*, sc.role, sc.is_primary from public.site_contacts sc join public.contacts c on c.id = sc.contact_id where sc.site_id = ${id} order by sc.is_primary desc, c.name`,
     sql`select su.*, (select count(*)::int from public.attachments a where a.update_id = su.id) as attachment_count from public.site_updates su where site_id = ${id} order by is_pinned desc, created_at desc limit 100`,
     sql`select a.*, p.project_number, (select count(*) from public.issues i where i.asr_id = a.id) as issue_count from public.asrs a join public.projects p on p.id = a.project_id where a.site_id = ${id} order by a.created_at desc`,
-    sql`select i.*, a.asr_number, u.tag as unit_tag from public.issues i join public.asrs a on a.id = i.asr_id left join public.units u on u.id = i.unit_id where i.site_id = ${id} order by i.reported_at desc`,
+    sql`select i.*, a.asr_number, coalesce(i.equipment_name, u.tag) as unit_tag from public.issues i left join public.asrs a on a.id = i.asr_id left join public.units u on u.id = i.unit_id where i.site_id = ${id} order by i.reported_at desc`,
     sql`select po.*, a.asr_number from public.part_orders po join public.asrs a on a.id = po.asr_id where a.site_id = ${id} order by po.created_at desc`,
     sql`select sv.*, a.asr_number from public.service_visits sv join public.asrs a on a.id = sv.asr_id where a.site_id = ${id} order by coalesce(sv.scheduled_for, sv.created_at) desc`,
     sql`select * from public.attachments where site_id = ${id} order by created_at desc`,

@@ -1,5 +1,5 @@
 import { getToken } from './index'
-import type { AttachmentV2, HierarchyCustomerV2, SiteWorkspaceV2 } from '@/types/v2'
+import type { AttachmentV2, HierarchyCustomerV2, LeanIssueV2, SiteWorkspaceV2 } from '@/types/v2'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken()
@@ -25,6 +25,24 @@ export const V2 = {
   hierarchy: {
     list: () => request<HierarchyCustomerV2[]>('/hierarchy'),
     create: (data: Record<string, unknown>) => request('/hierarchy', { method: 'POST', body: JSON.stringify(data) }),
+  },
+  issues: {
+    list: (siteId?: string) => request<LeanIssueV2[]>(`/issues${siteId ? `?site_id=${encodeURIComponent(siteId)}` : ''}`),
+    importCxAlloy: async (siteId: string, file: File) => {
+      const token = getToken()
+      const form = new FormData()
+      form.set('site_id', siteId)
+      form.set('file', file)
+      const response = await fetch('/api/v2/issues/import', {
+        method: 'POST',
+        body: form,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error || `Import failed (${response.status})`)
+      return payload as { imported: number; created: number; updated: number; serialColumnFound: boolean }
+    },
+    syncCxAlloy: (siteId: string, projectId: number) => request<{ imported: number; created: number; updated: number; fetched: number; matchedAssignments: number }>('/issues/sync-cxalloy', { method: 'POST', body: JSON.stringify({ site_id: siteId, project_id: projectId }) }),
   },
   sites: {
     get: (id: string) => request<SiteWorkspaceV2>(`/sites/${id}`),

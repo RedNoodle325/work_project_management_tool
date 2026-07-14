@@ -101,7 +101,7 @@ export interface IssueV2 {
   id: string
   site_id: string
   unit_id?: string
-  asr_id: string
+  asr_id?: string
   title: string
   description?: string
   priority: string
@@ -109,6 +109,19 @@ export interface IssueV2 {
   asr_number?: string
   unit_tag?: string
   reported_at: string
+}
+
+export interface LeanIssueV2 {
+  id: string
+  site_id: string
+  site_name: string
+  issue_number: string
+  description?: string
+  equipment_name?: string
+  serial_number?: string
+  source_url?: string
+  source?: string
+  updated_at: string
 }
 
 export interface ContactV2 {
