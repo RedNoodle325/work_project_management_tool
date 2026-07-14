@@ -51,12 +51,31 @@ export async function POST(request: NextRequest) {
     }
     if (!customerId) return NextResponse.json({ error: 'Customer is required' }, { status: 400 })
     if (!locationId && (!body.city || !body.state)) return NextResponse.json({ error: 'City and state are required for a standalone site' }, { status: 400 })
-    const [row] = await sql`
-      insert into public.sites (location_id, customer_id, name, site_code, building, city, state, address, postal_code, lifecycle_phase, status, notes)
-      values (${locationId}, ${customerId}, ${body.name}, ${body.site_code ?? null}, ${body.building ?? null}, ${locationId ? null : body.city}, ${locationId ? null : body.state}, ${locationId ? null : body.address ?? null}, ${locationId ? null : body.postal_code ?? null}, ${body.lifecycle_phase ?? 'planning'}, ${body.status ?? 'planning'}, ${body.notes ?? null})
-      returning *
-    `
+    const projectNumber = String(body.project_number || '').trim()
+    const representativeName = String(body.representative_name || '').trim()
+    const row = await sql.begin(async tx => {
+      const trx = tx as unknown as typeof sql
+      const [site] = await trx`
+        insert into public.sites (location_id, customer_id, name, site_code, building, city, state, address, postal_code, lifecycle_phase, status, notes)
+        values (${locationId}, ${customerId}, ${body.name}, ${body.site_code ?? null}, ${body.building ?? null}, ${locationId ? null : body.city}, ${locationId ? null : body.state}, ${locationId ? null : body.address ?? null}, ${locationId ? null : body.postal_code ?? null}, ${body.lifecycle_phase ?? 'planning'}, ${body.status ?? 'planning'}, ${body.notes ?? null})
+        returning *
+      `
+      if (projectNumber) {
+        const representativeId = representativeName ? await findOrCreateRepresentative(trx, representativeName) : null
+        await trx`
+          insert into public.projects (site_id, representative_id, project_number, name, status, is_primary, notes)
+          values (${site.id}, ${representativeId}, ${projectNumber}, ${body.project_name || body.name}, ${body.project_status ?? 'active'}, true, ${body.project_notes ?? null})
+        `
+      }
+      return site
+    })
     return NextResponse.json(row, { status: 201 })
   }
   return NextResponse.json({ error: 'Unsupported hierarchy entity' }, { status: 400 })
+}
+
+async function findOrCreateRepresentative(trx: typeof sql, name: string) {
+  await trx`insert into public.representatives (name) values (${name}) on conflict do nothing`
+  const [representative] = await trx`select id from public.representatives where lower(name) = lower(${name})`
+  return representative.id
 }

@@ -26,6 +26,8 @@ export interface SiteSummaryV2 {
   location_id?: string
   customer_id: string
   customer_name?: string
+  project_number?: string
+  representative_name?: string
   name: string
   site_code?: string
   campus_code?: string
@@ -62,6 +64,8 @@ export interface HierarchyCustomerV2 extends CustomerV2 {
 export interface ProjectV2 {
   id: string
   site_id: string
+  representative_id?: string
+  representative_name?: string
   project_number: string
   name: string
   status: string

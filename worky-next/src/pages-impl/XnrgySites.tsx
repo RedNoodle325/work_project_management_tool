@@ -30,8 +30,8 @@ export function XnrgySites() {
   const [create, setCreate] = useState<NewKind | null>(null)
   const [error, setError] = useState('')
 
-  const load = () => V2.hierarchy.list().then(setCustomers).catch(error => setError(error.message))
-  useEffect(() => { load() }, [])
+  const load = () => { setError(''); return V2.hierarchy.list().then(setCustomers).catch(error => setError(error.message)) }
+  useEffect(() => { V2.hierarchy.list().then(setCustomers).catch(error => setError(error.message)) }, [])
 
   const sites = useMemo(() => flattenSites(customers), [customers])
   const filtered = useMemo(() => {
@@ -41,6 +41,8 @@ export function XnrgySites() {
       site.name,
       site.site_code,
       site.customer_name,
+      site.project_number,
+      site.representative_name,
       site.campus_code,
       site.city,
       site.state,
@@ -62,7 +64,7 @@ export function XnrgySites() {
       <div>
         <span className="x-kicker">Site list</span>
         <h1>Sites</h1>
-        <p>{filtered.length} sites - {totals.commissioning} commissioning - {totals.warranty} warranty/service - {totals.issues} open issues</p>
+        <p>{filtered.length} sites · {totals.commissioning} commissioning · {totals.warranty} warranty/service · {totals.issues} open issues</p>
       </div>
       <div className="x-head-actions">
         <button onClick={() => setCreate('customer')}><Plus size={15} /> Customer</button>
@@ -73,15 +75,13 @@ export function XnrgySites() {
 
     <label className="x-directory-search">
       <Search size={17} />
-      <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search sites, customers, campuses, status, or notes..." />
+      <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search sites, job numbers, reps, customers, or notes..." />
     </label>
 
-    {error && <div className="x-error">{error}</div>}
-
-    <div className="x-site-list">
+    {error ? <div className="x-load-panel"><strong>Sites are temporarily unavailable</strong><p>{error}. Check the database connection and migrations, then try again.</p><button className="primary" onClick={load}>Try again</button></div> : <div className="x-site-list">
       {filtered.map(site => <SiteDashboard key={site.id} site={site} />)}
       {!filtered.length && <div className="x-empty">No sites match that search.</div>}
-    </div>
+    </div>}
 
     {create && <CreateHierarchy kind={create} customers={customers} close={() => setCreate(null)} saved={() => { setCreate(null); load() }} />}
   </div>
@@ -119,7 +119,7 @@ function SiteDashboard({ site }: { site: DirectorySite }) {
       <div className={`x-status-dot is-${site.status}`} />
       <div className="x-site-list-title">
         <div>
-          <span>{site.customer_name}</span>
+          <span>{[site.customer_name, site.project_number && `Job ${site.project_number}`, site.representative_name && `Rep ${site.representative_name}`].filter(Boolean).join(' · ')}</span>
           <h2>{site.name}</h2>
           <p><MapPin size={13} /> {location || 'Location not set'}</p>
         </div>
@@ -216,7 +216,7 @@ function CreateHierarchy({ kind, customers, close, saved }: { kind: NewKind; cus
   return <div className="x-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}><form className="x-modal" onSubmit={submit}><header><div><span className="x-kicker">Add to directory</span><h2>New {kind === 'location' ? 'campus' : kind}</h2></div><button type="button" onClick={close}><X size={18} /></button></header>
     {kind === 'customer' && <><Field label="Customer name" value={form.name} change={set('name')} required /><Field label="Customer code" value={form.code} change={set('code')} /></>}
     {kind === 'location' && <><Select label="Customer" value={form.customer_id} change={set('customer_id')} options={customers.map(customer => [customer.id, customer.name])} /><Field label="Campus code" value={form.campus_code} change={set('campus_code')} required placeholder="e.g. ATL2" /><div className="x-form-row"><Field label="City" value={form.city} change={set('city')} required /><Field label="State" value={form.state} change={set('state')} required /></div><div className="x-form-row"><Field label="Street address" value={form.address} change={set('address')} /><Field label="ZIP / postal code" value={form.postal_code} change={set('postal_code')} /></div></>}
-    {kind === 'site' && <><Select label="Customer" value={form.customer_id} change={value => setForm(current => ({ ...current, customer_id: value, location_id: '' }))} options={customers.map(customer => [customer.id, customer.name])} /><Select label="Campus (optional)" value={form.location_id} change={set('location_id')} options={customerLocations.map(location => [location.id, `${location.campus_code} - ${location.city}, ${location.state}`])} required={false} emptyLabel="No campus - standalone site" /><Field label="Site name" value={form.name} change={set('name')} required placeholder="e.g. TOR1A" /><div className="x-form-row"><Field label="Site code" value={form.site_code} change={set('site_code')} /><Field label="Building" value={form.building} change={set('building')} /></div>{standalone && <><div className="x-form-row"><Field label="City" value={form.city} change={set('city')} required /><Field label="State / province" value={form.state} change={set('state')} required /></div><div className="x-form-row"><Field label="Street address" value={form.address} change={set('address')} /><Field label="ZIP / postal code" value={form.postal_code} change={set('postal_code')} /></div></>}</>}
+    {kind === 'site' && <><Select label="End user / customer" value={form.customer_id} change={value => setForm(current => ({ ...current, customer_id: value, location_id: '' }))} options={customers.map(customer => [customer.id, customer.name])} /><Select label="Campus (optional)" value={form.location_id} change={set('location_id')} options={customerLocations.map(location => [location.id, `${location.campus_code} - ${location.city}, ${location.state}`])} required={false} emptyLabel="No campus - standalone site" /><Field label="Site name" value={form.name} change={set('name')} required placeholder="e.g. Johns Hopkins Hospital" /><div className="x-form-row"><Field label="Job number" value={form.project_number} change={set('project_number')} placeholder="e.g. 10024" /><Field label="Representative" value={form.representative_name} change={set('representative_name')} placeholder="e.g. ATS" /></div><div className="x-form-row"><Field label="Site code" value={form.site_code} change={set('site_code')} /><Field label="Building" value={form.building} change={set('building')} /></div>{standalone && <><div className="x-form-row"><Field label="City" value={form.city} change={set('city')} required /><Field label="State / province" value={form.state} change={set('state')} required /></div><div className="x-form-row"><Field label="Street address" value={form.address} change={set('address')} /><Field label="ZIP / postal code" value={form.postal_code} change={set('postal_code')} /></div></>}</>}
     {error && <p className="x-error">{error}</p>}<footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Saving...' : `Create ${kind === 'location' ? 'campus' : kind}`}</button></footer>
   </form></div>
 }

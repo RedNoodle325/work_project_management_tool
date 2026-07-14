@@ -16,7 +16,7 @@ export function XnrgyDashboard() {
   useEffect(() => { V2.dashboard.get().then(value => setData(value as unknown as DashboardData)).catch(error => setError(error.message)) }, [])
   const sites = useMemo(() => data?.sites.filter(site => `${site.name} ${site.customer_name} ${site.campus_code} ${site.city}`.toLowerCase().includes(query.toLowerCase())) || [], [data, query])
 
-  if (error) return <State title="The workspace needs its notes migration" detail={`${error}. Run database/002_notes_and_attachments.sql in Supabase, then refresh.`} />
+  if (error) return <State title="The workspace is temporarily unavailable" detail={`${error}. Check the database connection and migrations, then refresh.`} />
   if (!data) return <State title="Opening your workspace" detail="Gathering the latest site activity…" />
   const needsAttention = data.sites.filter(site => ['attention', 'critical', 'offline'].includes(site.status))
   const openIssues = data.sites.reduce((total, site) => total + Number(site.open_issue_count), 0)

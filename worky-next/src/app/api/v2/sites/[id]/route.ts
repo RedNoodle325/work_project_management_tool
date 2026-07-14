@@ -10,7 +10,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const [siteRows, projects, units, contacts, updates, asrs, issues, partOrders, serviceVisits, attachments] = await Promise.all([
     sql`select * from public.site_overview where id = ${id}`,
-    sql`select * from public.projects where site_id = ${id} order by is_primary desc, created_at desc`,
+    sql`select p.*, r.name as representative_name from public.projects p left join public.representatives r on r.id = p.representative_id where p.site_id = ${id} order by p.is_primary desc, p.created_at desc`,
     sql`select * from public.units where site_id = ${id} order by tag`,
     sql`select c.*, sc.role, sc.is_primary from public.site_contacts sc join public.contacts c on c.id = sc.contact_id where sc.site_id = ${id} order by sc.is_primary desc, c.name`,
     sql`select su.*, (select count(*)::int from public.attachments a where a.update_id = su.id) as attachment_count from public.site_updates su where site_id = ${id} order by is_pinned desc, created_at desc limit 100`,
@@ -36,7 +36,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json(row, { status: 201 })
   }
   if (body.kind === 'project') {
-    const [row] = await sql`insert into public.projects (site_id, project_number, name, status, is_primary, notes) values (${id}, ${body.project_number}, ${body.name}, ${body.status ?? 'active'}, ${body.is_primary ?? false}, ${body.notes ?? null}) returning *`
+    const representativeName = String(body.representative_name || '').trim()
+    const representativeId = representativeName ? await findOrCreateRepresentative(sql, representativeName) : null
+    const [row] = await sql`insert into public.projects (site_id, representative_id, project_number, name, status, is_primary, notes) values (${id}, ${representativeId}, ${body.project_number}, ${body.name}, ${body.status ?? 'active'}, ${body.is_primary ?? false}, ${body.notes ?? null}) returning *`
     return NextResponse.json(row, { status: 201 })
   }
   if (body.kind === 'unit') {
@@ -107,22 +109,42 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'City and state are required for a standalone site' }, { status: 400 })
   }
 
-  await sql`
-    update public.sites set
-      name = ${String(body.name).trim()},
-      site_code = ${body.site_code || null},
-      building = ${body.building || null},
-      city = ${current.location_id ? null : body.city},
-      state = ${current.location_id ? null : body.state},
-      address = ${current.location_id ? null : body.address || null},
-      postal_code = ${current.location_id ? null : body.postal_code || null},
-      status = ${body.status || current.status},
-      lifecycle_phase = ${body.lifecycle_phase || current.lifecycle_phase},
-      notes = ${body.notes || null}
-    where id = ${id}
-  `
+  await sql.begin(async tx => {
+    const trx = tx as unknown as typeof sql
+    await trx`
+      update public.sites set
+        name = ${String(body.name).trim()},
+        site_code = ${body.site_code || null},
+        building = ${body.building || null},
+        city = ${current.location_id ? null : body.city},
+        state = ${current.location_id ? null : body.state},
+        address = ${current.location_id ? null : body.address || null},
+        postal_code = ${current.location_id ? null : body.postal_code || null},
+        status = ${body.status || current.status},
+        lifecycle_phase = ${body.lifecycle_phase || current.lifecycle_phase},
+        notes = ${body.notes || null}
+      where id = ${id}
+    `
+    const projectNumber = String(body.project_number || '').trim()
+    if (projectNumber) {
+      const representativeName = String(body.representative_name || '').trim()
+      const representativeId = representativeName ? await findOrCreateRepresentative(trx, representativeName) : null
+      const [project] = await trx`select id from public.projects where site_id = ${id} order by is_primary desc, created_at desc limit 1`
+      if (project) {
+        await trx`update public.projects set project_number = ${projectNumber}, name = ${String(body.name).trim()}, representative_id = ${representativeId} where id = ${project.id}`
+      } else {
+        await trx`insert into public.projects (site_id, representative_id, project_number, name, status, is_primary) values (${id}, ${representativeId}, ${projectNumber}, ${String(body.name).trim()}, 'active', true)`
+      }
+    }
+  })
   const [row] = await sql`select * from public.site_overview where id = ${id}`
   return NextResponse.json(row)
+}
+
+async function findOrCreateRepresentative(trx: typeof sql, name: string) {
+  await trx`insert into public.representatives (name) values (${name}) on conflict do nothing`
+  const [representative] = await trx`select id from public.representatives where lower(name) = lower(${name})`
+  return representative.id
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

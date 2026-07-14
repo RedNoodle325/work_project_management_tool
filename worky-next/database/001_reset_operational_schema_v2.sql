@@ -39,6 +39,20 @@ create table public.customers (
 
 create unique index customers_name_unique_ci on public.customers (lower(name));
 
+create table public.representatives (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  code text,
+  contact_name text,
+  email text,
+  phone text,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index representatives_name_unique_ci on public.representatives (lower(name));
+
 create table public.locations (
   id uuid primary key default gen_random_uuid(),
   customer_id uuid not null references public.customers(id) on delete cascade,
@@ -87,6 +101,7 @@ create unique index sites_standalone_name_unique_ci
 create table public.projects (
   id uuid primary key default gen_random_uuid(),
   site_id uuid not null references public.sites(id) on delete cascade,
+  representative_id uuid references public.representatives(id) on delete set null,
   project_number text not null,
   name text not null,
   status text not null default 'active' check (status in ('planned', 'active', 'on_hold', 'complete', 'cancelled')),
@@ -247,6 +262,7 @@ create table public.part_order_items (
 create index locations_customer_idx on public.locations(customer_id);
 create index sites_location_idx on public.sites(location_id);
 create index projects_site_idx on public.projects(site_id);
+create index projects_representative_idx on public.projects(representative_id);
 create index units_site_idx on public.units(site_id);
 create index asrs_site_idx on public.asrs(site_id);
 create index asrs_project_idx on public.asrs(project_id);
@@ -267,7 +283,7 @@ end $$;
 do $$
 declare table_name text;
 begin
-  foreach table_name in array array['customers','locations','sites','projects','units','contacts','asrs','issues','service_visits','part_orders']
+  foreach table_name in array array['customers','representatives','locations','sites','projects','units','contacts','asrs','issues','service_visits','part_orders']
   loop
     execute format('create trigger %I_touch_updated_at before update on public.%I for each row execute function public.touch_updated_at()', table_name, table_name);
   end loop;
@@ -312,6 +328,8 @@ select
   s.created_at,
   s.updated_at,
   c.name as customer_name,
+  (select p.project_number from public.projects p where p.site_id = s.id order by p.is_primary desc, p.created_at desc limit 1) as project_number,
+  (select r.name from public.projects p join public.representatives r on r.id = p.representative_id where p.site_id = s.id order by p.is_primary desc, p.created_at desc limit 1) as representative_name,
   (select count(*) from public.units u where u.site_id = s.id) as unit_count,
   (select count(*) from public.issues i where i.site_id = s.id and i.status not in ('resolved','closed')) as open_issue_count,
   (select count(*) from public.asrs a where a.site_id = s.id and a.status not in ('complete','cancelled')) as active_asr_count,
