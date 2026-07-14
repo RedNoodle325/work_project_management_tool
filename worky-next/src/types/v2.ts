@@ -121,6 +121,7 @@ export interface LeanIssueV2 {
   serial_number?: string
   source_url?: string
   source?: string
+  internal_notes?: string
   updated_at: string
 }
 

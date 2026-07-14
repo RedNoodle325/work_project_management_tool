@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Employee Scheduler Prototype</title>
+  <style>
+    :root {
+      --bg: #f5f6f6;
+      --panel: #ffffff;
+      --text: #25282b;
+      --muted: #6f767b;
+      --border: #e5e8ea;
+      --accent: #622c90;
+      --accent-soft: #f2edf7;
+      --danger: #b93b4d;
+      --shadow: 0 8px 30px rgba(37, 40, 43, 0.035);
+      --radius: 11px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, Aptos, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      padding: 24px 32px;
+      padding: 20px 28px;
+      background: linear-gradient(135deg, #211840, #622c90);
+      color: white;
+    }
+
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 26px;
+      letter-spacing: -0.025em;
+    }
+
+    header p {
+      margin: 0;
+      opacity: 0.85;
+    }
+
+    main {
+      padding: 24px 32px 40px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .filters, .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 14px;
+    }
+
+    .metric {
+      padding: 16px;
+      border-radius: 16px;
+      background: #fcfcfc;
+      border: 1px solid var(--border);
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .metric .value {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    button, select, input {
+      font: inherit;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: white;
+      color: var(--text);
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+
+    button.secondary {
+      background: white;
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    button.danger {
+      background: var(--danger);
+      border-color: var(--danger);
+    }
+
+    button:hover { filter: brightness(0.97); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(360px, 430px) 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .form {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .row > * { flex: 1; }
+
+    .list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .person {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fbfdff;
+      overflow: hidden;
+    }
+
+    .person > div:first-child {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .person small {
+      display: block;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .person-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .person-actions button {
+      padding: 8px 10px;
+      white-space: nowrap;
+    }
+
+    .form input,
+    .form select {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .schedule-wrap {
+      overflow: auto;
+    }
+
+    table {
+      border-collapse: separate;
+      border-spacing: 0;
+      width: 100%;
+      min-width: 980px;
+    }
+
+    th, td {
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 10px;
+      vertical-align: top;
+      background: white;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #f8fafc;
+      text-align: left;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    th:first-child, td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background: #f8fafc;
+      min-width: 190px;
+      font-weight: 700;
+    }
+
+    th:first-child { z-index: 3; }
+
+    .cell {
+      display: grid;
+      gap: 6px;
+      min-height: 116px;
+    }
+
+    .cell select, .cell input {
+      width: 100%;
+      padding: 7px 8px;
+      border-radius: 10px;
+      font-size: 13px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 12px;
+      font-weight: 800;
+      color: white;
+      width: fit-content;
+    }
+
+    .Working { background: #16a34a; }
+    .Travel { background: #7c3aed; }
+    .Vacation { background: #0284c7; }
+    .Sick { background: #ea580c; }
+    .Training { background: #0f766e; }
+    .Off { background: #64748b; }
+    .Unassigned { background: #94a3b8; }
+
+    .hours {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .toolbar-note {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 900px) {
+      main { padding: 18px; }
+      .grid { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Employee Scheduler</h1>
+  </header>
+
+  <main>
+    <section class="topbar">
+      <div class="filters">
+        <button class="secondary" onclick="changeWeek(-7)">← Previous Week</button>
+        <input type="date" id="weekStart" onchange="setWeekFromInput()" />
+        <button class="secondary" onclick="changeWeek(7)">Next Week →</button>
+        <select id="siteFilter" onchange="render()"></select>
+      </div>
+      <div class="actions">
+        <button onclick="exportData()">Export Data</button>
+        <button class="secondary" onclick="document.getElementById('importFile').click()">Import Data</button>
+        <input id="importFile" class="hidden" type="file" accept="application/json" onchange="importData(event)" />
+        <button class="danger" onclick="resetDemo()">Reset Demo</button>
+      </div>
+    </section>
+
+    <section class="summary">
+      <div class="metric"><div class="label">Employees</div><div class="value" id="metricEmployees">0</div></div>
+      <div class="metric"><div class="label">Scheduled Hours</div><div class="value" id="metricHours">0</div></div>
+      <div class="metric"><div class="label">Travel Days</div><div class="value" id="metricTravel">0</div></div>
+      <div class="metric"><div class="label">Vacation Days</div><div class="value" id="metricVacation">0</div></div>
+    </section>
+
+    <section class="grid">
+      <aside class="card">
+        <h2>Employee Roster</h2>
+        <div class="form">
+          <input id="employeeName" placeholder="Employee name" />
+          <div class="row">
+            <input id="employeeRole" placeholder="Role / skill" />
+            <select id="employeeHomeSite"></select>
+          </div>
+          <button onclick="addEmployee()">Add Employee</button>
+        </div>
+        <div class="list" id="employeeList"></div>
+
+        <hr style="border:0;border-top:1px solid var(--border);margin:18px 0;">
+
+        <h2>Sites</h2>
+        <div class="form">
+          <input id="siteName" placeholder="Site name" />
+          <button onclick="addSite()">Add Site</button>
+        </div>
+        <div class="list" id="siteList"></div>
+      </aside>
+
+      <section class="card">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+          <div>
+            <h2>Weekly Schedule</h2>
+            <div class="toolbar-note" id="saveStatus">Loading shared schedule…</div>
+          </div>
+        </div>
+        <div class="schedule-wrap">
+          <table id="scheduleTable"></table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const statuses = ["Unassigned", "Working", "Travel", "Vacation", "Sick", "Training", "Off"];
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    const demoData = {
+      sites: [
+        { id: "site-mesa", name: "Mesa" },
+        { id: "site-llano", name: "Llano" },
+        { id: "site-tor1a", name: "TOR1A" }
+      ],
+      employees: [
+        { id: "emp-1", name: "Alex Rivera", role: "Technician", homeSite: "site-mesa" },
+        { id: "emp-2", name: "Jordan Lee", role: "Lead Tech", homeSite: "site-llano" },
+        { id: "emp-3", name: "Sam Patel", role: "Technician", homeSite: "site-tor1a" }
+      ],
+      assignments: {}
+    };
+
+    let data = structuredClone(demoData);
+    let currentMonday = getMonday(new Date());
+    let saveTimer;
+    let scheduleLoaded = false;
+
+    function getMonday(date) {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      d.setDate(diff);
+      d.setHours(0,0,0,0);
+      return d;
+    }
+
+    function fmt(date) {
+      return date.toISOString().slice(0,10);
+    }
+
+    function addDays(date, amount) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + amount);
+      return d;
+    }
+
+    function uid(prefix) {
+      return prefix + "-" + Math.random().toString(36).slice(2, 9);
+    }
+
+    async function loadData() {
+      try {
+        const response = await fetch("/api/employee-scheduler", { headers: authHeaders() });
+        if (!response.ok) throw new Error("Could not load the shared schedule");
+        const saved = await response.json();
+        if (saved.data && typeof saved.data === "object") data = saved.data;
+        setSaveStatus(saved.data ? "All changes are shared and saved automatically." : "Ready — changes are shared and saved automatically.");
+      } catch (error) {
+        const saved = localStorage.getItem("employeeSchedulerData");
+        if (saved) data = JSON.parse(saved);
+        setSaveStatus("Offline mode — changes will save locally until the connection returns.");
+      } finally {
+        scheduleLoaded = true;
+        render();
+      }
+    }
+
+    function authHeaders() {
+      const token = localStorage.getItem("auth_token");
+      return token ? { Authorization: "Bearer " + token } : {};
+    }
+
+    function setSaveStatus(message) {
+      const status = document.getElementById("saveStatus");
+      if (status) status.textContent = message;
+    }
+
+    function saveData() {
+      localStorage.setItem("employeeSchedulerData", JSON.stringify(data));
+      if (!scheduleLoaded) return;
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        setSaveStatus("Saving shared schedule…");
+        try {
+          const response = await fetch("/api/employee-scheduler", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({ data })
+          });
+          if (!response.ok) throw new Error("Could not save schedule");
+          setSaveStatus("All changes are shared and saved automatically.");
+        } catch (error) {
+          setSaveStatus("Could not reach the server — changes are saved locally for now.");
+        }
+      }, 400);
+    }
+
+    function assignmentKey(empId, date) {
+      return empId + "|" + date;
+    }
+
+    function getAssignment(empId, date) {
+      const key = assignmentKey(empId, date);
+      if (!data.assignments[key]) {
+        data.assignments[key] = {
+          employeeId: empId,
+          date,
+          siteId: "",
+          status: "Unassigned",
+          start: "",
+          end: "",
+          notes: ""
+        };
+      }
+      return data.assignments[key];
+    }
+
+    function calcHours(start, end, status) {
+      if (status !== "Working" && status !== "Training") return 0;
+      if (!start || !end) return 0;
+      const [sh, sm] = start.split(":").map(Number);
+      const [eh, em] = end.split(":").map(Number);
+      let hours = (eh + em/60) - (sh + sm/60);
+      if (hours < 0) hours += 24;
+      return Math.round(hours * 10) / 10;
+    }
+
+    function render() {
+      document.getElementById("weekStart").value = fmt(currentMonday);
+      renderSiteDropdowns();
+      renderRoster();
+      renderSchedule();
+      renderMetrics();
+      saveData();
+    }
+
+    function renderSiteDropdowns() {
+      const siteFilter = document.getElementById("siteFilter");
+      const selectedSite = siteFilter.value;
+      const employeeHomeSite = document.getElementById("employeeHomeSite");
+      const selectedHomeSite = employeeHomeSite.value;
+
+      const options = [`<option value="">All Sites / Master View</option>`].concat(data.sites.map(s => `<option value="${s.id}">${s.name}</option>`)).join("");
+      siteFilter.innerHTML = options;
+
+      if (selectedSite && data.sites.some(s => s.id === selectedSite)) {
+        siteFilter.value = selectedSite;
+      } else {
+        siteFilter.value = "";
+      }
+
+      employeeHomeSite.innerHTML = data.sites.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+
+      if (selectedHomeSite && data.sites.some(s => s.id === selectedHomeSite)) {
+        employeeHomeSite.value = selectedHomeSite;
+      }
+    }
+
+    function renderRoster() {
+      const employeeList = document.getElementById("employeeList");
+      employeeList.innerHTML = data.employees.map(emp => {
+        const site = data.sites.find(s => s.id === emp.homeSite)?.name || "No site";
+        return `<div class="person">
+          <div>${emp.name}<small>${emp.role || "No role"} • ${site}</small></div>
+          <div class="person-actions">
+            <button class="secondary" onclick="modifyEmployee('${emp.id}')">Modify</button>
+            <button class="secondary" onclick="removeEmployee('${emp.id}')">Remove</button>
+          </div>
+        </div>`;
+      }).join("");
+
+      const siteList = document.getElementById("siteList");
+      siteList.innerHTML = data.sites.map(site => `
+        <div class="person">
+          <div>${site.name}<small>Site</small></div>
+          <div class="person-actions">
+            <button class="secondary" onclick="modifySite('${site.id}')">Modify</button>
+            <button class="secondary" onclick="removeSite('${site.id}')">Remove</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderSchedule() {
+      const siteFilter = document.getElementById("siteFilter").value;
+
+      const employees = siteFilter
+        ? data.employees.filter(emp => employeeHasVisibleSiteActivity(emp.id, siteFilter))
+        : data.employees;
+
+      const selectedSiteName = siteFilter
+        ? data.sites.find(s => s.id === siteFilter)?.name || "Selected Site"
+        : "All Sites / Master View";
+
+      const dateHeaders = days.map((day, i) => {
+        const d = addDays(currentMonday, i);
+        return `<th>${day}<br>${fmt(d)}</th>`;
+      }).join("");
+
+      if (employees.length === 0 && siteFilter) {
+        document.getElementById("scheduleTable").innerHTML = `
+          <thead><tr><th>${selectedSiteName}</th>${dateHeaders}</tr></thead>
+          <tbody>
+            <tr>
+              <td colspan="8" style="padding:22px;background:white;color:var(--muted);font-weight:600;">
+                No employees currently have ${selectedSiteName} as their home site or scheduled activity for this week.
+              </td>
+            </tr>
+          </tbody>`;
+        return;
+      }
+
+      const rows = employees.map(emp => {
+        const cells = days.map((_, i) => {
+          const date = fmt(addDays(currentMonday, i));
+          const a = getAssignment(emp.id, date);
+          const hours = calcHours(a.start, a.end, a.status);
+
+          if (siteFilter && a.siteId && a.siteId !== siteFilter) {
+            const otherSite = data.sites.find(s => s.id === a.siteId)?.name || "Another site";
+            return `<td>
+              <div class="cell">
+                <span class="pill Travel">Other Site</span>
+                <div class="hours">${emp.name} is assigned to ${otherSite} this day.</div>
+              </div>
+            </td>`;
+          }
+
+          if (siteFilter && !a.siteId && emp.homeSite !== siteFilter) {
+            return `<td>
+              <div class="cell">
+                <span class="pill Unassigned">No ${selectedSiteName} Activity</span>
+              </div>
+            </td>`;
+          }
+
+          return `<td>
+            <div class="cell">
+              <span class="pill ${a.status}">${a.status}</span>
+              <select onchange="updateAssignment('${emp.id}','${date}','status',this.value)">
+                ${statuses.map(st => `<option ${a.status === st ? "selected" : ""}>${st}</option>`).join("")}
+              </select>
+              <select onchange="updateAssignment('${emp.id}','${date}','siteId',this.value)">
+                <option value="">No site</option>
+                ${data.sites.map(site => `<option value="${site.id}" ${a.siteId === site.id ? "selected" : ""}>${site.name}</option>`).join("")}
+              </select>
+              <div class="row">
+                <input type="time" value="${a.start}" onchange="updateAssignment('${emp.id}','${date}','start',this.value)" />
+                <input type="time" value="${a.end}" onchange="updateAssignment('${emp.id}','${date}','end',this.value)" />
+              </div>
+              <input value="${escapeHtml(a.notes || "")}" placeholder="Notes" onchange="updateAssignment('${emp.id}','${date}','notes',this.value)" />
+              <div class="hours">${hours} hrs</div>
+            </div>
+          </td>`;
+        }).join("");
+
+        const homeSite = data.sites.find(s => s.id === emp.homeSite)?.name || "No home site";
+        return `<tr><td>${emp.name}<br><span class="hours">${emp.role || ""} • ${homeSite}</span></td>${cells}</tr>`;
+      }).join("");
+
+      document.getElementById("scheduleTable").innerHTML = `<thead><tr><th>${selectedSiteName}</th>${dateHeaders}</tr></thead><tbody>${rows}</tbody>`;
+    }
+
+    function employeeHasVisibleSiteActivity(empId, siteId) {
+      const weekDates = days.map((_, i) => fmt(addDays(currentMonday, i)));
+      const emp = data.employees.find(e => e.id === empId);
+      if (emp?.homeSite === siteId) return true;
+
+      return Object.values(data.assignments).some(a =>
+        a.employeeId === empId &&
+        weekDates.includes(a.date) &&
+        a.siteId === siteId
+      );
+    }
+
+    function hasAssignmentAtSite(empId, siteId) {
+      return Object.values(data.assignments).some(a => a.employeeId === empId && a.siteId === siteId);
+    }
+
+    function renderMetrics() {
+      const siteFilter = document.getElementById("siteFilter").value;
+      let hours = 0, travel = 0, vacation = 0;
+      const visibleEmployees = new Set(
+        siteFilter
+          ? data.employees.filter(emp => employeeHasVisibleSiteActivity(emp.id, siteFilter)).map(emp => emp.id)
+          : data.employees.map(emp => emp.id)
+      );
+      const weekDates = days.map((_, i) => fmt(addDays(currentMonday, i)));
+
+      Object.values(data.assignments).forEach(a => {
+        if (!weekDates.includes(a.date)) return;
+        if (!visibleEmployees.has(a.employeeId)) return;
+        if (siteFilter && a.siteId && a.siteId !== siteFilter) return;
+        if (siteFilter && !a.siteId) {
+          const emp = data.employees.find(e => e.id === a.employeeId);
+          if (emp?.homeSite !== siteFilter) return;
+        }
+
+        hours += calcHours(a.start, a.end, a.status);
+        if (a.status === "Travel") travel++;
+        if (a.status === "Vacation") vacation++;
+      });
+
+      document.getElementById("metricEmployees").textContent = visibleEmployees.size;
+      document.getElementById("metricHours").textContent = hours;
+      document.getElementById("metricTravel").textContent = travel;
+      document.getElementById("metricVacation").textContent = vacation;
+    }
+
+    function updateAssignment(empId, date, field, value) {
+      const a = getAssignment(empId, date);
+      a[field] = value;
+
+      if (field === "status") {
+        if (value === "Working" && !a.start && !a.end) {
+          a.start = "08:00";
+          a.end = "17:00";
+        }
+        if (["Vacation", "Sick", "Off"].includes(value)) {
+          a.start = "";
+          a.end = "";
+        }
+      }
+
+      render();
+    }
+
+    function addEmployee() {
+      const name = document.getElementById("employeeName").value.trim();
+      if (!name) return;
+      data.employees.push({
+        id: uid("emp"),
+        name,
+        role: document.getElementById("employeeRole").value.trim(),
+        homeSite: document.getElementById("employeeHomeSite").value
+      });
+      document.getElementById("employeeName").value = "";
+      document.getElementById("employeeRole").value = "";
+      render();
+    }
+
+    function modifyEmployee(id) {
+      const emp = data.employees.find(e => e.id === id);
+      if (!emp) return;
+
+      const newName = prompt("Enter employee name:", emp.name);
+      if (newName === null) return;
+
+      const cleanName = newName.trim();
+      if (!cleanName) {
+        alert("Employee name cannot be blank.");
+        return;
+      }
+
+      const newRole = prompt("Enter role / skill:", emp.role || "");
+      if (newRole === null) return;
+
+      const siteList = data.sites.map((s, index) => `${index + 1}. ${s.name}`).join("\n");
+      const currentIndex = Math.max(1, data.sites.findIndex(s => s.id === emp.homeSite) + 1);
+      const siteChoice = prompt(`Choose home site number:\n${siteList}`, String(currentIndex));
+      if (siteChoice === null) return;
+
+      const selectedSite = data.sites[Number(siteChoice) - 1];
+      if (!selectedSite) {
+        alert("Invalid site selection. Employee was not changed.");
+        return;
+      }
+
+      emp.name = cleanName;
+      emp.role = newRole.trim();
+      emp.homeSite = selectedSite.id;
+      render();
+    }
+
+    function removeEmployee(id) {
+      data.employees = data.employees.filter(e => e.id !== id);
+      Object.keys(data.assignments).forEach(k => {
+        if (data.assignments[k].employeeId === id) delete data.assignments[k];
+      });
+      render();
+    }
+
+    function addSite() {
+      const name = document.getElementById("siteName").value.trim();
+      if (!name) return;
+      data.sites.push({ id: uid("site"), name });
+      document.getElementById("siteName").value = "";
+      render();
+    }
+
+    function modifySite(id) {
+      const site = data.sites.find(s => s.id === id);
+      if (!site) return;
+
+      const newName = prompt("Enter the new site name:", site.name);
+      if (newName === null) return;
+
+      const cleanName = newName.trim();
+      if (!cleanName) {
+        alert("Site name cannot be blank.");
+        return;
+      }
+
+      site.name = cleanName;
+      render();
+    }
+
+    function removeSite(id) {
+      data.sites = data.sites.filter(s => s.id !== id);
+      data.employees.forEach(e => { if (e.homeSite === id) e.homeSite = ""; });
+      Object.values(data.assignments).forEach(a => { if (a.siteId === id) a.siteId = ""; });
+      render();
+    }
+
+    function changeWeek(days) {
+      currentMonday = addDays(currentMonday, days);
+      render();
+    }
+
+    function setWeekFromInput() {
+      currentMonday = getMonday(new Date(document.getElementById("weekStart").value));
+      render();
+    }
+
+    function exportData() {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "employee-scheduler-data.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          data = JSON.parse(reader.result);
+          saveData();
+          render();
+        } catch {
+          alert("Could not import file. Please use a valid scheduler JSON export.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function resetDemo() {
+      if (!confirm("Reset all demo data and local saved changes?")) return;
+      data = structuredClone(demoData);
+      localStorage.removeItem("employeeSchedulerData");
+      render();
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, m => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+      }[m]));
+    }
+
+    render();
+    loadData();
+  </script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { ExternalLink, FileSpreadsheet, Plus, RefreshCw, Search, Upload, X } from 'lucide-react'
+import { ExternalLink, FileSpreadsheet, Plus, Search, StickyNote, Upload, X } from 'lucide-react'
 import { V2 } from '@/api/v2'
 import type { LeanIssueV2, SiteSummaryV2 } from '@/types/v2'
 
@@ -11,8 +11,8 @@ export function XnrgyIssues() {
   const [siteId, setSiteId] = useState('')
   const [search, setSearch] = useState('')
   const [showImport, setShowImport] = useState(false)
-  const [showSync, setShowSync] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
+  const [noteIssue, setNoteIssue] = useState<LeanIssueV2 | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -44,7 +44,7 @@ export function XnrgyIssues() {
   return <div className="x-page x-issues-page">
     <header className="x-directory-head">
       <div><span className="x-kicker">Issue tracker</span><h1>Issues</h1><p>Issue number, description, equipment, and serial number—nothing extra.</p></div>
-      <div className="x-issue-actions"><button onClick={() => setShowSync(true)}><RefreshCw size={16} /> Sync CxAlloy</button><button onClick={() => setShowImport(true)}><Upload size={16} /> Import export</button><button className="primary" onClick={() => setShowCreate(true)}><Plus size={16} /> New issue</button></div>
+      <div className="x-issue-actions"><button onClick={() => setShowImport(true)}><Upload size={16} /> Import export</button><button className="primary" onClick={() => setShowCreate(true)}><Plus size={16} /> New issue</button></div>
     </header>
 
     <div className="x-issue-toolbar">
@@ -58,7 +58,7 @@ export function XnrgyIssues() {
     {!error && !loading && <div className="x-lean-issues">
       <div className="x-lean-issue-head"><span>Issue Number</span><span>Description</span><span>Equipment Name / Asset Tag</span><span>Serial #</span></div>
       {filtered.map(issue => <div className="x-lean-issue-row" key={issue.id}>
-        <span><strong>{issue.issue_number}</strong>{issue.source_url && <a className="x-lean-issue-link" href={issue.source_url} target="_blank" rel="noreferrer">Open in CxAlloy <ExternalLink size={12} /></a>}<small>{issue.site_name}</small></span>
+        <span><div className="x-issue-number-actions"><strong>{issue.issue_number}</strong>{issue.source_url && <a className="x-issue-icon-action" href={issue.source_url} target="_blank" rel="noreferrer" title="Open in CxAlloy" aria-label={`Open ${issue.issue_number} in CxAlloy`}><ExternalLink size={14} /></a>}<button type="button" className={`x-issue-icon-action ${issue.internal_notes ? 'has-note' : ''}`} onClick={() => setNoteIssue(issue)} title={issue.internal_notes ? 'Edit internal note' : 'Add internal note'} aria-label={`Add an internal note to ${issue.issue_number}`}><StickyNote size={14} /></button></div><small>{issue.site_name}</small></span>
         <p>{issue.description || '—'}</p>
         <code>{issue.equipment_name || '—'}</code>
         <code className={!issue.serial_number ? 'is-empty' : ''}>{issue.serial_number || '—'}</code>
@@ -67,9 +67,27 @@ export function XnrgyIssues() {
     </div>}
 
     {showImport && <ImportIssues sites={sites} initialSiteId={siteId} close={() => setShowImport(false)} imported={(selectedSiteId) => { setShowImport(false); changeSite(selectedSiteId) }} />}
-    {showSync && <SyncIssues sites={sites} initialSiteId={siteId} close={() => setShowSync(false)} synced={(selectedSiteId) => { setShowSync(false); changeSite(selectedSiteId) }} />}
     {showCreate && <CreateIssue sites={sites} initialSiteId={siteId} close={() => setShowCreate(false)} saved={(selectedSiteId) => { setShowCreate(false); changeSite(selectedSiteId) }} />}
+    {noteIssue && <IssueNotes issue={noteIssue} close={() => setNoteIssue(null)} saved={(notes) => { setIssues(current => current.map(issue => issue.id === noteIssue.id ? { ...issue, internal_notes: notes || undefined } : issue)); setNoteIssue(null) }} />}
   </div>
+}
+
+function IssueNotes({ issue, close, saved }: { issue: LeanIssueV2; close: () => void; saved: (notes: string) => void }) {
+  const [notes, setNotes] = useState(issue.internal_notes || '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setSaving(true); setError('')
+    try { await V2.issues.updateNotes(issue.id, notes); saved(notes.trim()) }
+    catch (error) { setError((error as Error).message) }
+    finally { setSaving(false) }
+  }
+  return <div className="x-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}><form className="x-modal" onSubmit={submit}>
+    <header><div><span className="x-kicker">Internal only</span><h2>Notes · {issue.issue_number}</h2></div><button type="button" onClick={close}><X size={18} /></button></header>
+    <p className="x-import-intro">These notes stay in Site Intelligence and are not sent to CxAlloy.</p>
+    <label className="x-field"><span>Internal notes</span><textarea value={notes} onChange={event => setNotes(event.target.value)} rows={7} placeholder="Add coordination notes, next steps, or context…" autoFocus /></label>
+    {error && <p className="x-error">{error}</p>}<footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save notes'}</button></footer>
+  </form></div>
 }
 
 function CreateIssue({ sites, initialSiteId, close, saved }: { sites: SiteSummaryV2[]; initialSiteId: string; close: () => void; saved: (siteId: string) => void }) {
@@ -122,26 +140,5 @@ function ImportIssues({ sites, initialSiteId, close, imported }: { sites: SiteSu
     <label className="x-file-drop" onClick={() => picker.current?.click()}><FileSpreadsheet size={25} /><strong>{file?.name || 'Choose CxAlloy Excel export'}</strong><span>.xlsx files are supported</span><input ref={picker} type="file" accept=".xlsx" onChange={event => setFile(event.target.files?.[0] || null)} /></label>
     {error && <p className="x-error">{error}</p>}{note && <p className="x-import-success">{note}</p>}
     <footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving || !siteId || !file}>{saving ? 'Importing…' : 'Import issues'}</button></footer>
-  </form></div>
-}
-
-function SyncIssues({ sites, initialSiteId, close, synced }: { sites: SiteSummaryV2[]; initialSiteId: string; close: () => void; synced: (siteId: string) => void }) {
-  const [siteId, setSiteId] = useState(initialSiteId)
-  const [projectId, setProjectId] = useState('40206')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  async function submit(event: FormEvent) {
-    event.preventDefault(); setSaving(true); setError('')
-    try { await V2.issues.syncCxAlloy(siteId, Number(projectId)); synced(siteId) }
-    catch (error) { setError((error as Error).message) }
-    finally { setSaving(false) }
-  }
-  return <div className="x-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}><form className="x-modal" onSubmit={submit}>
-    <header><div><span className="x-kicker">CxAlloy API</span><h2>Sync assigned issues</h2></div><button type="button" onClick={close}><X size={18} /></button></header>
-    <p className="x-import-intro">Pulls issues assigned to Subcontractor, XNRGY, or Zak Klinedinst and updates matching issue numbers. A read-only CxAlloy API key must be configured on the server.</p>
-    <label className="x-field"><span>Site</span><select value={siteId} onChange={event => setSiteId(event.target.value)} required><option value="">Choose a site</option>{sites.map(site => <option value={site.id} key={site.id}>{site.name}</option>)}</select></label>
-    <label className="x-field"><span>CxAlloy project ID</span><input inputMode="numeric" value={projectId} onChange={event => setProjectId(event.target.value.replace(/\D/g, ''))} required /></label>
-    {error && <p className="x-error">{error}</p>}
-    <footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving || !siteId || !projectId}>{saving ? 'Syncing…' : 'Sync issues'}</button></footer>
   </form></div>
 }

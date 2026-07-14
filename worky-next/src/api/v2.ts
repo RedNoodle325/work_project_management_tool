@@ -29,6 +29,7 @@ export const V2 = {
   issues: {
     list: (siteId?: string) => request<LeanIssueV2[]>(`/issues${siteId ? `?site_id=${encodeURIComponent(siteId)}` : ''}`),
     create: (data: Record<string, unknown>) => request('/issues', { method: 'POST', body: JSON.stringify(data) }),
+    updateNotes: (id: string, internal_notes: string) => request(`/issues/${id}`, { method: 'PATCH', body: JSON.stringify({ internal_notes }) }),
     importCxAlloy: async (siteId: string, file: File) => {
       const token = getToken()
       const form = new FormData()
@@ -43,13 +44,21 @@ export const V2 = {
       if (!response.ok) throw new Error(payload?.error || `Import failed (${response.status})`)
       return payload as { imported: number; created: number; updated: number; serialColumnFound: boolean }
     },
-    syncCxAlloy: (siteId: string, projectId: number) => request<{ imported: number; created: number; updated: number; fetched: number; matchedAssignments: number }>('/issues/sync-cxalloy', { method: 'POST', body: JSON.stringify({ site_id: siteId, project_id: projectId }) }),
   },
   sites: {
     get: (id: string) => request<SiteWorkspaceV2>(`/sites/${id}`),
     update: (id: string, data: Record<string, unknown>) => request(`/sites/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => request(`/sites/${id}`, { method: 'DELETE' }),
     createRelated: (id: string, data: Record<string, unknown>) => request(`/sites/${id}`, { method: 'POST', body: JSON.stringify(data) }),
+    importEquipment: async (id: string, file: File) => {
+      const token = getToken()
+      const form = new FormData()
+      form.set('file', file)
+      const response = await fetch(`/api/v2/sites/${id}/units/import`, { method: 'POST', body: form, headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error || `Import failed (${response.status})`)
+      return payload as { created: number; updated: number; processed: number }
+    },
     attachments: (id: string) => request<AttachmentV2[]>(`/sites/${id}/attachments`),
     upload: async (id: string, form: FormData) => {
       const token = getToken()

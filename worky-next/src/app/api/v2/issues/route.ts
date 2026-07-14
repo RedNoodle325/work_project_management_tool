@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
           i.description,
           coalesce(i.equipment_name, u.tag) as equipment_name,
           coalesce(i.equipment_serial_number, u.serial_number) as serial_number,
-          i.source_url, i.source, i.updated_at
+          i.source_url, i.source, i.internal_notes, i.updated_at
         from public.issues i
         join public.sites s on s.id = i.site_id
         left join public.units u on u.id = i.unit_id
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
           i.description,
           coalesce(i.equipment_name, u.tag) as equipment_name,
           coalesce(i.equipment_serial_number, u.serial_number) as serial_number,
-          i.source_url, i.source, i.updated_at
+          i.source_url, i.source, i.internal_notes, i.updated_at
         from public.issues i
         join public.sites s on s.id = i.site_id
         left join public.units u on u.id = i.unit_id
