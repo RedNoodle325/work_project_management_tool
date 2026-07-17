@@ -15,6 +15,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Email, password, and display_name are required' }, { status: 400 })
   }
 
+  const normalizedEmail = email.trim().toLowerCase()
+  if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+    return NextResponse.json({ error: 'Enter a valid email address' }, { status: 400 })
+  }
+
   if (password.length < 8) {
     return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
   }
@@ -23,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   const [user] = await sql`
     INSERT INTO public.users (email, password_hash, display_name)
-    VALUES (${email.toLowerCase()}, ${password_hash}, ${display_name})
+    VALUES (${normalizedEmail}, ${password_hash}, ${display_name.trim()})
     RETURNING id, email, display_name
   `
 

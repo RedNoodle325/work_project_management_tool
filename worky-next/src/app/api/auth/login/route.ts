@@ -10,10 +10,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
   }
 
+  // This workspace is intentionally single-owner. The first account created
+  // during setup is the owner; later rows cannot be used to gain access.
   const rows = await sql`
     SELECT id, email, password_hash, display_name
     FROM public.users
     WHERE email = ${email.toLowerCase()}
+      AND id = (
+        SELECT id FROM public.users
+        ORDER BY created_at ASC, id ASC
+        LIMIT 1
+      )
   `
 
   const user = rows[0]

@@ -6,6 +6,7 @@ interface AuthContextValue {
   user: AuthUser | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  setup: (email: string, password: string, displayName: string) => Promise<void>
   logout: () => void
   isAuthenticated: boolean
 }
@@ -14,6 +15,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
   login: async () => {},
+  setup: async () => {},
   logout: () => {},
   isAuthenticated: false,
 })
@@ -62,13 +64,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('auth_user', JSON.stringify(u))
   }
 
+  const setup = async (email: string, password: string, displayName: string) => {
+    const res = await API.auth.setup({ email, password, display_name: displayName })
+    setToken(res.token)
+    const u: AuthUser = { id: '', email: res.email, name: res.display_name }
+    setUser(u)
+    localStorage.setItem('auth_user', JSON.stringify(u))
+  }
+
   const logout = () => {
     clearToken()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, loading, login, setup, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   )
