@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth(req, { allowReadOnlyOwner: true })
   if (auth.error) return auth.error
 
-  const body = await req.json()
+  const body = await req.json() as { content?: unknown; description?: unknown; project_id?: unknown }
   if (typeof body.content !== 'string' || !body.content.trim()) {
     return NextResponse.json({ error: 'Task text is required' }, { status: 400 })
   }
@@ -54,7 +54,11 @@ export async function POST(req: NextRequest) {
   try {
     const response = await todoistFetch('', {
       method: 'POST',
-      body: JSON.stringify({ content: body.content.trim(), description: body.description?.trim() || undefined }),
+      body: JSON.stringify({
+        content: body.content.trim(),
+        description: typeof body.description === 'string' ? body.description.trim() || undefined : undefined,
+        project_id: typeof body.project_id === 'string' && body.project_id ? body.project_id : undefined,
+      }),
     })
     return NextResponse.json(await response.json(), { status: 201 })
   } catch (error) {

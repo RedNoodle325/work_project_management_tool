@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Circle, Plus, RefreshCw } from 'lucide-react'
 import { useToastFn } from '@/app/providers'
-import { getToken } from '@/api'
+import { clearToken, getToken } from '@/api'
 
 interface TodoistTask {
   id: string
@@ -14,11 +14,26 @@ interface TodoistTask {
   labels?: string[]
 }
 
+interface TodoistProject {
+  id: string
+  name: string
+}
+
 async function todoistRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getToken()
+  if (!token) {
+    window.location.assign('/login')
+    throw new Error('Please sign in to view your personal to-do list')
+  }
   const response = await fetch(`/api/todoist${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}`, ...options.headers },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers },
   })
+  if (response.status === 401) {
+    clearToken()
+    window.location.assign('/login')
+    throw new Error('Your session expired. Please sign in again.')
+  }
   if (!response.ok) {
     const data = await response.json().catch(() => null)
     throw new Error(data?.error || 'Unable to reach Todoist')
@@ -29,13 +44,22 @@ async function todoistRequest<T>(path: string, options: RequestInit = {}): Promi
 export function TodoistTodos() {
   const toast = useToastFn()
   const [tasks, setTasks] = useState<TodoistTask[]>([])
+  const [projects, setProjects] = useState<TodoistProject[]>([])
+  const [projectId, setProjectId] = useState('')
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   const load = async () => {
     setLoading(true)
-    try { setTasks(await todoistRequest<TodoistTask[]>('/tasks')) }
+    try {
+      const [taskData, projectData] = await Promise.all([
+        todoistRequest<TodoistTask[]>('/tasks'),
+        todoistRequest<TodoistProject[]>('/projects'),
+      ])
+      setTasks(taskData)
+      setProjects(projectData.sort((a, b) => a.name.localeCompare(b.name)))
+    }
     catch (error) { toast(error instanceof Error ? error.message : 'Unable to load tasks', 'error') }
     finally { setLoading(false) }
   }
@@ -50,7 +74,7 @@ export function TodoistTodos() {
     if (!text.trim()) return
     setSaving(true)
     try {
-      const task = await todoistRequest<TodoistTask>('/tasks', { method: 'POST', body: JSON.stringify({ content: text }) })
+      const task = await todoistRequest<TodoistTask>('/tasks', { method: 'POST', body: JSON.stringify({ content: text, project_id: projectId || undefined }) })
       setTasks(current => [task, ...current])
       setText('')
     } catch (error) { toast(error instanceof Error ? error.message : 'Unable to add task', 'error') }
@@ -69,8 +93,12 @@ export function TodoistTodos() {
       <div><h1 style={{ margin: 0 }}>My To-Do List</h1><div className="page-subtitle">Private tasks synced with Todoist</div></div>
       <button className="btn btn-secondary btn-sm" onClick={load} disabled={loading}><RefreshCw size={14} /> Refresh</button>
     </div>
-    <form onSubmit={addTask} style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+    <form onSubmit={addTask} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 0.45fr) auto', gap: 8, marginBottom: 18 }}>
       <input value={text} onChange={event => setText(event.target.value)} placeholder="Add a task to Todoist…" aria-label="New task" />
+      <select value={projectId} onChange={event => setProjectId(event.target.value)} aria-label="Todoist project">
+        <option value="">Inbox (no project)</option>
+        {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
+      </select>
       <button className="btn btn-primary" disabled={saving || !text.trim()}><Plus size={16} /> {saving ? 'Adding…' : 'Add task'}</button>
     </form>
     {loading ? <div style={{ color: 'var(--text3)', padding: 32, textAlign: 'center' }}>Loading your tasks…</div> : tasks.length === 0 ? <div style={{ color: 'var(--text3)', padding: 32, textAlign: 'center' }}>Nothing left to do.</div> : <div>
