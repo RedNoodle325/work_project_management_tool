@@ -7,7 +7,10 @@ type AuthResult =
   | { error: NextResponse; claims?: never }
   | { error?: never; claims: Claims }
 
-export async function requireAuth(req: NextRequest | Request): Promise<AuthResult> {
+export async function requireAuth(
+  req: NextRequest | Request,
+  options: { allowReadOnlyOwner?: boolean } = {},
+): Promise<AuthResult> {
   const token = extractToken(req)
   if (token) {
     const claims = await verifyToken(token)
@@ -25,7 +28,7 @@ export async function requireAuth(req: NextRequest | Request): Promise<AuthResul
 
   // The tracker is public to browse. Only the owner can use a non-read request
   // to create, change, upload, import, or delete data.
-  if (req.method === 'GET' || req.method === 'HEAD') {
+  if (!options.allowReadOnlyOwner && (req.method === 'GET' || req.method === 'HEAD')) {
     return { claims: { sub: 'anon', email: '', name: 'Read-only visitor' } }
   }
 
