@@ -320,6 +320,7 @@
       </div>
       <div class="actions">
         <button onclick="exportData()">Export Data</button>
+        <button onclick="generateDispatch()">Generate Dispatch</button>
         <button class="secondary" onclick="document.getElementById('importFile').click()">Import Data</button>
         <input id="importFile" class="hidden" type="file" accept="application/json" onchange="importData(event)" />
         <button class="danger" onclick="resetDemo()">Reset Demo</button>
@@ -477,6 +478,7 @@
           status: "Unassigned",
           start: "",
           end: "",
+          scope: "",
           notes: ""
         };
       }
@@ -616,6 +618,7 @@
                 <input type="time" value="${a.start}" onchange="updateAssignment('${emp.id}','${date}','start',this.value)" />
                 <input type="time" value="${a.end}" onchange="updateAssignment('${emp.id}','${date}','end',this.value)" />
               </div>
+              <input value="${escapeHtml(a.scope || "")}" placeholder="Scope of work" onchange="updateAssignment('${emp.id}','${date}','scope',this.value)" />
               <input value="${escapeHtml(a.notes || "")}" placeholder="Notes" onchange="updateAssignment('${emp.id}','${date}','notes',this.value)" />
               <div class="hours">${hours} hrs</div>
             </div>
@@ -797,6 +800,73 @@
       a.download = "employee-scheduler-data.json";
       a.click();
       URL.revokeObjectURL(a.href);
+    }
+
+    function dispatchAddress(site) {
+      return [site.address, [site.city, site.state].filter(Boolean).join(", "), site.zip_code]
+        .filter(Boolean).join(", ") || "Address not available in the workspace";
+    }
+
+    function dispatchPrintHtml(entries, weekLabel) {
+      const cards = entries.map(entry => {
+        const unitLines = entry.siteRecord?.units?.filter(unit => unit.serial_number).map(unit =>
+          `<li><strong>${escapeHtml(unit.serial_number)}</strong>${unit.model ? ` · ${escapeHtml(unit.model)}` : ""}${unit.unit_type ? ` · ${escapeHtml(unit.unit_type)}` : ""}</li>`
+        ).join("") || "<li>No unit serials recorded for this site.</li>";
+        const technicianLines = entry.assignments.map(assignment =>
+          `<li>${escapeHtml(assignment.employee.name)}${assignment.employee.role ? ` — ${escapeHtml(assignment.employee.role)}` : ""}${assignment.start || assignment.end ? ` (${escapeHtml(assignment.start || "—")}–${escapeHtml(assignment.end || "—")})` : ""}</li>`
+        ).join("");
+        const scopes = [...new Set(entry.assignments.map(assignment => assignment.scope || assignment.notes).filter(Boolean))];
+        const displayName = entry.siteRecord?.project_name || entry.siteRecord?.name || entry.site.name;
+        return `<article class="dispatch-card">
+          <div class="date">${escapeHtml(entry.date)}</div>
+          <h2>${escapeHtml(displayName)}</h2>
+          ${entry.siteRecord?.project_number ? `<div class="project">Project ${escapeHtml(entry.siteRecord.project_number)}</div>` : ""}
+          <section><h3>Site address</h3><p>${escapeHtml(entry.siteRecord ? dispatchAddress(entry.siteRecord) : "No matching workspace site found — check the scheduler site name.")}</p></section>
+          <section><h3>Scope of work</h3><p>${scopes.length ? scopes.map(escapeHtml).join("<br>") : "Not specified"}</p></section>
+          <section><h3>Assigned technician${entry.assignments.length === 1 ? "" : "s"}</h3><ul>${technicianLines}</ul></section>
+          <section><h3>Unit serial numbers</h3><ul>${unitLines}</ul></section>
+        </article>`;
+      }).join("");
+      return `<!doctype html><html><head><title>Dispatch — ${escapeHtml(weekLabel)}</title><style>
+        *{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#17202a;margin:36px;background:#fff}header{border-bottom:3px solid #00a6c7;padding-bottom:14px;margin-bottom:22px}h1{margin:0;font-size:25px}header p{margin:5px 0 0;color:#53606b}.dispatch-card{break-inside:avoid;border:1px solid #ccd4da;border-left:5px solid #00a6c7;border-radius:6px;padding:18px;margin:0 0 16px}.date{color:#007c98;font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em}h2{font-size:20px;margin:5px 0}.project{color:#53606b;font-size:13px;margin-bottom:16px}section{margin-top:13px}h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 4px;color:#53606b}p,li{font-size:13px;line-height:1.45;margin:0}ul{padding-left:18px;margin:0}@media print{body{margin:18px}.dispatch-card{page-break-inside:avoid}}</style></head><body><header><h1>Technician Dispatch</h1><p>${escapeHtml(weekLabel)}</p></header>${cards}</body></html>`;
+    }
+
+    async function generateDispatch() {
+      const weekDates = days.map((_, i) => fmt(addDays(currentMonday, i)));
+      const groups = new Map();
+      Object.values(data.assignments).forEach(assignment => {
+        if (!weekDates.includes(assignment.date) || !assignment.siteId || !["Working", "Travel", "Training"].includes(assignment.status)) return;
+        const employee = data.employees.find(item => item.id === assignment.employeeId);
+        const site = data.sites.find(item => item.id === assignment.siteId);
+        if (!employee || !site) return;
+        const key = `${assignment.date}|${site.id}`;
+        if (!groups.has(key)) groups.set(key, { date: assignment.date, site, assignments: [] });
+        groups.get(key).assignments.push({ ...assignment, employee });
+      });
+      const entries = [...groups.values()].sort((a, b) => `${a.date}${a.site.name}`.localeCompare(`${b.date}${b.site.name}`));
+      if (!entries.length) { alert("No working, travel, or training assignments with a site are scheduled for this week."); return; }
+      const popup = window.open("", "_blank");
+      if (!popup) { alert("Allow pop-ups to generate the dispatch."); return; }
+      popup.document.write("<p style='font-family:Arial;padding:24px'>Preparing dispatch…</p>");
+      try {
+        const params = new URLSearchParams();
+        [...new Set(entries.map(entry => entry.site.name))].forEach(name => params.append("site", name));
+        const response = await fetch(`/api/employee-scheduler/dispatch?${params}`, { headers: authHeaders() });
+        if (response.status === 401) throw new Error("Sign in to the workspace before generating a dispatch.");
+        if (!response.ok) throw new Error("Could not load site dispatch details.");
+        const siteRecords = await response.json();
+        entries.forEach(entry => {
+          entry.siteRecord = siteRecords.find(site => site.name.toLowerCase() === entry.site.name.toLowerCase() || (site.project_name || "").toLowerCase() === entry.site.name.toLowerCase());
+        });
+        const weekLabel = `Week of ${fmt(currentMonday)}`;
+        popup.document.open();
+        popup.document.write(dispatchPrintHtml(entries, weekLabel));
+        popup.document.close();
+        popup.focus();
+      } catch (error) {
+        popup.close();
+        alert(error.message || "Could not generate dispatch.");
+      }
     }
 
     function importData(event) {
