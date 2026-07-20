@@ -298,6 +298,15 @@
 
     .hidden { display: none; }
 
+    body.read-only .owner-only { display: none !important; }
+    body.read-only .cell select,
+    body.read-only .cell input {
+      cursor: default;
+      color: var(--text);
+      background: #f8fafc;
+      opacity: 1;
+    }
+
     @media (max-width: 900px) {
       main { padding: 18px; }
       .grid { grid-template-columns: 1fr; }
@@ -305,7 +314,7 @@
     }
   </style>
 </head>
-<body>
+<body class="read-only">
   <header>
     <h1>Employee Scheduler</h1>
   </header>
@@ -321,9 +330,9 @@
       <div class="actions">
         <button onclick="exportData()">Export Data</button>
         <button onclick="generateDispatch()">Generate Dispatch</button>
-        <button class="secondary" onclick="document.getElementById('importFile').click()">Import Data</button>
-        <input id="importFile" class="hidden" type="file" accept="application/json" onchange="importData(event)" />
-        <button class="danger" onclick="resetDemo()">Reset Demo</button>
+        <button class="secondary owner-only" onclick="document.getElementById('importFile').click()">Import Data</button>
+        <input id="importFile" class="hidden owner-only" type="file" accept="application/json" onchange="importData(event)" />
+        <button class="danger owner-only" onclick="resetDemo()">Reset Demo</button>
       </div>
     </section>
 
@@ -337,7 +346,7 @@
     <section class="grid">
       <aside class="card">
         <h2>Employee Roster</h2>
-        <div class="form">
+        <div class="form owner-only">
           <input id="employeeName" placeholder="Employee name" />
           <div class="row">
             <input id="employeeRole" placeholder="Role / skill" />
@@ -350,7 +359,7 @@
         <hr style="border:0;border-top:1px solid var(--border);margin:18px 0;">
 
         <h2>Sites</h2>
-        <div class="form">
+        <div class="form owner-only">
           <input id="siteName" placeholder="Site name" />
           <button onclick="addSite()">Add Site</button>
         </div>
@@ -393,6 +402,7 @@
     let currentMonday = getMonday(new Date());
     let saveTimer;
     let scheduleLoaded = false;
+    let canEdit = false;
 
     function getMonday(date) {
       const d = new Date(date);
@@ -422,12 +432,16 @@
         const response = await fetch("/api/employee-scheduler", { headers: authHeaders() });
         if (!response.ok) throw new Error("Could not load the shared schedule");
         const saved = await response.json();
+        canEdit = saved.can_edit === true;
+        document.body.classList.toggle("read-only", !canEdit);
         if (saved.data && typeof saved.data === "object") data = saved.data;
-        setSaveStatus(saved.data ? "All changes are shared and saved automatically." : "Ready — changes are shared and saved automatically.");
+        setSaveStatus(canEdit
+          ? (saved.data ? "All changes are shared and saved automatically." : "Ready — changes are shared and saved automatically.")
+          : "Read-only view — sign in as the owner to make changes.");
       } catch (error) {
-        const saved = localStorage.getItem("employeeSchedulerData");
-        if (saved) data = JSON.parse(saved);
-        setSaveStatus("Offline mode — changes will save locally until the connection returns.");
+        canEdit = false;
+        document.body.classList.add("read-only");
+        setSaveStatus("Could not load the shared schedule. Read-only mode is active.");
       } finally {
         scheduleLoaded = true;
         render();
@@ -445,6 +459,7 @@
     }
 
     function saveData() {
+      if (!canEdit) return;
       localStorage.setItem("employeeSchedulerData", JSON.stringify(data));
       if (!scheduleLoaded) return;
       clearTimeout(saveTimer);
@@ -532,7 +547,7 @@
         const site = data.sites.find(s => s.id === emp.homeSite)?.name || "No site";
         return `<div class="person">
           <div>${emp.name}<small>${emp.role || "No role"} • ${site}</small></div>
-          <div class="person-actions">
+          <div class="person-actions owner-only">
             <button class="secondary" onclick="modifyEmployee('${emp.id}')">Modify</button>
             <button class="secondary" onclick="removeEmployee('${emp.id}')">Remove</button>
           </div>
@@ -543,7 +558,7 @@
       siteList.innerHTML = data.sites.map(site => `
         <div class="person">
           <div>${site.name}<small>Site</small></div>
-          <div class="person-actions">
+          <div class="person-actions owner-only">
             <button class="secondary" onclick="modifySite('${site.id}')">Modify</button>
             <button class="secondary" onclick="removeSite('${site.id}')">Remove</button>
           </div>
@@ -607,19 +622,19 @@
           return `<td>
             <div class="cell">
               <span class="pill ${a.status}">${a.status}</span>
-              <select onchange="updateAssignment('${emp.id}','${date}','status',this.value)">
+              <select ${canEdit ? "" : "disabled"} onchange="updateAssignment('${emp.id}','${date}','status',this.value)">
                 ${statuses.map(st => `<option ${a.status === st ? "selected" : ""}>${st}</option>`).join("")}
               </select>
-              <select onchange="updateAssignment('${emp.id}','${date}','siteId',this.value)">
+              <select ${canEdit ? "" : "disabled"} onchange="updateAssignment('${emp.id}','${date}','siteId',this.value)">
                 <option value="">No site</option>
                 ${data.sites.map(site => `<option value="${site.id}" ${a.siteId === site.id ? "selected" : ""}>${site.name}</option>`).join("")}
               </select>
               <div class="row">
-                <input type="time" value="${a.start}" onchange="updateAssignment('${emp.id}','${date}','start',this.value)" />
-                <input type="time" value="${a.end}" onchange="updateAssignment('${emp.id}','${date}','end',this.value)" />
+                <input ${canEdit ? "" : "disabled"} type="time" value="${a.start}" onchange="updateAssignment('${emp.id}','${date}','start',this.value)" />
+                <input ${canEdit ? "" : "disabled"} type="time" value="${a.end}" onchange="updateAssignment('${emp.id}','${date}','end',this.value)" />
               </div>
-              <input value="${escapeHtml(a.scope || "")}" placeholder="Scope of work" onchange="updateAssignment('${emp.id}','${date}','scope',this.value)" />
-              <input value="${escapeHtml(a.notes || "")}" placeholder="Notes" onchange="updateAssignment('${emp.id}','${date}','notes',this.value)" />
+              <input ${canEdit ? "" : "disabled"} value="${escapeHtml(a.scope || "")}" placeholder="Scope of work" onchange="updateAssignment('${emp.id}','${date}','scope',this.value)" />
+              <input ${canEdit ? "" : "disabled"} value="${escapeHtml(a.notes || "")}" placeholder="Notes" onchange="updateAssignment('${emp.id}','${date}','notes',this.value)" />
               <div class="hours">${hours} hrs</div>
             </div>
           </td>`;
@@ -679,6 +694,7 @@
     }
 
     function updateAssignment(empId, date, field, value) {
+      if (!canEdit) return;
       const a = getAssignment(empId, date);
       a[field] = value;
 
@@ -697,6 +713,7 @@
     }
 
     function addEmployee() {
+      if (!canEdit) return;
       const name = document.getElementById("employeeName").value.trim();
       if (!name) return;
       data.employees.push({
@@ -711,6 +728,7 @@
     }
 
     function modifyEmployee(id) {
+      if (!canEdit) return;
       const emp = data.employees.find(e => e.id === id);
       if (!emp) return;
 
@@ -744,6 +762,7 @@
     }
 
     function removeEmployee(id) {
+      if (!canEdit) return;
       data.employees = data.employees.filter(e => e.id !== id);
       Object.keys(data.assignments).forEach(k => {
         if (data.assignments[k].employeeId === id) delete data.assignments[k];
@@ -752,6 +771,7 @@
     }
 
     function addSite() {
+      if (!canEdit) return;
       const name = document.getElementById("siteName").value.trim();
       if (!name) return;
       data.sites.push({ id: uid("site"), name });
@@ -760,6 +780,7 @@
     }
 
     function modifySite(id) {
+      if (!canEdit) return;
       const site = data.sites.find(s => s.id === id);
       if (!site) return;
 
@@ -777,6 +798,7 @@
     }
 
     function removeSite(id) {
+      if (!canEdit) return;
       data.sites = data.sites.filter(s => s.id !== id);
       data.employees.forEach(e => { if (e.homeSite === id) e.homeSite = ""; });
       Object.values(data.assignments).forEach(a => { if (a.siteId === id) a.siteId = ""; });
@@ -870,6 +892,7 @@
     }
 
     function importData(event) {
+      if (!canEdit) return;
       const file = event.target.files[0];
       if (!file) return;
       const reader = new FileReader();
@@ -886,6 +909,7 @@
     }
 
     function resetDemo() {
+      if (!canEdit) return;
       if (!confirm("Reset all demo data and local saved changes?")) return;
       data = structuredClone(demoData);
       localStorage.removeItem("employeeSchedulerData");
