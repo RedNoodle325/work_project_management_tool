@@ -43,6 +43,13 @@ a { color: inherit; }
 .x-sidebar footer strong { font-size: 12px; }
 .x-sidebar footer span { margin-top: 3px; color: rgba(255,255,255,.42); font-size: 10px; }
 .x-sidebar footer button { padding: 6px; color: rgba(255,255,255,.5); background: none; border: 0; cursor: pointer; }
+.x-sidebar footer.x-public-footer { min-height: 86px; padding: 14px 16px; }
+.x-public-access { width: 100%; display: flex; align-items: center; gap: 8px; }
+.x-sidebar footer .x-scheduler-login { min-height: 42px; display: flex; align-items: center; justify-content: center; flex: 1; gap: 9px; padding: 0 14px; color: var(--certainty); border: 1px solid rgba(255,255,255,.3); border-radius: 8px; background: #fff; box-shadow: 0 5px 14px rgba(0,0,0,.16); font-size: 12px; font-weight: 800; letter-spacing: .02em; text-decoration: none; transition: transform .18s ease, box-shadow .18s ease; }
+.x-sidebar footer .x-scheduler-login:hover { transform: translateY(-1px); color: var(--certainty); background: #fff; box-shadow: 0 8px 18px rgba(0,0,0,.22); }
+.x-sidebar footer .x-scheduler-login span { display: inline; margin: 0; color: inherit; font-size: inherit; }
+.x-sidebar footer .x-personal-login { width: 30px; height: 30px; display: grid; place-items: center; flex: 0 0 auto; color: rgba(255,255,255,.45); border: 1px solid rgba(255,255,255,.14); border-radius: 7px; text-decoration: none; transition: .18s ease; }
+.x-sidebar footer .x-personal-login:hover { color: #fff; border-color: rgba(255,255,255,.45); background: rgba(255,255,255,.1); }
 .x-main { width: calc(100% - 248px); min-width: 0; min-height: 100vh; margin-left: 248px; overflow-x: hidden; }
 .x-mobile-head { display: none; }
 .x-page, .x-site-page { width: 100%; max-width: 1560px; margin: 0 auto; padding: 38px clamp(30px, 4vw, 72px) 72px; }
