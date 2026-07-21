@@ -90,7 +90,34 @@ function SiteSchedule({ siteId }: { siteId: string }) {
     {editing && <ScheduleEditor siteId={siteId} event={editing} close={() => setEditing(null)} saved={() => { setEditing(null); load() }} />}
   </Section>
 }
-function Units({ data, siteId, reload }: { data: SiteWorkspaceV2; siteId: string; reload: () => void }) { const [adding, setAdding] = useState(false); const [importing, setImporting] = useState(false); return <Section title="Equipment" intro="Open a unit to see its serial information and full work history." action={<><button onClick={() => setImporting(true)}><Upload size={15} /> Import CSV</button><button onClick={() => setAdding(true)}><Plus size={15} /> Add unit</button></>}><div className="x-unit-grid">{data.units.map(unit => <Link href={`/units/${unit.id}`} key={unit.id}><div><Boxes size={18} /><span>{unit.status}</span></div><h3>{unit.tag}</h3><p>{[unit.manufacturer, unit.model].filter(Boolean).join(' ') || 'Equipment details not entered'}</p><small>Serial · {unit.serial_number || 'Not entered'}</small></Link>)}</div>{!data.units.length && <Empty text="No units have been added." />}{adding && <UnitCreator siteId={siteId} close={() => setAdding(false)} saved={() => { setAdding(false); reload() }} />}{importing && <EquipmentImporter siteId={siteId} close={() => setImporting(false)} saved={() => { setImporting(false); reload() }} />}</Section> }
+const yondrEquipmentGroups = [
+  { manufacturer: 'Trane', equipment: 4, issues: 53, checklists: 20, tests: 3 },
+  { manufacturer: 'ClimateWorx', equipment: 4, issues: 49, checklists: 20, tests: 4 },
+  { manufacturer: 'XN Chiller', equipment: 3, issues: 37, checklists: 19, tests: 3 },
+]
+
+function Units({ data, siteId, reload }: { data: SiteWorkspaceV2; siteId: string; reload: () => void }) {
+  const [adding, setAdding] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const isYondr = data.site.customer_name.toLowerCase().includes('yondr')
+  return <Section title="Equipment" intro="Open a unit to see its serial information and full work history." action={<><button onClick={() => setImporting(true)}><Upload size={15} /> Import CSV</button><button onClick={() => setAdding(true)}><Plus size={15} /> Add unit</button></>}>
+    {isYondr && <YondrEquipmentOverview />}
+    <div className="x-unit-grid">{data.units.map(unit => <Link href={`/units/${unit.id}`} key={unit.id}><div><Boxes size={18} /><span>{unit.status}</span></div><h3>{unit.tag}</h3><p>{[unit.manufacturer, unit.model].filter(Boolean).join(' ') || 'Equipment details not entered'}</p><small>Serial · {unit.serial_number || 'Not entered'}</small></Link>)}</div>
+    {!data.units.length && <Empty text="No units have been added." />}
+    {adding && <UnitCreator siteId={siteId} close={() => setAdding(false)} saved={() => { setAdding(false); reload() }} />}
+    {importing && <EquipmentImporter siteId={siteId} close={() => setImporting(false)} saved={() => { setImporting(false); reload() }} />}
+  </Section>
+}
+
+function YondrEquipmentOverview() {
+  return <section className="x-yondr-overview" aria-label="Yondr equipment overview">
+    <header><div><span className="x-kicker">Yondr equipment overview</span><h3>Manufacturer workstreams</h3></div><p>Supplied Yondr equipment, issue, checklist, and test totals.</p></header>
+    <div className="x-yondr-grid">{yondrEquipmentGroups.map(group => <article key={group.manufacturer}>
+      <div className="x-yondr-group-head"><strong>{group.manufacturer}</strong><span>{group.equipment} equipment</span></div>
+      <div className="x-yondr-metrics"><span><b>{group.issues}</b> issues</span><span><b>{group.checklists}</b> checklists</span><span><b>{group.tests}</b> tests</span></div>
+    </article>)}</div>
+  </section>
+}
 function Contacts({ data }: { data: SiteWorkspaceV2 }) { return <Section title="Site contacts" intro="People and roles that stay associated with this site."><div className="x-contact-grid">{data.contacts.map(contact => <article key={contact.id}><div><UserRound size={20} /></div><h3>{contact.name}</h3><p>{contact.role || contact.title || contact.company || 'Site contact'}</p>{contact.email && <a href={`mailto:${contact.email}`}><Mail size={14} />{contact.email}</a>}{contact.phone && <a href={`tel:${contact.phone}`}><Phone size={14} />{contact.phone}</a>}{contact.is_primary && <span>Primary contact</span>}</article>)}</div>{!data.contacts.length && <Empty text="No contacts are associated with this site." />}</Section> }
 function Files({ files, siteId, reload }: { files: AttachmentV2[]; siteId: string; reload: () => void }) { const picker = useRef<HTMLInputElement>(null); const [category, setCategory] = useState('other'); const [busy, setBusy] = useState(false); const groups = useMemo(() => categories.map(category => ({ category, files: files.filter(file => file.category === category) })).filter(group => group.files.length), [files]); async function upload(list: FileList | null) { if (!list?.length) return; setBusy(true); try { for (const file of Array.from(list)) { const form = new FormData(); form.set('file', file); form.set('category', category); await V2.sites.upload(siteId, form) } reload() } finally { setBusy(false); if (picker.current) picker.current.value = '' } } return <Section title="Document library" intro="Private, site-specific storage for the paper trail."><div className="x-library-tools"><select value={category} onChange={event => setCategory(event.target.value)}>{categories.map(value => <option key={value} value={value}>{value.toUpperCase()}</option>)}</select><button onClick={() => picker.current?.click()} disabled={busy}><Upload size={15} />{busy ? 'Uploading…' : 'Upload files'}</button><input ref={picker} hidden type="file" multiple onChange={event => upload(event.target.files)} /></div>{groups.map(group => <div className="x-file-group" key={group.category}><h3>{group.category}</h3>{group.files.map(file => <button key={file.id} onClick={() => V2.attachments.open(file.id)}><FileText size={18} /><span><strong>{file.file_name}</strong><small>{formatBytes(file.size_bytes)} · {formatDate(file.created_at)}{file.update_summary ? ` · ${file.update_summary}` : ''}</small></span><Download size={16} /></button>)}</div>)}{!files.length && <Empty text="Upload a PO, quote, invoice, submittal, email PDF, or report." />}</Section> }
 
