@@ -10,7 +10,7 @@ export default function LoginPage() {
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && isAuthenticated) router.replace(user?.role === 'scheduler' ? '/employee-scheduler' : '/')
+    if (!loading && isAuthenticated) router.replace(user?.role === 'scheduler' ? '/employee-scheduler' : '/sites')
   }, [isAuthenticated, loading, router, user?.role])
 
   return <Login />

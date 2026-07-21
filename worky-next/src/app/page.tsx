@@ -1,6 +1,3 @@
-import { AuthGuard } from '@/components/AuthGuard'
-import { XnrgyDashboard } from '@/pages-impl/XnrgyDashboard'
-
-export default function Page() {
-  return <AuthGuard><XnrgyDashboard /></AuthGuard>
-}
+// The root is intentionally the sign-in screen. Authenticated users are
+// redirected to their permitted workspace from the login page.
+export { default } from './login/page'

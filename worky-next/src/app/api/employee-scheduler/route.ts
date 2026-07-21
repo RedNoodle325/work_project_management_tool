@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   const rows = await sql`SELECT data, updated_at FROM public.employee_scheduler_state WHERE id = true`
   return NextResponse.json({
     ...(rows[0] ?? { data: null }),
-    can_edit: claims.role === 'owner' || claims.role === 'scheduler',
+    can_edit: claims.role === 'owner' || claims.role === 'admin' || claims.role === 'scheduler',
     is_owner: claims.role === 'owner',
   })
 }
