@@ -104,6 +104,14 @@ export async function POST(request: NextRequest) {
   subtitleCell.font = { name: 'Arial', bold: true, size: 11, color: { argb: `FF${PURPLE}` } }
   subtitleCell.alignment = { vertical: 'middle', horizontal: 'left' }
 
+  sheet.mergeCells('A4:M4')
+  const instructionCell = sheet.getCell('A4')
+  instructionCell.value = 'EDITABLE TEMPLATE — Use “Site Name • Scope” or “PTO / Day Off / Holiday • Note” in the daily cells, then import this workbook back into the scheduler.'
+  instructionCell.font = { name: 'Arial', italic: true, size: 9, color: { argb: `FF${DEEP_PURPLE}` } }
+  instructionCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${LIGHT_PURPLE}` } }
+  instructionCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
+  sheet.getRow(4).height = 26
+
   const headers = ['Technician', 'Classification', 'Chiller / Air', 'Home State', 'Home Site', 'Roster Notes', ...days.map((date, index) => `${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][index]}\n${displayDate(date)}`)]
   const headerRow = sheet.getRow(5)
   headerRow.values = headers
@@ -158,6 +166,17 @@ export async function POST(request: NextRequest) {
   sheet.autoFilter = { from: 'A5', to: 'M5' }
   sheet.getColumn(1).eachCell(cell => { cell.border = { ...cell.border, left: { style: 'medium', color: { argb: `FF${GREEN}` } } } })
   sheet.headerFooter.oddFooter = '&LXNRGY Site Intelligence&CWeekly Technician Deployment&RPage &P of &N'
+
+  // This very-hidden sheet makes the branded workbook safely round-trip back
+  // into the scheduler without exposing internal IDs in the printable view.
+  const importMap = workbook.addWorksheet('_Scheduler Import Map', { state: 'veryHidden' })
+  importMap.addRow(['XNRGY_SCHEDULER_IMPORT_V1'])
+  importMap.addRow(['week_start', weekStart])
+  importMap.addRow([])
+  importMap.addRow(['visible_row', 'employee_id', 'employee_name', ...days])
+  technicians.forEach((technician, index) => {
+    importMap.addRow([6 + index, technician.id, technician.name, ...days])
+  })
 
   const buffer = await workbook.xlsx.writeBuffer()
   const filename = `xnrgy-technician-schedule-${weekStart}.xlsx`

@@ -433,8 +433,8 @@
       <div class="header-action-group owner-only"><button onclick="openJobDialog()">New Job</button><button class="secondary" onclick="openPtoDialog()">Log PTO</button><button class="secondary owner-access" onclick="openSchedulerLoginDialog()">Scheduler Login</button></div>
       <button class="owner-only" onclick="generateDispatch()">Dispatch</button>
       <button class="secondary owner-only" onclick="exportExcel(this)">Export Excel</button>
-      <button class="secondary owner-only" onclick="document.getElementById('importFile').click()">Import</button>
-      <input id="importFile" class="hidden owner-only" type="file" accept="application/json" onchange="importData(event)" />
+      <button class="secondary owner-only" onclick="document.getElementById('importFile').click()">Import Excel</button>
+      <input id="importFile" class="hidden owner-only" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="importData(event)" />
     </div>
   </header>
 
@@ -1409,21 +1409,37 @@
       }
     }
 
-    function importData(event) {
+    async function importData(event) {
       if (!canEdit) return;
       const file = event.target.files[0];
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          data = JSON.parse(reader.result);
-          saveData();
-          render();
-        } catch {
-          alert("Could not import file. Please use a valid scheduler JSON export.");
+      const form = new FormData();
+      form.append("file", file);
+      form.append("data", JSON.stringify(data));
+      setSaveStatus("Importing Excel schedule…");
+      try {
+        const response = await fetch("/api/employee-scheduler/import", {
+          method: "POST",
+          headers: authHeaders(),
+          body: form
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          const details = Array.isArray(result.details) ? `\n\n${result.details.join("\n")}` : "";
+          throw new Error((result.error || "Could not import the Excel schedule.") + details);
         }
-      };
-      reader.readAsText(file);
+        data = result.data;
+        upgradeRoster();
+        currentMonday = getMonday(new Date(`${result.weekStart}T12:00:00`));
+        render();
+        const ptoMessage = result.preservedPto ? ` ${result.preservedPto} existing PTO day${result.preservedPto === 1 ? " was" : "s were"} preserved.` : "";
+        alert(`Imported ${result.importedAssignments} schedule cells.${ptoMessage}`);
+      } catch (error) {
+        setSaveStatus("Excel import was not applied.");
+        alert(error.message || "Could not import the Excel schedule.");
+      } finally {
+        event.target.value = "";
+      }
     }
 
     function resetDemo() {
