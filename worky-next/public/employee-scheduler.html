@@ -1113,12 +1113,13 @@
 
           return `<td>
             <div class="cell">
-              <select ${canEdit ? "" : "disabled"} onchange="updateAssignment('${emp.id}','${date}','status',this.value)">
-                ${statuses.map(st => `<option ${(!a.siteId && a.status === st) || (a.siteId && st === "Unassigned") ? "selected" : ""}>${st}</option>`).join("")}
-              </select>
-              <select ${canEdit && a.status !== "PTO" ? "" : "disabled"} onchange="updateAssignment('${emp.id}','${date}','siteId',this.value)">
-                <option value="">No site</option>
-                ${data.sites.map(site => `<option value="${site.id}" ${a.siteId === site.id ? "selected" : ""}>${site.name}</option>`).join("")}
+              <select ${canEdit ? "" : "disabled"} onchange="updateAssignmentSelection('${emp.id}','${date}',this.value)">
+                <optgroup label="Availability">
+                  ${statuses.map(status => `<option value="status:${status}" ${!a.siteId && a.status === status ? "selected" : ""}>${status}</option>`).join("")}
+                </optgroup>
+                <optgroup label="Sites">
+                  ${data.sites.map(site => `<option value="site:${site.id}" ${a.siteId === site.id ? "selected" : ""}>${site.name}</option>`).join("")}
+                </optgroup>
               </select>
               <input ${canEdit ? "" : "disabled"} value="${escapeHtml(a.scope || "")}" placeholder="Scope of work" onchange="updateAssignment('${emp.id}','${date}','scope',this.value)" />
               <input ${canEdit ? "" : "disabled"} value="${escapeHtml(a.notes || "")}" placeholder="Notes" onchange="updateAssignment('${emp.id}','${date}','notes',this.value)" />
@@ -1186,6 +1187,20 @@
         a[field] = value;
       }
 
+      render();
+    }
+
+    function updateAssignmentSelection(empId, date, value) {
+      if (!canEdit) return;
+      const a = getAssignment(empId, date);
+      const [type, selectedValue] = value.split(":", 2);
+      if (type === "site" && selectedValue) {
+        a.siteId = selectedValue;
+        a.status = "Working";
+      } else if (type === "status" && statuses.includes(selectedValue)) {
+        a.status = selectedValue;
+        a.siteId = "";
+      }
       render();
     }
 
