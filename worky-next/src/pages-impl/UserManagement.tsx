@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Clock3, Mail, ShieldCheck, Trash2, UserPlus, UsersRound } from 'lucide-react'
 import { API } from '@/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { ROLE_LABELS, ROLES, type Role } from '@/lib/permissions'
@@ -43,24 +44,49 @@ export function UserManagement() {
     catch { setError('Could not remove that account.') }
   }
 
-  return <main className="x-page" style={{ maxWidth: 980 }}>
-    <div className="x-page-title"><div><span className="x-kicker">Workspace settings</span><h1>Users & permissions</h1><p>Roles are checked by the API on every request, so changing a role takes effect immediately.</p></div></div>
+  const totalUsers = users.length
+  const privilegedUsers = users.filter(account => ['administrator', 'owner'].includes(account.access_role)).length
+  const activeUsers = users.filter(account => account.last_login).length
+
+  return <main className="x-page x-users-page">
+    <header className="x-users-hero">
+      <div><span className="x-kicker">Workspace settings</span><h1>Users <em>&amp;</em> permissions</h1><p>Give your team the right level of access to keep every site moving.</p></div>
+      <div className="x-users-hero-mark" aria-hidden="true"><ShieldCheck size={28} /><span>Access<br />control</span></div>
+    </header>
     {error && <p className="x-error">{error}</p>}
-    <section className="x-card" style={{ padding: 24, marginBottom: 24 }}>
-      <h2 style={{ marginTop: 0 }}>Add a user</h2>
-      <form onSubmit={addUser} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 160px auto', gap: 12, alignItems: 'end' }}>
-        <label><span>Name</span><input required value={form.display_name} onChange={e => setForm({ ...form, display_name: e.target.value })} /></label>
-        <label><span>Email</span><input required type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
-        <label><span>Temporary password</span><input required minLength={8} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></label>
-        <label><span>Role</span><select value={form.access_role} onChange={e => setForm({ ...form, access_role: e.target.value as Role })}>{ROLES.filter(role => role !== 'owner').map(role => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}</select></label>
-        <button className="btn btn-primary">Add user</button>
+    <section className="x-users-overview" aria-label="User account summary">
+      <article><span><UsersRound size={18} /></span><div><strong>{loading ? '—' : totalUsers}</strong><small>Team members</small></div></article>
+      <article><span><ShieldCheck size={18} /></span><div><strong>{loading ? '—' : privilegedUsers}</strong><small>Elevated access</small></div></article>
+      <article><span><Clock3 size={18} /></span><div><strong>{loading ? '—' : activeUsers}</strong><small>Signed in</small></div></article>
+    </section>
+    <section className="x-users-invite">
+      <div className="x-users-invite-copy"><span><UserPlus size={18} /></span><div><h2>Invite a team member</h2><p>They’ll receive access with the role you choose below.</p></div></div>
+      <form onSubmit={addUser} className="x-users-form">
+        <label><span>Full name</span><input required placeholder="e.g. Jordan Lee" value={form.display_name} onChange={e => setForm({ ...form, display_name: e.target.value })} /></label>
+        <label><span>Work email</span><input required type="email" placeholder="name@xnrgy.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
+        <label><span>Temporary password</span><input required minLength={8} type="password" placeholder="8 characters minimum" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></label>
+        <label><span>Initial role</span><select value={form.access_role} onChange={e => setForm({ ...form, access_role: e.target.value as Role })}>{ROLES.filter(role => role !== 'owner').map(role => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}</select></label>
+        <button type="submit"><UserPlus size={16} />Add user</button>
       </form>
     </section>
-    <section className="x-card" style={{ overflow: 'hidden' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}><thead><tr><th align="left">User</th><th align="left">Role</th><th align="left">Last signed in</th><th /></tr></thead>
-        <tbody>{loading ? <tr><td colSpan={4} style={{ padding: 18 }}>Loading accounts…</td></tr> : users.map(account => <tr key={account.id} style={{ borderTop: '1px solid var(--line)' }}><td style={{ padding: 14 }}><strong>{account.display_name || account.name || 'Unnamed user'}</strong><br /><small>{account.email}</small></td><td><select disabled={account.access_role === 'owner'} value={account.access_role} onChange={e => void changeRole(account.id, e.target.value as Role)}>{ROLES.map(role => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}</select></td><td><small>{account.last_login ? new Date(account.last_login).toLocaleDateString() : 'Never'}</small></td><td align="right">{account.access_role !== 'owner' && <button className="btn btn-secondary" onClick={() => void remove(account.id, account.display_name || account.email)}>Remove</button>}</td></tr>)}</tbody>
-      </table>
+    <section className="x-users-directory">
+      <header><div><span className="x-kicker">Directory</span><h2>Your team</h2></div><p>{loading ? 'Loading accounts…' : `${totalUsers} ${totalUsers === 1 ? 'member' : 'members'} in this workspace`}</p></header>
+      <div className="x-users-table">
+        <div className="x-users-table-head"><span>Team member</span><span>Access role</span><span>Last signed in</span><span className="x-users-actions-label">Actions</span></div>
+        <div className="x-users-table-body">
+          {loading ? <div className="x-users-loading">Loading accounts…</div> : users.map(account => {
+            const name = account.display_name || account.name || 'Unnamed user'
+            const initials = name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase()
+            return <article key={account.id} className="x-user-row">
+              <div className="x-user-identity"><span className="x-user-avatar">{initials}</span><div><strong>{name}</strong><small><Mail size={12} />{account.email}</small></div></div>
+              <div className="x-user-role"><select disabled={account.access_role === 'owner'} value={account.access_role} onChange={e => void changeRole(account.id, e.target.value as Role)}>{ROLES.map(role => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}</select>{account.access_role === 'owner' && <small>Workspace owner</small>}</div>
+              <div className="x-user-last-login"><Clock3 size={15} /><span>{account.last_login ? new Date(account.last_login).toLocaleDateString() : 'Never signed in'}</span></div>
+              <div className="x-user-actions">{account.access_role !== 'owner' && <button type="button" onClick={() => void remove(account.id, name)} aria-label={`Remove ${name}`}><Trash2 size={15} /><span>Remove</span></button>}</div>
+            </article>
+          })}
+        </div>
+      </div>
     </section>
-    <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 16 }}>Viewer: read-only. Technician: can submit daily tech reports. Project manager: can manage project records. Scheduler: can manage the employee scheduler. Administrator: all operational access. Owner: administrators plus user management.</p>
+    <aside className="x-users-role-guide"><ShieldCheck size={18} /><p><strong>Role guide</strong> Viewer: read-only · Technician: daily tech reports · Project manager: project records · Scheduler: employee scheduling · Administrator: operational access · Owner: administrator access plus user management.</p></aside>
   </main>
 }
