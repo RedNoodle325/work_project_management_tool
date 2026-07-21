@@ -1,3 +1,6 @@
-// The root is intentionally the sign-in screen. Authenticated users are
-// redirected to their permitted workspace from the login page.
-export { default } from './login/page'
+import { redirect } from 'next/navigation'
+
+// The public entry point is the read-only employee schedule.
+export default function Page() {
+  redirect('/employee-scheduler')
+}
