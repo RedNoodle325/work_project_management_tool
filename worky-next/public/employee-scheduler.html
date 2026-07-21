@@ -402,6 +402,7 @@
     .edit-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
     .person-meta { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 4px; color: var(--muted); font-size: 11px; }
     .person-note { margin-top: 5px; color: #8a5b13; font-size: 11px; }
+    .postal-missing { color: #a15c09 !important; font-weight: 800; }
     .site-view-card { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .site-view-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 12px; }
     .site-view-heading h2 { margin: 0 0 4px; }
@@ -525,7 +526,7 @@
         <h2>Sites</h2>
         <div class="form owner-only">
           <input id="siteName" placeholder="Add a site" />
-          <div class="row"><input id="siteCity" placeholder="City" /><input id="siteState" placeholder="State" maxlength="2" /></div>
+          <div class="row"><input id="siteCity" placeholder="City" /><input id="siteState" placeholder="State" maxlength="2" /><input id="sitePostalCode" placeholder="ZIP / postal" /></div>
           <div class="edit-actions"><button id="siteSaveButton" onclick="saveSite()">Add Site</button><button id="siteCancelButton" class="secondary hidden" onclick="cancelSiteEdit()">Cancel</button></div>
         </div>
         <div class="list" id="siteList"></div>
@@ -540,6 +541,7 @@
             <select id="employeeClassification" aria-label="Classification"><option value="">Classification</option><option>S1</option><option>S2</option><option>S3</option><option>S3/TL</option></select>
             <select id="employeeSpecialty" aria-label="Chiller or air"><option value="">Chiller / Air</option><option>Air</option><option>Chiller</option><option>Air / Chiller</option><option>Chiller / Air</option></select>
             <input id="employeeHomeState" placeholder="Home state" maxlength="2" />
+            <input id="employeePostalCode" placeholder="ZIP / postal code" />
             <input class="wide" id="employeeNotes" placeholder="Roster notes" />
           </div>
           <div class="edit-actions"><button id="employeeSaveButton" onclick="saveEmployee()">Add Technician</button><button id="employeeCancelButton" class="secondary hidden" onclick="cancelEmployeeEdit()">Cancel</button></div>
@@ -586,7 +588,7 @@
         <label class="wide">Street address<input id="jobAddress" placeholder="Street address" /></label>
         <label>City<input id="jobCity" placeholder="City" /></label>
         <label>State<input id="jobState" placeholder="State" maxlength="2" /></label>
-        <label>ZIP / postal code<input id="jobPostal" placeholder="ZIP / postal code" /></label>
+        <label>ZIP / postal code<input id="jobPostal" required placeholder="ZIP / postal code" /></label>
         <label>Customer<input id="jobCustomer" placeholder="Customer" /></label>
         <label class="wide">Scope of work<textarea id="jobScope" required placeholder="Describe the work planned for this job"></textarea></label>
         <label>Start date<input id="jobStart" type="date" required /></label>
@@ -735,8 +737,12 @@
         employee.classification ||= employee.role?.match(/S[1-3](?:\/TL)?/)?.[0] || "";
         employee.specialty ||= employee.role?.replace(employee.classification, "").replace(/[·|-]/g, "").trim() || "";
         employee.homeState ||= "";
+        employee.postalCode ||= "";
         employee.notes ||= "";
         delete employee.homeSite;
+      });
+      data.sites.forEach(site => {
+        site.postalCode ||= site.zip_code || "";
       });
       Object.values(data.assignments).forEach(assignment => {
         if (assignment.status === "Vacation") assignment.status = "PTO";
@@ -745,7 +751,27 @@
       });
     }
 
+    function loadLocalSchedule() {
+      try {
+        const stored = JSON.parse(localStorage.getItem("employeeSchedulerData") || "null");
+        const localData = stored?.data && typeof stored.data === "object" ? stored.data : stored;
+        return localData && typeof localData === "object" && !Array.isArray(localData) ? localData : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function hasScheduleContent(schedule) {
+      return Boolean(schedule && (
+        schedule.employees?.length ||
+        schedule.sites?.length ||
+        Object.keys(schedule.assignments || {}).length
+      ));
+    }
+
     async function loadData() {
+      const localSchedule = loadLocalSchedule();
+      if (localSchedule) data = localSchedule;
       try {
         const response = await fetch("/api/employee-scheduler", { headers: authHeaders() });
         if (!response.ok) throw new Error("Could not load the shared schedule");
@@ -754,17 +780,18 @@
         canManageAccess = saved.is_owner === true;
         document.body.classList.toggle("read-only", !canEdit);
         document.body.classList.toggle("owner-session", canManageAccess);
-        if (saved.data && typeof saved.data === "object") data = saved.data;
+        if (hasScheduleContent(saved.data) || !localSchedule) data = saved.data || data;
         upgradeRoster();
+        if (canEdit) await hydratePostalCoordinates();
         setSaveStatus(canEdit
-          ? (saved.data ? "All changes are shared and saved automatically." : "Ready — changes are shared and saved automatically.")
+          ? (hasScheduleContent(saved.data) ? "All changes are shared and saved automatically." : localSchedule ? "Recovered local changes — syncing them now." : "Ready — changes are shared and saved automatically.")
           : "Read-only view — sign in with an authorized account to make changes.");
       } catch (error) {
         canEdit = false;
         canManageAccess = false;
         document.body.classList.add("read-only");
         document.body.classList.remove("owner-session");
-        setSaveStatus("Could not load the shared schedule. Read-only mode is active.");
+        setSaveStatus(localSchedule ? "Showing locally saved schedule data. Sign in again to resume shared editing." : "Could not load the shared schedule. Read-only mode is active.");
       } finally {
         scheduleLoaded = true;
         render();
@@ -783,7 +810,7 @@
 
     function saveData() {
       if (!canEdit) return;
-      localStorage.setItem("employeeSchedulerData", JSON.stringify(data));
+      localStorage.setItem("employeeSchedulerData", JSON.stringify({ data, savedAt: new Date().toISOString() }));
       if (!scheduleLoaded) return;
       clearTimeout(saveTimer);
       saveTimer = setTimeout(async () => {
@@ -801,6 +828,17 @@
         }
       }, 400);
     }
+
+    window.addEventListener("pagehide", () => {
+      if (!canEdit) return;
+      localStorage.setItem("employeeSchedulerData", JSON.stringify({ data, savedAt: new Date().toISOString() }));
+      fetch("/api/employee-scheduler", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ data }),
+        keepalive: true
+      }).catch(() => {});
+    });
 
     function assignmentKey(empId, date) {
       return empId + "|" + date;
@@ -843,17 +881,53 @@
       return [employee.classification, employee.specialty].filter(Boolean).join(" · ") || employee.role || "Technician";
     }
 
+    async function lookupPostal(postalCode) {
+      const response = await fetch("/api/employee-scheduler/postal-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ postalCode })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not locate that ZIP code.");
+      return result;
+    }
+
+    async function hydratePostalCoordinates() {
+      const records = [...data.sites, ...data.employees].filter(record => record.postalCode && (!Number.isFinite(record.latitude) || !Number.isFinite(record.longitude)));
+      await Promise.all(records.map(async record => {
+        try {
+          const location = await lookupPostal(record.postalCode);
+          record.latitude = location.latitude;
+          record.longitude = location.longitude;
+          record.country = location.country;
+          if (!record.city && location.city) record.city = location.city;
+          if (!record.state && location.state) record.state = location.state;
+          if (!record.homeState && location.state) record.homeState = location.state;
+        } catch {
+          // Keep the entered postal code; the next edit can retry lookup.
+        }
+      }));
+    }
+
+    function distanceMiles(from, to) {
+      if (![from.latitude, from.longitude, to.latitude, to.longitude].every(Number.isFinite)) return null;
+      const radians = value => value * Math.PI / 180;
+      const latitudeDelta = radians(to.latitude - from.latitude);
+      const longitudeDelta = radians(to.longitude - from.longitude);
+      const a = Math.sin(latitudeDelta / 2) ** 2 + Math.cos(radians(from.latitude)) * Math.cos(radians(to.latitude)) * Math.sin(longitudeDelta / 2) ** 2;
+      return 3958.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
     function closestTechniciansForSite(site) {
-      const siteState = (site.state || "").trim().toUpperCase();
-      if (!siteState) return [];
       const weekDates = days.map((_, index) => fmt(addDays(currentMonday, index)));
       return data.employees
-        .filter(employee => (employee.homeState || "").trim().toUpperCase() === siteState)
         .map(employee => ({
           employee,
+          distance: distanceMiles(site, employee),
           openDays: weekDates.filter(date => assignmentStatus(getAssignment(employee.id, date)) === "Unassigned").length
         }))
-        .sort((left, right) => right.openDays - left.openDays || left.employee.name.localeCompare(right.employee.name));
+        .filter(item => item.distance !== null)
+        .sort((left, right) => left.distance - right.distance || right.openDays - left.openDays || left.employee.name.localeCompare(right.employee.name));
     }
 
     function renderSiteSchedule() {
@@ -878,14 +952,16 @@
           </section>`;
         }).join("");
         const address = [site.city, site.state].filter(Boolean).join(", ");
-        const nearbyChips = nearby.slice(0, 5).map(({ employee, openDays }) => `<span class="nearest-tech">${escapeHtml(employee.name)}<span>${escapeHtml(employee.homeState)} · ${openDays} open</span></span>`).join("");
+        const nearbyChips = nearby.slice(0, 5).map(({ employee, openDays, distance }) => `<span class="nearest-tech">${escapeHtml(employee.name)}<span>${escapeHtml(employee.postalCode)} · ${Math.round(distance)} mi · ${openDays} open</span></span>`).join("");
         const moreNearby = nearby.length > 5 ? `<span class="nearest-tech">+${nearby.length - 5} more</span>` : "";
-        const nearest = site.state
-          ? nearbyChips + moreNearby || `<span class="nearest-empty">No technicians have ${escapeHtml(site.state)} as their home state.</span>`
-          : `<span class="nearest-empty">Add a site state to compare technician proximity.</span>`;
+        const nearest = !site.postalCode
+          ? `<span class="nearest-empty">Add this site's ZIP code to calculate distance.</span>`
+          : !Number.isFinite(site.latitude) || !Number.isFinite(site.longitude)
+            ? `<span class="nearest-empty">Distance lookup is unavailable for ${escapeHtml(site.postalCode)}.</span>`
+            : nearbyChips + moreNearby || `<span class="nearest-empty">Add technician ZIP codes to see who is closest.</span>`;
         return `<article class="site-week">
-          <header><span class="site-week-mark">${escapeHtml(site.name.slice(0, 2).toUpperCase())}</span><div><strong>${escapeHtml(site.name)}</strong><span>${escapeHtml(address || site.customer || "Project site")}</span></div><b>${uniqueTechnicians.size} tech${uniqueTechnicians.size === 1 ? "" : "s"}</b></header>
-          <div class="site-nearest"><strong>Closest by home state</strong><div class="nearest-techs">${nearest}</div></div>
+          <header><span class="site-week-mark">${escapeHtml(site.name.slice(0, 2).toUpperCase())}</span><div><strong>${escapeHtml(site.name)}</strong><span>${escapeHtml([address, site.postalCode].filter(Boolean).join(" ") || site.customer || "Project site")}</span></div><b>${uniqueTechnicians.size} tech${uniqueTechnicians.size === 1 ? "" : "s"}</b></header>
+          <div class="site-nearest"><strong>Closest by ZIP</strong><div class="nearest-techs">${nearest}</div></div>
           <div class="site-days-wrap"><div class="site-days">${dayColumns}</div></div>
         </article>`;
       }).join("");
@@ -955,7 +1031,7 @@
       employeeList.innerHTML = data.employees.map(emp => {
         return `<div class="person">
           <div><strong>${escapeHtml(emp.name)}</strong>
-            <div class="person-meta"><span>${escapeHtml(technicianLabel(emp))}</span><span>${escapeHtml(emp.homeState || "No home state")}</span><span>DOH ${displayDate(emp.startDate)}</span></div>
+            <div class="person-meta"><span>${escapeHtml(technicianLabel(emp))}</span><span>${escapeHtml(emp.homeState || "No home state")}</span><span class="${emp.postalCode ? "" : "postal-missing"}">${emp.postalCode ? `ZIP ${escapeHtml(emp.postalCode)}` : "ZIP needed"}</span><span>DOH ${displayDate(emp.startDate)}</span></div>
             ${emp.notes ? `<div class="person-note">${escapeHtml(emp.notes)}</div>` : ""}
           </div>
           <div class="person-actions owner-only">
@@ -968,7 +1044,7 @@
       const siteList = document.getElementById("siteList");
       siteList.innerHTML = data.sites.map(site => `
         <div class="person">
-          <div>${escapeHtml(site.name)}<small>${escapeHtml([site.city, site.state].filter(Boolean).join(", ") || "Site location not set")}</small></div>
+          <div>${escapeHtml(site.name)}<small class="${site.postalCode ? "" : "postal-missing"}">${escapeHtml([site.city, site.state].filter(Boolean).join(", ") || "Site location not set")}${site.postalCode ? ` · ZIP ${escapeHtml(site.postalCode)}` : " · ZIP needed"}</small></div>
           <div class="person-actions owner-only">
             <button class="secondary" onclick="modifySite('${site.id}')">Modify</button>
             <button class="secondary" onclick="removeSite('${site.id}')">Remove</button>
@@ -1050,7 +1126,7 @@
           </td>`;
         }).join("");
 
-        return `<tr><td><strong>${escapeHtml(emp.name)}</strong><br><span class="hours">${escapeHtml(technicianLabel(emp))}${emp.homeState ? ` · ${escapeHtml(emp.homeState)}` : ""}</span></td>${cells}</tr>`;
+        return `<tr><td><strong>${escapeHtml(emp.name)}</strong><br><span class="hours">${escapeHtml(technicianLabel(emp))}${emp.homeState ? ` · ${escapeHtml(emp.homeState)}` : ""}${emp.postalCode ? ` · ${escapeHtml(emp.postalCode)}` : " · ZIP needed"}</span></td>${cells}</tr>`;
       }).join("");
 
       document.getElementById("scheduleTable").innerHTML = `<thead><tr><th>${selectedSiteName}</th>${dateHeaders}</tr></thead><tbody>${rows}</tbody>`;
@@ -1164,9 +1240,10 @@
       document.getElementById("jobCustomer").value = site?.customer || "";
     }
 
-    function saveJob(event) {
+    async function saveJob(event) {
       event.preventDefault();
       if (!canEdit) return;
+      const form = event.currentTarget;
       const technicianIds = [...document.querySelectorAll("#jobTechnicians input:checked")].map(input => input.value);
       if (!technicianIds.length) { alert("Select at least one technician."); return; }
       const startDate = document.getElementById("jobStart").value;
@@ -1181,6 +1258,17 @@
         postalCode: document.getElementById("jobPostal").value.trim(),
         customer: document.getElementById("jobCustomer").value.trim()
       };
+      try {
+        const location = await lookupPostal(siteValues.postalCode);
+        siteValues.latitude = location.latitude;
+        siteValues.longitude = location.longitude;
+        siteValues.country = location.country;
+        if (!siteValues.city) siteValues.city = location.city;
+        if (!siteValues.state) siteValues.state = location.state;
+      } catch (error) {
+        alert(error.message || "Enter a valid site ZIP code.");
+        return;
+      }
       let siteId = document.getElementById("jobSite").value;
       if (siteId === "new") {
         siteId = uid("site");
@@ -1200,7 +1288,7 @@
       }));
       data.jobs.push({ id: uid("job"), name: document.getElementById("jobName").value.trim(), siteId, scope, startDate, endDate, technicianIds });
       document.getElementById("jobDialog").close();
-      event.currentTarget.reset();
+      form.reset();
       render();
       if (skippedPto) alert(`Job saved. ${skippedPto} PTO day${skippedPto === 1 ? " was" : "s were"} preserved.`);
     }
@@ -1280,16 +1368,29 @@
 
     let editingEmployeeId = null;
 
-    function saveEmployee() {
+    async function saveEmployee() {
       if (!canEdit) return;
       const name = document.getElementById("employeeName").value.trim();
       if (!name) { alert("Technician name cannot be blank."); return; }
+      const postalCode = document.getElementById("employeePostalCode").value.trim();
+      if (!postalCode) { alert("A ZIP / postal code is required for every technician."); return; }
+      let location;
+      try {
+        location = await lookupPostal(postalCode);
+      } catch (error) {
+        alert(error.message || "Enter a valid technician ZIP code.");
+        return;
+      }
       const values = {
         name,
         startDate: document.getElementById("employeeStartDate").value,
         classification: document.getElementById("employeeClassification").value,
         specialty: document.getElementById("employeeSpecialty").value,
-        homeState: document.getElementById("employeeHomeState").value.trim().toUpperCase(),
+        homeState: document.getElementById("employeeHomeState").value.trim().toUpperCase() || location.state,
+        postalCode: location.postalCode || postalCode,
+        country: location.country,
+        latitude: location.latitude,
+        longitude: location.longitude,
         notes: document.getElementById("employeeNotes").value.trim()
       };
       if (editingEmployeeId) {
@@ -1313,6 +1414,7 @@
       document.getElementById("employeeClassification").value = emp.classification || "";
       document.getElementById("employeeSpecialty").value = emp.specialty || "";
       document.getElementById("employeeHomeState").value = emp.homeState || "";
+      document.getElementById("employeePostalCode").value = emp.postalCode || "";
       document.getElementById("employeeNotes").value = emp.notes || "";
       document.getElementById("employeeSaveButton").textContent = "Save Technician";
       document.getElementById("employeeCancelButton").classList.remove("hidden");
@@ -1321,7 +1423,7 @@
 
     function cancelEmployeeEdit(shouldRender = true) {
       editingEmployeeId = null;
-      ["employeeName", "employeeStartDate", "employeeHomeState", "employeeNotes"].forEach(id => { document.getElementById(id).value = ""; });
+      ["employeeName", "employeeStartDate", "employeeHomeState", "employeePostalCode", "employeeNotes"].forEach(id => { document.getElementById(id).value = ""; });
       document.getElementById("employeeClassification").value = "";
       document.getElementById("employeeSpecialty").value = "";
       document.getElementById("employeeSaveButton").textContent = "Add Technician";
@@ -1340,14 +1442,27 @@
 
     let editingSiteId = null;
 
-    function saveSite() {
+    async function saveSite() {
       if (!canEdit) return;
       const name = document.getElementById("siteName").value.trim();
       if (!name) return;
+      const postalCode = document.getElementById("sitePostalCode").value.trim();
+      if (!postalCode) { alert("A ZIP / postal code is required for every site."); return; }
+      let location;
+      try {
+        location = await lookupPostal(postalCode);
+      } catch (error) {
+        alert(error.message || "Enter a valid site ZIP code.");
+        return;
+      }
       const values = {
         name,
-        city: document.getElementById("siteCity").value.trim(),
-        state: document.getElementById("siteState").value.trim().toUpperCase()
+        city: document.getElementById("siteCity").value.trim() || location.city,
+        state: document.getElementById("siteState").value.trim().toUpperCase() || location.state,
+        postalCode: location.postalCode || postalCode,
+        country: location.country,
+        latitude: location.latitude,
+        longitude: location.longitude
       };
       if (editingSiteId) {
         const site = data.sites.find(item => item.id === editingSiteId);
@@ -1368,6 +1483,7 @@
       document.getElementById("siteName").value = site.name;
       document.getElementById("siteCity").value = site.city || "";
       document.getElementById("siteState").value = site.state || "";
+      document.getElementById("sitePostalCode").value = site.postalCode || "";
       document.getElementById("siteSaveButton").textContent = "Save Site";
       document.getElementById("siteCancelButton").classList.remove("hidden");
       document.getElementById("siteName").focus();
@@ -1378,6 +1494,7 @@
       document.getElementById("siteName").value = "";
       document.getElementById("siteCity").value = "";
       document.getElementById("siteState").value = "";
+      document.getElementById("sitePostalCode").value = "";
       document.getElementById("siteSaveButton").textContent = "Add Site";
       document.getElementById("siteCancelButton").classList.add("hidden");
       if (shouldRender) render();
@@ -1521,6 +1638,7 @@
         }
         data = result.data;
         upgradeRoster();
+        await hydratePostalCoordinates();
         currentMonday = getMonday(new Date(`${result.weekStart}T12:00:00`));
         render();
         const ptoMessage = result.preservedPto ? ` ${result.preservedPto} existing PTO day${result.preservedPto === 1 ? " was" : "s were"} preserved.` : "";

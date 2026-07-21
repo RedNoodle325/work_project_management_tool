@@ -9,6 +9,9 @@ type Technician = {
   classification?: string
   specialty?: string
   homeState?: string
+  postalCode?: string
+  latitude?: number
+  longitude?: number
   notes?: string
 }
 type Assignment = {
@@ -40,6 +43,11 @@ function cleanCell(cell: ExcelJS.Cell) {
 
 function normalizeName(value: string) {
   return value.trim().toLocaleLowerCase('en-US')
+}
+
+function isSupportedPostal(value: string) {
+  const compact = value.trim().toUpperCase().replace(/[\s-]+/g, '')
+  return /^\d{5}(?:\d{4})?$/.test(compact) || /^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z]\d[ABCEGHJ-NPRSTV-Z]\d$/.test(compact)
 }
 
 function assignmentKey(employeeId: string, date: string) {
@@ -79,7 +87,7 @@ export async function POST(request: NextRequest) {
 
   const schedule = workbook.getWorksheet('Weekly Technician Schedule')
   const importMap = workbook.getWorksheet('_Scheduler Import Map')
-  if (!schedule || !importMap || cleanCell(importMap.getCell('A1')) !== 'XNRGY_SCHEDULER_IMPORT_V2') {
+  if (!schedule || !importMap || cleanCell(importMap.getCell('A1')) !== 'XNRGY_SCHEDULER_IMPORT_V3') {
     return NextResponse.json({ error: 'Use an Excel workbook created by the scheduler’s Export Excel button.' }, { status: 400 })
   }
 
@@ -122,10 +130,19 @@ export async function POST(request: NextRequest) {
     employee.classification = cleanCell(schedule.getCell(visibleRow, 2))
     employee.specialty = cleanCell(schedule.getCell(visibleRow, 3))
     employee.homeState = cleanCell(schedule.getCell(visibleRow, 4))
-    employee.notes = cleanCell(schedule.getCell(visibleRow, 5))
+    const previousPostalCode = employee.postalCode || ''
+    employee.postalCode = cleanCell(schedule.getCell(visibleRow, 5))
+    employee.notes = cleanCell(schedule.getCell(visibleRow, 6))
+    if (!isSupportedPostal(employee.postalCode)) {
+      errors.push(`Row ${visibleRow}: enter a valid U.S. ZIP code or Canadian postal code for ${employee.name}.`)
+    }
+    if (employee.postalCode !== previousPostalCode) {
+      delete employee.latitude
+      delete employee.longitude
+    }
 
     dates.forEach((date, index) => {
-      const cellValue = cleanCell(schedule.getCell(visibleRow, 6 + index))
+      const cellValue = cleanCell(schedule.getCell(visibleRow, 7 + index))
       const key = assignmentKey(employee.id, date)
       const current = data.assignments[key] || { employeeId: employee.id, date, siteId: '', status: 'Unassigned', start: '', end: '', scope: '', notes: '' }
       const parts = cellValue.split(/\s*•\s*/).map(part => part.trim()).filter(Boolean)

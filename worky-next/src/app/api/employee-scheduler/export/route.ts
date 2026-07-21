@@ -9,6 +9,7 @@ type Technician = {
   classification?: string
   specialty?: string
   homeState?: string
+  postalCode?: string
   notes?: string
 }
 type Assignment = {
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
     { key: 'classification', width: 13 },
     { key: 'specialty', width: 16 },
     { key: 'homeState', width: 12 },
+    { key: 'postalCode', width: 16 },
     { key: 'notes', width: 24 },
     ...days.map((date, index) => ({ key: `day${index}`, width: 22 })),
   ]
@@ -90,19 +92,19 @@ export async function POST(request: NextRequest) {
   brandCell.alignment = { vertical: 'middle', horizontal: 'center' }
   brandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${DEEP_PURPLE}` } }
 
-  sheet.mergeCells('C1:L2')
+  sheet.mergeCells('C1:M2')
   const titleCell = sheet.getCell('C1')
   titleCell.value = 'WEEKLY TECHNICIAN DEPLOYMENT'
   titleCell.font = { name: 'Arial', bold: true, size: 20, color: { argb: `FF${DEEP_PURPLE}` } }
   titleCell.alignment = { vertical: 'middle', horizontal: 'left' }
 
-  sheet.mergeCells('C3:L3')
+  sheet.mergeCells('C3:M3')
   const subtitleCell = sheet.getCell('C3')
   subtitleCell.value = `Sunday ${displayDate(days[0])} – Saturday ${displayDate(days[6])}`
   subtitleCell.font = { name: 'Arial', bold: true, size: 11, color: { argb: `FF${PURPLE}` } }
   subtitleCell.alignment = { vertical: 'middle', horizontal: 'left' }
 
-  sheet.mergeCells('A4:L4')
+  sheet.mergeCells('A4:M4')
   const instructionCell = sheet.getCell('A4')
   instructionCell.value = 'EDITABLE TEMPLATE — Use “Site Name • Scope” or “PTO / Day Off / Holiday • Note” in the daily cells, then import this workbook back into the scheduler.'
   instructionCell.font = { name: 'Arial', italic: true, size: 9, color: { argb: `FF${DEEP_PURPLE}` } }
@@ -110,7 +112,7 @@ export async function POST(request: NextRequest) {
   instructionCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
   sheet.getRow(4).height = 26
 
-  const headers = ['Technician', 'Classification', 'Chiller / Air', 'Home State', 'Roster Notes', ...days.map((date, index) => `${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][index]}\n${displayDate(date)}`)]
+  const headers = ['Technician', 'Classification', 'Chiller / Air', 'Home State', 'Technician ZIP / Postal', 'Roster Notes', ...days.map((date, index) => `${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][index]}\n${displayDate(date)}`)]
   const headerRow = sheet.getRow(5)
   headerRow.values = headers
   headerRow.height = 34
@@ -127,6 +129,7 @@ export async function POST(request: NextRequest) {
       technician.classification || '',
       technician.specialty || '',
       technician.homeState || '',
+      technician.postalCode || '',
       technician.notes || '',
     ]
 
@@ -143,11 +146,11 @@ export async function POST(request: NextRequest) {
     row.height = 31
     row.eachCell((cell, columnNumber) => {
       cell.font = { name: 'Arial', size: 9, color: { argb: 'FF25282B' }, bold: columnNumber === 1 }
-      cell.alignment = { vertical: 'middle', horizontal: columnNumber >= 6 ? 'center' : 'left', wrapText: true }
+      cell.alignment = { vertical: 'middle', horizontal: columnNumber >= 7 ? 'center' : 'left', wrapText: true }
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: technicianIndex % 2 === 0 ? 'FFFFFFFF' : `FF${LIGHT_GRAY}` } }
       cell.border = { top: { style: 'thin', color: { argb: `FF${BORDER}` } }, left: { style: 'thin', color: { argb: `FF${BORDER}` } }, bottom: { style: 'thin', color: { argb: `FF${BORDER}` } }, right: { style: 'thin', color: { argb: `FF${BORDER}` } } }
     })
-    for (let column = 6; column <= 12; column += 1) {
+    for (let column = 7; column <= 13; column += 1) {
       const cell = row.getCell(column)
       if (cell.value && cell.value !== '—') {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${LIGHT_PURPLE}` } }
@@ -159,15 +162,15 @@ export async function POST(request: NextRequest) {
   const footerRow = sheet.addRow([])
   footerRow.getCell(1).value = 'Generated from XNRGY Site Intelligence'
   footerRow.getCell(1).font = { name: 'Arial', italic: true, size: 9, color: { argb: `FF${PURPLE}` } }
-  sheet.mergeCells(footerRow.number, 1, footerRow.number, 12)
-  sheet.autoFilter = { from: 'A5', to: 'L5' }
+  sheet.mergeCells(footerRow.number, 1, footerRow.number, 13)
+  sheet.autoFilter = { from: 'A5', to: 'M5' }
   sheet.getColumn(1).eachCell(cell => { cell.border = { ...cell.border, left: { style: 'medium', color: { argb: `FF${GREEN}` } } } })
   sheet.headerFooter.oddFooter = '&LXNRGY Site Intelligence&CWeekly Technician Deployment&RPage &P of &N'
 
   // This very-hidden sheet makes the branded workbook safely round-trip back
   // into the scheduler without exposing internal IDs in the printable view.
   const importMap = workbook.addWorksheet('_Scheduler Import Map', { state: 'veryHidden' })
-  importMap.addRow(['XNRGY_SCHEDULER_IMPORT_V2'])
+  importMap.addRow(['XNRGY_SCHEDULER_IMPORT_V3'])
   importMap.addRow(['week_start', weekStart])
   importMap.addRow([])
   importMap.addRow(['visible_row', 'employee_id', 'employee_name', ...days])
