@@ -359,6 +359,8 @@
     .quick-assign { display: grid; grid-template-columns: minmax(170px, 1.2fr) minmax(130px, 1fr) 145px 145px auto; gap: 8px; margin-bottom: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--accent-soft); }
     .quick-assign select, .quick-assign input, .quick-assign button { min-width: 0; width: 100%; }
     .header-action-group { display: flex; gap: 7px; }
+    .owner-access { display: none !important; }
+    body.owner-session .owner-access { display: inline-flex !important; }
     dialog { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 40px); padding: 0; color: var(--text); border: 0; border-radius: 14px; box-shadow: 0 24px 80px rgba(37,26,77,.28); }
     dialog::backdrop { background: rgba(37,26,77,.54); }
     .dialog-form { display: grid; gap: 14px; padding: 22px; }
@@ -428,7 +430,7 @@
         <button type="button" onclick="changeWeek(7)" aria-label="Next week">→</button>
       </div>
       <select id="siteFilter" class="header-site-filter" onchange="render()" aria-label="Filter by site"></select>
-      <div class="header-action-group owner-only"><button onclick="openJobDialog()">New Job</button><button class="secondary" onclick="openPtoDialog()">Log PTO</button></div>
+      <div class="header-action-group owner-only"><button onclick="openJobDialog()">New Job</button><button class="secondary" onclick="openPtoDialog()">Log PTO</button><button class="secondary owner-access" onclick="openSchedulerLoginDialog()">Scheduler Login</button></div>
       <button class="owner-only" onclick="generateDispatch()">Dispatch</button>
       <button class="secondary owner-only" onclick="exportExcel(this)">Export Excel</button>
       <button class="secondary owner-only" onclick="document.getElementById('importFile').click()">Import</button>
@@ -543,6 +545,20 @@
     </form>
   </dialog>
 
+  <dialog id="schedulerLoginDialog">
+    <form class="dialog-form" onsubmit="saveSchedulerLogin(event)">
+      <header><div><h2>Scheduler-only Login</h2><p>Create or reset an account that can edit only this scheduler.</p></div><button type="button" class="secondary" onclick="document.getElementById('schedulerLoginDialog').close()">Close</button></header>
+      <div id="schedulerAccounts" class="toolbar-note">Loading existing scheduler accounts…</div>
+      <div class="dialog-grid">
+        <label class="wide">Display name<input id="schedulerLoginName" required placeholder="Scheduling Team" /></label>
+        <label class="wide">Login email<input id="schedulerLoginEmail" type="email" required placeholder="scheduler@zaktrack.pm" /></label>
+        <label class="wide">Password<input id="schedulerLoginPassword" type="password" required minlength="8" placeholder="At least 8 characters" /></label>
+      </div>
+      <p class="toolbar-note">This email is only used as the sign-in name; the mailbox does not need to exist or receive messages.</p>
+      <div class="dialog-actions"><button type="button" class="secondary" onclick="document.getElementById('schedulerLoginDialog').close()">Cancel</button><button>Save Scheduler Login</button></div>
+    </form>
+  </dialog>
+
   <script>
     const statuses = ["Unassigned", "Day Off", "PTO", "Holiday"];
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -603,6 +619,7 @@
     let saveTimer;
     let scheduleLoaded = false;
     let canEdit = false;
+    let canManageAccess = false;
 
     function getMonday(date) {
       const d = new Date(date);
@@ -668,15 +685,19 @@
         if (!response.ok) throw new Error("Could not load the shared schedule");
         const saved = await response.json();
         canEdit = saved.can_edit === true;
+        canManageAccess = saved.is_owner === true;
         document.body.classList.toggle("read-only", !canEdit);
+        document.body.classList.toggle("owner-session", canManageAccess);
         if (saved.data && typeof saved.data === "object") data = saved.data;
         upgradeRoster();
         setSaveStatus(canEdit
           ? (saved.data ? "All changes are shared and saved automatically." : "Ready — changes are shared and saved automatically.")
-          : "Read-only view — sign in as the owner to make changes.");
+          : "Read-only view — sign in with an authorized account to make changes.");
       } catch (error) {
         canEdit = false;
+        canManageAccess = false;
         document.body.classList.add("read-only");
+        document.body.classList.remove("owner-session");
         setSaveStatus("Could not load the shared schedule. Read-only mode is active.");
       } finally {
         scheduleLoaded = true;
@@ -1122,6 +1143,53 @@
       document.getElementById("ptoDialog").close();
       event.currentTarget.reset();
       render();
+    }
+
+    async function openSchedulerLoginDialog() {
+      if (!canManageAccess) return;
+      const dialog = document.getElementById("schedulerLoginDialog");
+      const accounts = document.getElementById("schedulerAccounts");
+      accounts.textContent = "Loading existing scheduler accounts…";
+      dialog.showModal();
+      try {
+        const response = await fetch("/api/auth/scheduler-user", { headers: authHeaders() });
+        if (!response.ok) throw new Error("Could not load scheduler accounts.");
+        const users = await response.json();
+        accounts.innerHTML = users.length
+          ? `<strong>Existing:</strong> ${users.map(user => escapeHtml(`${user.display_name || "Scheduler"} (${user.email})`)).join(", ")}. Enter the same email below to reset its password.`
+          : "No scheduler-only login has been created yet.";
+      } catch (error) {
+        accounts.textContent = error.message || "Could not load scheduler accounts.";
+      }
+    }
+
+    async function saveSchedulerLogin(event) {
+      event.preventDefault();
+      if (!canManageAccess) return;
+      const button = event.submitter;
+      button.disabled = true;
+      button.textContent = "Saving…";
+      try {
+        const response = await fetch("/api/auth/scheduler-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({
+            display_name: document.getElementById("schedulerLoginName").value,
+            email: document.getElementById("schedulerLoginEmail").value,
+            password: document.getElementById("schedulerLoginPassword").value
+          })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not save scheduler login.");
+        document.getElementById("schedulerLoginDialog").close();
+        event.currentTarget.reset();
+        alert(`Scheduler login saved for ${result.email}.`);
+      } catch (error) {
+        alert(error.message || "Could not save scheduler login.");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Save Scheduler Login";
+      }
     }
 
     let editingEmployeeId = null;

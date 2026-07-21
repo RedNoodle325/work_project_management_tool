@@ -46,7 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     API.auth.me()
       .then(u => {
-        const authUser: AuthUser = { id: '', email: (u as {email:string}).email, name: (u as {display_name?:string}).display_name }
+        const response = u as { email: string; display_name?: string; access_role?: 'owner' | 'scheduler' }
+        const authUser: AuthUser = { id: '', email: response.email, name: response.display_name, role: response.access_role }
         setUser(authUser)
         localStorage.setItem('auth_user', JSON.stringify(authUser))
       })
@@ -59,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const res = await API.auth.login(email, password)
     setToken(res.token)
-    const u: AuthUser = { id: '', email: res.email, name: res.display_name }
+    const u: AuthUser = { id: '', email: res.email, name: res.display_name, role: res.access_role }
     setUser(u)
     localStorage.setItem('auth_user', JSON.stringify(u))
   }
@@ -67,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setup = async (email: string, password: string, displayName: string) => {
     const res = await API.auth.setup({ email, password, display_name: displayName })
     setToken(res.token)
-    const u: AuthUser = { id: '', email: res.email, name: res.display_name }
+    const u: AuthUser = { id: '', email: res.email, name: res.display_name, role: res.access_role }
     setUser(u)
     localStorage.setItem('auth_user', JSON.stringify(u))
   }

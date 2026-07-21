@@ -14,7 +14,7 @@ type DispatchSite = {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireAuth(request, { allowReadOnlyOwner: true })
+  const auth = await requireAuth(request, { allowReadOnlyOwner: true, allowScheduler: true })
   if (auth.error) return auth.error
 
   const names = request.nextUrl.searchParams.getAll('site').map(name => name.trim()).filter(Boolean)

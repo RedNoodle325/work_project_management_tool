@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     RETURNING id, email, display_name
   `
 
-  const token = await signToken({ sub: user.id, email: user.email, name: user.display_name })
+  const token = await signToken({ sub: user.id, email: user.email, name: user.display_name, role: 'owner' })
 
-  return NextResponse.json({ token, email: user.email, display_name: user.display_name })
+  return NextResponse.json({ token, email: user.email, display_name: user.display_name, access_role: 'owner' })
 }

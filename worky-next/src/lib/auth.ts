@@ -7,6 +7,7 @@ export interface Claims {
   sub: string
   email: string
   name?: string
+  role: 'owner' | 'scheduler' | 'visitor'
   exp?: number
   iat?: number
 }

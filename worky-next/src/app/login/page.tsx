@@ -6,12 +6,12 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
 export default function LoginPage() {
-  const { isAuthenticated } = useAuth()
+  const { user, isAuthenticated, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (isAuthenticated) router.replace('/')
-  }, [isAuthenticated, router])
+    if (!loading && isAuthenticated) router.replace(user?.role === 'scheduler' ? '/employee-scheduler' : '/')
+  }, [isAuthenticated, loading, router, user?.role])
 
   return <Login />
 }

@@ -43,7 +43,7 @@ function displayDate(isoDate: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth(request, { allowReadOnlyOwner: true })
+  const auth = await requireAuth(request, { allowReadOnlyOwner: true, allowScheduler: true })
   if (auth.error) return auth.error
 
   const body = await request.json()

@@ -3,18 +3,19 @@ import { requireAuth } from '@/lib/requireAuth'
 import sql from '@/lib/db'
 
 export async function GET(request: NextRequest) {
-  const { error, claims } = await requireAuth(request)
+  const { error, claims } = await requireAuth(request, { allowScheduler: true })
   if (error) return error
 
   const rows = await sql`SELECT data, updated_at FROM public.employee_scheduler_state WHERE id = true`
   return NextResponse.json({
     ...(rows[0] ?? { data: null }),
-    can_edit: claims.sub !== 'anon',
+    can_edit: claims.role === 'owner' || claims.role === 'scheduler',
+    is_owner: claims.role === 'owner',
   })
 }
 
 export async function PUT(request: NextRequest) {
-  const { error } = await requireAuth(request)
+  const { error } = await requireAuth(request, { allowScheduler: true })
   if (error) return error
 
   const body = await request.json()
