@@ -9,7 +9,6 @@ type Technician = {
   classification?: string
   specialty?: string
   homeState?: string
-  homeSite?: string
   notes?: string
 }
 type Assignment = {
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest) {
 
   const schedule = workbook.getWorksheet('Weekly Technician Schedule')
   const importMap = workbook.getWorksheet('_Scheduler Import Map')
-  if (!schedule || !importMap || cleanCell(importMap.getCell('A1')) !== 'XNRGY_SCHEDULER_IMPORT_V1') {
+  if (!schedule || !importMap || cleanCell(importMap.getCell('A1')) !== 'XNRGY_SCHEDULER_IMPORT_V2') {
     return NextResponse.json({ error: 'Use an Excel workbook created by the scheduler’s Export Excel button.' }, { status: 400 })
   }
 
@@ -123,18 +122,10 @@ export async function POST(request: NextRequest) {
     employee.classification = cleanCell(schedule.getCell(visibleRow, 2))
     employee.specialty = cleanCell(schedule.getCell(visibleRow, 3))
     employee.homeState = cleanCell(schedule.getCell(visibleRow, 4))
-    employee.notes = cleanCell(schedule.getCell(visibleRow, 6))
-    const homeSiteName = cleanCell(schedule.getCell(visibleRow, 5))
-    if (!homeSiteName || homeSiteName === '—') {
-      employee.homeSite = ''
-    } else {
-      const homeSite = sitesByName.get(normalizeName(homeSiteName))
-      if (homeSite) employee.homeSite = homeSite.id
-      else errors.push(`Row ${visibleRow}: home site “${homeSiteName}” does not exist in the scheduler.`)
-    }
+    employee.notes = cleanCell(schedule.getCell(visibleRow, 5))
 
     dates.forEach((date, index) => {
-      const cellValue = cleanCell(schedule.getCell(visibleRow, 7 + index))
+      const cellValue = cleanCell(schedule.getCell(visibleRow, 6 + index))
       const key = assignmentKey(employee.id, date)
       const current = data.assignments[key] || { employeeId: employee.id, date, siteId: '', status: 'Unassigned', start: '', end: '', scope: '', notes: '' }
       const parts = cellValue.split(/\s*•\s*/).map(part => part.trim()).filter(Boolean)
