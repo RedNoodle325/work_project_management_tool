@@ -340,14 +340,14 @@ export interface AuthUser {
   id: string
   email: string
   name?: string
-  role?: 'owner' | 'scheduler'
+  role?: 'owner' | 'admin' | 'project_manager' | 'technician' | 'scheduler' | 'viewer'
 }
 
 export interface LoginResponse {
   token: string
   email: string
   display_name?: string
-  access_role: 'owner' | 'scheduler'
+  access_role: NonNullable<AuthUser['role']>
 }
 
 // ── Daily Tech Report ─────────────────────────────────────────────────────────

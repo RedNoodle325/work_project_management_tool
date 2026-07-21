@@ -69,6 +69,11 @@ export const API = {
     changePassword: (data: { current_password: string; new_password: string }) =>
       apiFetch('/auth/change-password', { method: 'POST', body: JSON.stringify(data) }),
     listUsers: () => apiFetch<User[]>('/users'),
+    createUser: (data: { email: string; password: string; display_name: string; access_role: string }) =>
+      apiFetch<User>('/users', { method: 'POST', body: JSON.stringify(data) }),
+    updateUser: (id: string, data: { display_name?: string; password?: string; access_role?: string }) =>
+      apiFetch<User>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    deleteUser: (id: string) => apiFetch(`/users/${id}`, { method: 'DELETE' }),
   },
 
   // Sites

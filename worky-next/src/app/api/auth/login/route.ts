@@ -16,11 +16,7 @@ export async function POST(req: NextRequest) {
       account.email,
       account.password_hash,
       account.display_name,
-      account.id = (
-        SELECT id FROM public.users
-        ORDER BY created_at ASC, id ASC
-        LIMIT 1
-      ) AS is_owner
+      account.access_role
     FROM public.users account
     WHERE account.email = ${email.trim().toLowerCase()}
     LIMIT 1
@@ -38,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   await sql`UPDATE public.users SET last_login = NOW() WHERE id = ${user.id}`
 
-  const access_role = user.is_owner ? 'owner' : 'scheduler'
+  const access_role = user.access_role
   const token = await signToken({ sub: user.id, email: user.email, name: user.display_name, role: access_role })
 
   return NextResponse.json({ token, email: user.email, display_name: user.display_name, access_role })

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useEffect, useState, type ReactNode } from 'react'
-import { BookOpen, Building2, CalendarDays, LayoutDashboard, ListChecks, LogIn, LogOut, Menu, Search, X } from 'lucide-react'
+import { BookOpen, Building2, CalendarDays, LayoutDashboard, ListChecks, LogIn, LogOut, Menu, Search, Settings, X } from 'lucide-react'
 
 const nav = [
   { href: '/', label: 'Overview', icon: LayoutDashboard },
@@ -30,7 +30,7 @@ export function Layout({ children }: { children: ReactNode }) {
     {open && <button className="x-mobile-shade" aria-label="Close menu" onClick={() => setOpen(false)} />}
     <aside className={`x-sidebar ${open ? 'open' : ''}`}>
       <div className="x-logo"><img src="/brand/xnrgy-mark.svg" alt="XNRGY" /><div><strong>Site Intelligence</strong><span>by XNRGY Climate Solutions</span></div><button onClick={() => setOpen(false)}><X size={18} /></button></div>
-      <nav><span>{schedulerOnly ? 'Scheduler access' : 'Workspace'}</span>{visibleNav.map(item => { const Icon = item.icon; const active = item.href === '/' ? path === '/' : path.startsWith(item.href); return <Link key={item.href} href={item.href} className={active ? 'active' : ''} onClick={() => setOpen(false)}><Icon size={18} /><span>{item.label}</span>{active && <i />}</Link> })}{user && !schedulerOnly && <Link href="/todos" className={path.startsWith('/todos') ? 'active' : ''} onClick={() => setOpen(false)}><ListChecks size={18} /><span>My To-Do List</span>{path.startsWith('/todos') && <i />}</Link>}</nav>
+      <nav><span>{schedulerOnly ? 'Scheduler access' : 'Workspace'}</span>{visibleNav.map(item => { const Icon = item.icon; const active = item.href === '/' ? path === '/' : path.startsWith(item.href); return <Link key={item.href} href={item.href} className={active ? 'active' : ''} onClick={() => setOpen(false)}><Icon size={18} /><span>{item.label}</span>{active && <i />}</Link> })}{user && !schedulerOnly && <Link href="/todos" className={path.startsWith('/todos') ? 'active' : ''} onClick={() => setOpen(false)}><ListChecks size={18} /><span>My To-Do List</span>{path.startsWith('/todos') && <i />}</Link>}{user?.role === 'owner' && <Link href="/settings/users" className={path.startsWith('/settings/users') ? 'active' : ''} onClick={() => setOpen(false)}><Settings size={18} /><span>Users & permissions</span>{path.startsWith('/settings/users') && <i />}</Link>}</nav>
       <footer>{user ? <><div className="x-user-mark">{(user.name || user.email || 'Z').charAt(0).toUpperCase()}</div><div><strong>{user.name || 'Workspace owner'}</strong><span>{user.email}</span></div><button onClick={logout} title="Sign out"><LogOut size={17} /></button></> : <Link href="/login" className="x-public-sign-in"><LogIn size={17} /><span>Sign in to edit</span></Link>}</footer>
     </aside>
     <section className="x-main">

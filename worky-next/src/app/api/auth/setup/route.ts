@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
   const password_hash = await hash(password, 12)
 
   const [user] = await sql`
-    INSERT INTO public.users (email, password_hash, display_name)
-    VALUES (${normalizedEmail}, ${password_hash}, ${display_name.trim()})
+    INSERT INTO public.users (email, password_hash, display_name, access_role)
+    VALUES (${normalizedEmail}, ${password_hash}, ${display_name.trim()}, 'owner')
     RETURNING id, email, display_name
   `
 

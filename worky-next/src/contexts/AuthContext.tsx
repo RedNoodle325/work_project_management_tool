@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     API.auth.me()
       .then(u => {
-        const response = u as { email: string; display_name?: string; access_role?: 'owner' | 'scheduler' }
+        const response = u as { email: string; display_name?: string; access_role?: AuthUser['role'] }
         const authUser: AuthUser = { id: '', email: response.email, name: response.display_name, role: response.access_role }
         setUser(authUser)
         localStorage.setItem('auth_user', JSON.stringify(authUser))

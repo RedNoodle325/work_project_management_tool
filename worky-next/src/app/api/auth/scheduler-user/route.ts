@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/requireAuth'
 import sql from '@/lib/db'
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireAuth(req, { allowReadOnlyOwner: true })
+  const { error } = await requireAuth(req, { permission: 'users:manage' })
   if (error) return error
 
   const users = await sql`
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireAuth(req)
+  const { error } = await requireAuth(req, { permission: 'users:manage' })
   if (error) return error
 
   const { email, password, display_name } = await req.json()
@@ -53,13 +53,13 @@ export async function POST(req: NextRequest) {
   const [user] = existing
     ? await sql`
         UPDATE public.users
-        SET password_hash = ${passwordHash}, display_name = ${displayName}
+        SET password_hash = ${passwordHash}, display_name = ${displayName}, access_role = 'scheduler'
         WHERE id = ${existing.id} AND id <> ${owner.id}
         RETURNING id, email, display_name
       `
     : await sql`
-        INSERT INTO public.users (email, password_hash, display_name)
-        VALUES (${normalizedEmail}, ${passwordHash}, ${displayName})
+        INSERT INTO public.users (email, password_hash, display_name, access_role)
+        VALUES (${normalizedEmail}, ${passwordHash}, ${displayName}, 'scheduler')
         RETURNING id, email, display_name
       `
 
