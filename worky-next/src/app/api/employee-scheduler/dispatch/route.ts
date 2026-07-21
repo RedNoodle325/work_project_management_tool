@@ -22,11 +22,19 @@ export async function GET(request: NextRequest) {
 
   const normalized = [...new Set(names.map(name => name.toLowerCase()))]
   const sites = await sql<DispatchSite[]>`
-    SELECT id, name, project_name, project_number, address, city, state, zip_code
-    FROM public.sites
-    WHERE LOWER(name) = ANY(${normalized}::text[])
-       OR LOWER(COALESCE(project_name, '')) = ANY(${normalized}::text[])
-    ORDER BY name
+    SELECT s.id, s.name, p.name AS project_name, p.project_number,
+           s.address, s.city, s.state, s.postal_code AS zip_code
+    FROM public.sites s
+    LEFT JOIN LATERAL (
+      SELECT name, project_number
+      FROM public.projects
+      WHERE site_id = s.id
+      ORDER BY is_primary DESC, created_at DESC
+      LIMIT 1
+    ) p ON true
+    WHERE LOWER(s.name) = ANY(${normalized}::text[])
+       OR LOWER(COALESCE(p.name, '')) = ANY(${normalized}::text[])
+    ORDER BY s.name
   `
 
   const siteIds = sites.map(site => site.id)
