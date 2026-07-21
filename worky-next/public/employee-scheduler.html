@@ -107,7 +107,7 @@
       letter-spacing: -0.04em;
     }
 
-    button, select, input {
+    button, select, input, textarea {
       font: inherit;
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -284,6 +284,8 @@
     .Sick { background: #ea580c; }
     .Training { background: #0f766e; }
     .Off { background: #64748b; }
+    .PTO { background: #0284c7; }
+    .Holiday { background: #622c90; }
     .Unassigned { background: #94a3b8; }
 
     .hours {
@@ -341,7 +343,7 @@
     .summary-divider { align-self: stretch; background: var(--border); }
     .summary-group-heading { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
     .summary-group-heading h2 { margin: 0; }
-    .today-metrics { display: grid; grid-template-columns: repeat(6, minmax(62px, 1fr)); gap: 5px; }
+    .today-metrics { display: grid; grid-template-columns: repeat(5, minmax(70px, 1fr)); gap: 5px; }
     .today-metric { padding: 5px 8px; border-left: 2px solid var(--border); }
     .today-metric-label { color: var(--muted); font-size: 10px; font-weight: 700; }
     .today-metric-value { margin-top: 2px; font-size: 20px; font-weight: 800; }
@@ -354,6 +356,24 @@
     #detailedView aside.card { height: 100%; overflow-y: auto; }
     .fixed-schedule-card { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .schedule-card-heading { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 10px; }
+    .quick-assign { display: grid; grid-template-columns: minmax(170px, 1.2fr) minmax(130px, 1fr) 145px 145px auto; gap: 8px; margin-bottom: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--accent-soft); }
+    .quick-assign select, .quick-assign input, .quick-assign button { min-width: 0; width: 100%; }
+    .header-action-group { display: flex; gap: 7px; }
+    dialog { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 40px); padding: 0; color: var(--text); border: 0; border-radius: 14px; box-shadow: 0 24px 80px rgba(37,26,77,.28); }
+    dialog::backdrop { background: rgba(37,26,77,.54); }
+    .dialog-form { display: grid; gap: 14px; padding: 22px; }
+    .dialog-form header { display: flex; justify-content: space-between; align-items: flex-start; padding: 0 0 14px; color: var(--text); border-bottom: 1px solid var(--border); background: none; }
+    .dialog-form header h2 { margin: 0 0 4px; }
+    .dialog-form header p { margin: 0; color: var(--muted); font-size: 12px; }
+    .dialog-form header button { padding: 6px 10px; }
+    .dialog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .dialog-grid .wide { grid-column: 1 / -1; }
+    .dialog-form label { display: grid; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .dialog-form textarea { min-height: 76px; resize: vertical; }
+    .tech-picker { max-height: 190px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; overflow: auto; padding: 10px; border: 1px solid var(--border); border-radius: 10px; }
+    .tech-picker label { display: flex; align-items: center; gap: 7px; padding: 6px; color: var(--text); border-radius: 7px; background: var(--bg); font-size: 12px; }
+    .tech-picker input { width: auto; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
     .schedule-scroll-region { flex: 1 1 auto; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
     .schedule-scroll-region thead th { position: sticky; top: 0; z-index: 3; }
     .schedule-scroll-region thead th:first-child { z-index: 5; }
@@ -380,6 +400,8 @@
       .combined-summary { grid-template-columns: 1fr; }
       .summary-divider { display: none; }
       #detailedView > .grid { grid-template-columns: 310px minmax(0, 1fr); }
+      .quick-assign { grid-template-columns: 1fr 1fr; }
+      .quick-assign button { grid-column: 1 / -1; }
     }
 
     @media (max-width: 900px) {
@@ -406,8 +428,9 @@
         <button type="button" onclick="changeWeek(7)" aria-label="Next week">→</button>
       </div>
       <select id="siteFilter" class="header-site-filter" onchange="render()" aria-label="Filter by site"></select>
+      <div class="header-action-group owner-only"><button onclick="openJobDialog()">New Job</button><button class="secondary" onclick="openPtoDialog()">Log PTO</button></div>
       <button class="owner-only" onclick="generateDispatch()">Dispatch</button>
-      <button class="secondary" onclick="exportData()">Export</button>
+      <button class="secondary owner-only" onclick="exportExcel(this)">Export Excel</button>
       <button class="secondary owner-only" onclick="document.getElementById('importFile').click()">Import</button>
       <input id="importFile" class="hidden owner-only" type="file" accept="application/json" onchange="importData(event)" />
     </div>
@@ -424,8 +447,8 @@
         <div class="summary-group-heading"><h2>Week at a glance</h2><span class="toolbar-note" id="weekDateLabel"></span></div>
         <div class="summary weekly-metrics">
           <div class="metric"><div class="label">Technicians</div><div class="value" id="metricEmployees">0</div></div>
-          <div class="metric"><div class="label">Travel Days</div><div class="value" id="metricTravel">0</div></div>
-          <div class="metric"><div class="label">Vacation Days</div><div class="value" id="metricVacation">0</div></div>
+          <div class="metric"><div class="label">Scheduled Site Days</div><div class="value" id="metricAssigned">0</div></div>
+          <div class="metric"><div class="label">PTO / Holiday Days</div><div class="value" id="metricTimeOff">0</div></div>
         </div>
       </div>
     </section>
@@ -433,6 +456,15 @@
     <section id="detailedView" class="view-panel">
       <section class="grid">
       <aside class="card">
+        <h2>Sites</h2>
+        <div class="form owner-only">
+          <input id="siteName" placeholder="Add a site" />
+          <div class="edit-actions"><button id="siteSaveButton" onclick="saveSite()">Add Site</button><button id="siteCancelButton" class="secondary hidden" onclick="cancelSiteEdit()">Cancel</button></div>
+        </div>
+        <div class="list" id="siteList"></div>
+
+        <hr style="border:0;border-top:1px solid var(--border);margin:18px 0;">
+
         <h2>Technician Roster</h2>
         <div class="form owner-only">
           <div class="roster-fields">
@@ -447,21 +479,19 @@
           <div class="edit-actions"><button id="employeeSaveButton" onclick="saveEmployee()">Add Technician</button><button id="employeeCancelButton" class="secondary hidden" onclick="cancelEmployeeEdit()">Cancel</button></div>
         </div>
         <div class="list" id="employeeList"></div>
-
-        <hr style="border:0;border-top:1px solid var(--border);margin:18px 0;">
-
-        <h2>Sites</h2>
-        <div class="form owner-only">
-          <input id="siteName" placeholder="Site name" />
-          <div class="edit-actions"><button id="siteSaveButton" onclick="saveSite()">Add Site</button><button id="siteCancelButton" class="secondary hidden" onclick="cancelSiteEdit()">Cancel</button></div>
-        </div>
-        <div class="list" id="siteList"></div>
       </aside>
 
       <section class="card fixed-schedule-card">
         <div class="schedule-card-heading">
           <h2>Weekly Schedule</h2>
           <div class="toolbar-note" id="saveStatus">Loading shared schedule…</div>
+        </div>
+        <div class="quick-assign owner-only">
+          <select id="quickEmployee" aria-label="Technician for quick assignment"></select>
+          <select id="quickSite" aria-label="Site for quick assignment"></select>
+          <input id="quickStart" type="date" aria-label="Assignment start date" />
+          <input id="quickEnd" type="date" aria-label="Assignment end date" />
+          <button type="button" onclick="assignDateRange()">Assign Site</button>
         </div>
         <div class="schedule-wrap schedule-scroll-region">
           <table id="scheduleTable"></table>
@@ -479,9 +509,43 @@
     </section>
   </main>
 
+  <dialog id="jobDialog">
+    <form class="dialog-form" onsubmit="saveJob(event)">
+      <header><div><h2>Create a Job</h2><p>Select or create a site, define the work, and assign technicians.</p></div><button type="button" class="secondary" onclick="document.getElementById('jobDialog').close()">Close</button></header>
+      <div class="dialog-grid">
+        <label class="wide">Job name<input id="jobName" required placeholder="Example: Llano startup support" /></label>
+        <label class="wide">Site<select id="jobSite" onchange="loadJobSiteDetails()"></select></label>
+        <label class="wide">Site name<input id="jobSiteName" required placeholder="Site name" /></label>
+        <label class="wide">Street address<input id="jobAddress" placeholder="Street address" /></label>
+        <label>City<input id="jobCity" placeholder="City" /></label>
+        <label>State<input id="jobState" placeholder="State" maxlength="2" /></label>
+        <label>ZIP / postal code<input id="jobPostal" placeholder="ZIP / postal code" /></label>
+        <label>Customer<input id="jobCustomer" placeholder="Customer" /></label>
+        <label class="wide">Scope of work<textarea id="jobScope" required placeholder="Describe the work planned for this job"></textarea></label>
+        <label>Start date<input id="jobStart" type="date" required /></label>
+        <label>End date<input id="jobEnd" type="date" required /></label>
+      </div>
+      <div><strong>Select technicians</strong><div id="jobTechnicians" class="tech-picker"></div></div>
+      <div class="dialog-actions"><button type="button" class="secondary" onclick="document.getElementById('jobDialog').close()">Cancel</button><button>Save Job & Assign</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="ptoDialog">
+    <form class="dialog-form" onsubmit="savePto(event)">
+      <header><div><h2>Log Technician PTO</h2><p>PTO overrides job and bulk site assignments for the selected dates.</p></div><button type="button" class="secondary" onclick="document.getElementById('ptoDialog').close()">Close</button></header>
+      <div class="dialog-grid">
+        <label class="wide">Technician<select id="ptoEmployee" required></select></label>
+        <label>Start date<input id="ptoStart" type="date" required /></label>
+        <label>End date<input id="ptoEnd" type="date" required /></label>
+        <label class="wide">Note<input id="ptoNote" placeholder="Optional PTO note" /></label>
+      </div>
+      <div class="dialog-actions"><button type="button" class="secondary" onclick="document.getElementById('ptoDialog').close()">Cancel</button><button>Save PTO</button></div>
+    </form>
+  </dialog>
+
   <script>
-    const statuses = ["Unassigned", "Working", "Travel", "Vacation", "Sick", "Training", "Off"];
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const statuses = ["Unassigned", "Day Off", "PTO", "Holiday"];
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     const demoData = {
       sites: [
@@ -543,7 +607,7 @@
     function getMonday(date) {
       const d = new Date(date);
       const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      const diff = d.getDate() - day;
       d.setDate(diff);
       d.setHours(0,0,0,0);
       return d;
@@ -576,6 +640,7 @@
       data.sites ||= [];
       data.employees ||= [];
       data.assignments ||= {};
+      data.jobs ||= [];
       const oldDemoNames = new Set(["Alex Rivera", "Jordan Lee", "Sam Patel"]);
       const isOldDemo = data.employees.length <= 3 && data.employees.every(employee => oldDemoNames.has(employee.name));
       if (!data.employees.length || isOldDemo) {
@@ -589,6 +654,11 @@
         employee.specialty ||= employee.role?.replace(employee.classification, "").replace(/[·|-]/g, "").trim() || "";
         employee.homeState ||= "";
         employee.notes ||= "";
+      });
+      Object.values(data.assignments).forEach(assignment => {
+        if (assignment.status === "Vacation") assignment.status = "PTO";
+        if (assignment.status === "Off" || assignment.status === "Sick") assignment.status = "Day Off";
+        if (["PTO", "Holiday", "Day Off"].includes(assignment.status)) assignment.siteId = "";
       });
     }
 
@@ -656,7 +726,7 @@
         data.assignments[key] = {
           employeeId: empId,
           date,
-          siteId: employee?.homeSite || "",
+          siteId: "",
           status: "Unassigned",
           start: "",
           end: "",
@@ -667,14 +737,9 @@
       return data.assignments[key];
     }
 
-    function calcHours(start, end, status) {
-      if (status !== "Working" && status !== "Training") return 0;
-      if (!start || !end) return 0;
-      const [sh, sm] = start.split(":").map(Number);
-      const [eh, em] = end.split(":").map(Number);
-      let hours = (eh + em/60) - (sh + sm/60);
-      if (hours < 0) hours += 24;
-      return Math.round(hours * 10) / 10;
+    function assignmentStatus(assignment) {
+      if (["PTO", "Holiday", "Day Off"].includes(assignment.status)) return assignment.status;
+      return assignment.siteId ? "Working" : "Unassigned";
     }
 
     let currentView = "detailed";
@@ -700,7 +765,7 @@
         const cells = days.map((_, index) => {
           const assignment = getAssignment(employee.id, fmt(addDays(currentMonday, index)));
           const site = data.sites.find(item => item.id === assignment.siteId)?.name || "";
-          const status = siteFilter && assignment.siteId && assignment.siteId !== siteFilter ? "Travel" : assignment.status || "Unassigned";
+          const status = assignmentStatus(assignment);
           return `<div class="compact-cell"><span class="compact-status ${status}">${escapeHtml(status)}</span>${site ? `<span class="compact-site">${escapeHtml(site)}</span>` : ""}</div>`;
         }).join("");
         const site = data.sites.find(item => item.id === employee.homeSite)?.name || "No site";
@@ -716,17 +781,17 @@
       const counts = Object.fromEntries(statuses.map(status => [status, 0]));
       employees.forEach(employee => {
         const assignment = getAssignment(employee.id, fmt(today));
-        let status = assignment.status || "Unassigned";
-        if (siteFilter && assignment.siteId && assignment.siteId !== siteFilter) status = "Travel";
+        const status = assignmentStatus(assignment);
         counts[status] = (counts[status] || 0) + 1;
       });
       document.getElementById("todayDateLabel").textContent = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-      document.getElementById("todayMetrics").innerHTML = ["Working", "Travel", "Vacation", "Sick", "Training", "Unassigned"].map(status => `<div class="today-metric"><div class="today-metric-label">${status}</div><div class="today-metric-value">${counts[status] || 0}</div></div>`).join("");
+      document.getElementById("todayMetrics").innerHTML = ["Working", "Day Off", "PTO", "Holiday", "Unassigned"].map(status => `<div class="today-metric"><div class="today-metric-label">${status}</div><div class="today-metric-value">${counts[status] || 0}</div></div>`).join("");
     }
 
     function render() {
       document.getElementById("weekStart").value = fmt(currentMonday);
       renderSiteDropdowns();
+      renderAssignmentTools();
       renderRoster();
       renderSchedule();
       renderCompactSchedule();
@@ -755,6 +820,23 @@
       if (selectedHomeSite && data.sites.some(s => s.id === selectedHomeSite)) {
         employeeHomeSite.value = selectedHomeSite;
       }
+    }
+
+    function renderAssignmentTools() {
+      const technicianOptions = data.employees.map(employee => `<option value="${employee.id}">${escapeHtml(employee.name)}</option>`).join("");
+      const siteOptions = data.sites.map(site => `<option value="${site.id}">${escapeHtml(site.name)}</option>`).join("");
+      ["quickEmployee", "ptoEmployee"].forEach(id => {
+        const select = document.getElementById(id);
+        const selected = select.value;
+        select.innerHTML = `<option value="">Select technician</option>${technicianOptions}`;
+        if (data.employees.some(employee => employee.id === selected)) select.value = selected;
+      });
+      const quickSite = document.getElementById("quickSite");
+      const selectedSite = quickSite.value;
+      quickSite.innerHTML = `<option value="">Select site</option>${siteOptions}`;
+      if (data.sites.some(site => site.id === selectedSite)) quickSite.value = selectedSite;
+      if (!document.getElementById("quickStart").value) document.getElementById("quickStart").value = fmt(currentMonday);
+      if (!document.getElementById("quickEnd").value) document.getElementById("quickEnd").value = fmt(addDays(currentMonday, 6));
     }
 
     function renderRoster() {
@@ -818,13 +900,13 @@
         const cells = days.map((_, i) => {
           const date = fmt(addDays(currentMonday, i));
           const a = getAssignment(emp.id, date);
-          const hours = calcHours(a.start, a.end, a.status);
+          const effectiveStatus = assignmentStatus(a);
 
           if (siteFilter && a.siteId && a.siteId !== siteFilter) {
             const otherSite = data.sites.find(s => s.id === a.siteId)?.name || "Another site";
             return `<td>
               <div class="cell">
-                <span class="pill Travel">Other Site</span>
+                <span class="pill Working">At other site</span>
                 <div class="hours">${emp.name} is assigned to ${otherSite} this day.</div>
               </div>
             </td>`;
@@ -840,21 +922,16 @@
 
           return `<td>
             <div class="cell">
-              <span class="pill ${a.status}">${a.status}</span>
+              <span class="pill ${effectiveStatus}">${effectiveStatus}</span>
               <select ${canEdit ? "" : "disabled"} onchange="updateAssignment('${emp.id}','${date}','status',this.value)">
-                ${statuses.map(st => `<option ${a.status === st ? "selected" : ""}>${st}</option>`).join("")}
+                ${statuses.map(st => `<option ${(!a.siteId && a.status === st) || (a.siteId && st === "Unassigned") ? "selected" : ""}>${st}</option>`).join("")}
               </select>
-              <select ${canEdit ? "" : "disabled"} onchange="updateAssignment('${emp.id}','${date}','siteId',this.value)">
+              <select ${canEdit && a.status !== "PTO" ? "" : "disabled"} onchange="updateAssignment('${emp.id}','${date}','siteId',this.value)">
                 <option value="">No site</option>
                 ${data.sites.map(site => `<option value="${site.id}" ${a.siteId === site.id ? "selected" : ""}>${site.name}</option>`).join("")}
               </select>
-              <div class="row">
-                <input ${canEdit ? "" : "disabled"} type="time" value="${a.start}" onchange="updateAssignment('${emp.id}','${date}','start',this.value)" />
-                <input ${canEdit ? "" : "disabled"} type="time" value="${a.end}" onchange="updateAssignment('${emp.id}','${date}','end',this.value)" />
-              </div>
               <input ${canEdit ? "" : "disabled"} value="${escapeHtml(a.scope || "")}" placeholder="Scope of work" onchange="updateAssignment('${emp.id}','${date}','scope',this.value)" />
               <input ${canEdit ? "" : "disabled"} value="${escapeHtml(a.notes || "")}" placeholder="Notes" onchange="updateAssignment('${emp.id}','${date}','notes',this.value)" />
-              <div class="hours">${hours} hrs</div>
             </div>
           </td>`;
         }).join("");
@@ -884,7 +961,7 @@
 
     function renderMetrics() {
       const siteFilter = document.getElementById("siteFilter").value;
-      let travel = 0, vacation = 0;
+      let assigned = 0, timeOff = 0;
       const visibleEmployees = new Set(
         siteFilter
           ? data.employees.filter(emp => employeeHasVisibleSiteActivity(emp.id, siteFilter)).map(emp => emp.id)
@@ -901,32 +978,149 @@
           if (emp?.homeSite !== siteFilter) return;
         }
 
-        if (a.status === "Travel") travel++;
-        if (a.status === "Vacation") vacation++;
+        const status = assignmentStatus(a);
+        if (status === "Working") assigned++;
+        if (status === "PTO" || status === "Holiday") timeOff++;
       });
 
       document.getElementById("metricEmployees").textContent = visibleEmployees.size;
-      document.getElementById("metricTravel").textContent = travel;
-      document.getElementById("metricVacation").textContent = vacation;
+      document.getElementById("metricAssigned").textContent = assigned;
+      document.getElementById("metricTimeOff").textContent = timeOff;
       document.getElementById("weekDateLabel").textContent = `${displayDate(fmt(currentMonday))} – ${displayDate(fmt(addDays(currentMonday, 6)))}`;
     }
 
     function updateAssignment(empId, date, field, value) {
       if (!canEdit) return;
       const a = getAssignment(empId, date);
-      a[field] = value;
-
       if (field === "status") {
-        if (value === "Working" && !a.start && !a.end) {
-          a.start = "08:00";
-          a.end = "17:00";
-        }
-        if (["Vacation", "Sick", "Off"].includes(value)) {
-          a.start = "";
-          a.end = "";
-        }
+        a.status = value;
+        if (value !== "Unassigned") a.siteId = "";
+      } else if (field === "siteId") {
+        if (a.status === "PTO" && value) return;
+        a.siteId = value;
+        a.status = value ? "Working" : "Unassigned";
+      } else {
+        a[field] = value;
       }
 
+      render();
+    }
+
+    function datesBetween(start, end) {
+      if (!start || !end || end < start) return [];
+      const dates = [];
+      let cursor = start;
+      while (cursor <= end && dates.length < 370) {
+        dates.push(cursor);
+        cursor = fmt(addDays(new Date(`${cursor}T12:00:00`), 1));
+      }
+      return dates;
+    }
+
+    function assignDateRange() {
+      if (!canEdit) return;
+      const employeeId = document.getElementById("quickEmployee").value;
+      const siteId = document.getElementById("quickSite").value;
+      const dates = datesBetween(document.getElementById("quickStart").value, document.getElementById("quickEnd").value);
+      if (!employeeId || !siteId || !dates.length) { alert("Select a technician, site, and valid date range."); return; }
+      let skippedPto = 0;
+      dates.forEach(date => {
+        const assignment = getAssignment(employeeId, date);
+        if (assignment.status === "PTO") { skippedPto++; return; }
+        assignment.siteId = siteId;
+        assignment.status = "Working";
+      });
+      render();
+      if (skippedPto) alert(`${skippedPto} PTO day${skippedPto === 1 ? " was" : "s were"} preserved.`);
+    }
+
+    function openJobDialog() {
+      if (!canEdit) return;
+      const dialog = document.getElementById("jobDialog");
+      const siteSelect = document.getElementById("jobSite");
+      siteSelect.innerHTML = `<option value="new">Create a new site</option>` + data.sites.map(site => `<option value="${site.id}">${escapeHtml(site.name)}</option>`).join("");
+      document.getElementById("jobStart").value = fmt(currentMonday);
+      document.getElementById("jobEnd").value = fmt(addDays(currentMonday, 6));
+      document.getElementById("jobTechnicians").innerHTML = data.employees.map(employee => `<label><input type="checkbox" value="${employee.id}" />${escapeHtml(employee.name)}</label>`).join("");
+      loadJobSiteDetails();
+      dialog.showModal();
+    }
+
+    function loadJobSiteDetails() {
+      const siteId = document.getElementById("jobSite").value;
+      const site = data.sites.find(item => item.id === siteId);
+      document.getElementById("jobSiteName").value = site?.name || "";
+      document.getElementById("jobAddress").value = site?.address || "";
+      document.getElementById("jobCity").value = site?.city || "";
+      document.getElementById("jobState").value = site?.state || "";
+      document.getElementById("jobPostal").value = site?.postalCode || "";
+      document.getElementById("jobCustomer").value = site?.customer || "";
+    }
+
+    function saveJob(event) {
+      event.preventDefault();
+      if (!canEdit) return;
+      const technicianIds = [...document.querySelectorAll("#jobTechnicians input:checked")].map(input => input.value);
+      if (!technicianIds.length) { alert("Select at least one technician."); return; }
+      const startDate = document.getElementById("jobStart").value;
+      const endDate = document.getElementById("jobEnd").value;
+      const dates = datesBetween(startDate, endDate);
+      if (!dates.length) { alert("Enter a valid job date range."); return; }
+      const siteValues = {
+        name: document.getElementById("jobSiteName").value.trim(),
+        address: document.getElementById("jobAddress").value.trim(),
+        city: document.getElementById("jobCity").value.trim(),
+        state: document.getElementById("jobState").value.trim().toUpperCase(),
+        postalCode: document.getElementById("jobPostal").value.trim(),
+        customer: document.getElementById("jobCustomer").value.trim()
+      };
+      let siteId = document.getElementById("jobSite").value;
+      if (siteId === "new") {
+        siteId = uid("site");
+        data.sites.push({ id: siteId, ...siteValues });
+      } else {
+        const site = data.sites.find(item => item.id === siteId);
+        if (site) Object.assign(site, siteValues);
+      }
+      const scope = document.getElementById("jobScope").value.trim();
+      let skippedPto = 0;
+      technicianIds.forEach(employeeId => dates.forEach(date => {
+        const assignment = getAssignment(employeeId, date);
+        if (assignment.status === "PTO") { skippedPto++; return; }
+        assignment.siteId = siteId;
+        assignment.status = "Working";
+        assignment.scope = scope;
+      }));
+      data.jobs.push({ id: uid("job"), name: document.getElementById("jobName").value.trim(), siteId, scope, startDate, endDate, technicianIds });
+      document.getElementById("jobDialog").close();
+      event.currentTarget.reset();
+      render();
+      if (skippedPto) alert(`Job saved. ${skippedPto} PTO day${skippedPto === 1 ? " was" : "s were"} preserved.`);
+    }
+
+    function openPtoDialog() {
+      if (!canEdit) return;
+      document.getElementById("ptoStart").value = fmt(currentMonday);
+      document.getElementById("ptoEnd").value = fmt(addDays(currentMonday, 6));
+      document.getElementById("ptoDialog").showModal();
+    }
+
+    function savePto(event) {
+      event.preventDefault();
+      if (!canEdit) return;
+      const employeeId = document.getElementById("ptoEmployee").value;
+      const dates = datesBetween(document.getElementById("ptoStart").value, document.getElementById("ptoEnd").value);
+      if (!employeeId || !dates.length) { alert("Select a technician and valid PTO date range."); return; }
+      const note = document.getElementById("ptoNote").value.trim();
+      dates.forEach(date => {
+        const assignment = getAssignment(employeeId, date);
+        assignment.status = "PTO";
+        assignment.siteId = "";
+        assignment.scope = "";
+        assignment.notes = note;
+      });
+      document.getElementById("ptoDialog").close();
+      event.currentTarget.reset();
       render();
     }
 
@@ -1039,21 +1233,45 @@
 
     function changeWeek(days) {
       currentMonday = addDays(currentMonday, days);
+      document.getElementById("quickStart").value = fmt(currentMonday);
+      document.getElementById("quickEnd").value = fmt(addDays(currentMonday, 6));
       render();
     }
 
     function setWeekFromInput() {
       currentMonday = getMonday(new Date(document.getElementById("weekStart").value));
+      document.getElementById("quickStart").value = fmt(currentMonday);
+      document.getElementById("quickEnd").value = fmt(addDays(currentMonday, 6));
       render();
     }
 
-    function exportData() {
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "employee-scheduler-data.json";
-      a.click();
-      URL.revokeObjectURL(a.href);
+    async function exportExcel(button) {
+      if (!canEdit) return;
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = "Building Excel…";
+      try {
+        const response = await fetch("/api/employee-scheduler/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ data, weekStart: fmt(currentMonday) })
+        });
+        if (response.status === 401) throw new Error("Sign in as the owner to export the schedule.");
+        if (!response.ok) throw new Error("Could not create the Excel schedule.");
+        const blob = await response.blob();
+        const disposition = response.headers.get("Content-Disposition") || "";
+        const filename = disposition.match(/filename="([^"]+)"/)?.[1] || `xnrgy-technician-schedule-${fmt(currentMonday)}.xlsx`;
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      } catch (error) {
+        alert(error.message || "Could not export the schedule.");
+      } finally {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      }
     }
 
     function dispatchAddress(site) {
@@ -1067,7 +1285,7 @@
           `<li><strong>${escapeHtml(unit.serial_number)}</strong>${unit.model ? ` · ${escapeHtml(unit.model)}` : ""}${unit.unit_type ? ` · ${escapeHtml(unit.unit_type)}` : ""}</li>`
         ).join("") || "<li>No unit serials recorded for this site.</li>";
         const technicianLines = entry.assignments.map(assignment =>
-          `<li>${escapeHtml(assignment.employee.name)} — ${escapeHtml(technicianLabel(assignment.employee))}${assignment.start || assignment.end ? ` (${escapeHtml(assignment.start || "—")}–${escapeHtml(assignment.end || "—")})` : ""}</li>`
+          `<li>${escapeHtml(assignment.employee.name)} — ${escapeHtml(technicianLabel(assignment.employee))}</li>`
         ).join("");
         const scopes = [...new Set(entry.assignments.map(assignment => assignment.scope || assignment.notes).filter(Boolean))];
         const displayName = entry.siteRecord?.project_name || entry.siteRecord?.name || entry.site.name;
@@ -1089,7 +1307,7 @@
       const weekDates = days.map((_, i) => fmt(addDays(currentMonday, i)));
       const groups = new Map();
       Object.values(data.assignments).forEach(assignment => {
-        if (!weekDates.includes(assignment.date) || !assignment.siteId || !["Working", "Travel", "Training"].includes(assignment.status)) return;
+        if (!weekDates.includes(assignment.date) || !assignment.siteId || assignmentStatus(assignment) !== "Working") return;
         const employee = data.employees.find(item => item.id === assignment.employeeId);
         const site = data.sites.find(item => item.id === assignment.siteId);
         if (!employee || !site) return;
