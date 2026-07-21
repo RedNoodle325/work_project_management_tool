@@ -466,6 +466,61 @@
       .grid { grid-template-columns: 1fr; }
       .summary { grid-template-columns: repeat(2, 1fr); }
     }
+
+    @media (max-width: 600px) {
+      html, body { height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto; }
+      body { display: block; }
+      .app-header { position: sticky; top: 0; z-index: 10; grid-template-columns: 1fr; gap: 10px; padding: 12px 14px; }
+      .header-tabs { width: fit-content; }
+      .header-tab { padding: 8px 14px; }
+      .header-controls { width: 100%; display: grid; grid-template-columns: 1fr; justify-content: stretch; }
+      .week-control { width: 100%; }
+      .week-control input { width: 100%; flex: 1; min-width: 0; }
+      .header-site-filter { width: 100%; min-width: 0; }
+      .header-actions { grid-column: auto; justify-content: stretch; }
+      .header-actions .action-menu { flex: 1; }
+      .action-menu > summary { width: 100%; }
+
+      main { min-height: 0; overflow: visible; padding: 12px; display: block; }
+      .combined-summary { gap: 16px; padding: 17px; }
+      .summary-group-heading { align-items: flex-start; flex-direction: column; gap: 3px; }
+      .summary-group-heading h2 { font-size: 20px; }
+      .today-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .today-metric { min-height: 62px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fbfcfc; }
+      .today-metric-value { font-size: 23px; }
+      .weekly-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .weekly-metrics .metric { min-height: 78px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #fbfcfc; }
+      .weekly-metrics .metric:last-child { grid-column: 1 / -1; }
+      .weekly-metrics .metric .value { font-size: 25px; }
+
+      .view-panel, .site-view-card, .site-view-scroll, #techView > .grid, #techView aside.card, .fixed-schedule-card { height: auto; min-height: 0; overflow: visible; }
+      #techView > .grid { grid-template-columns: 1fr; gap: 12px; }
+      .site-view-card { padding: 16px; }
+      .site-view-heading { align-items: flex-start; margin-bottom: 14px; }
+      .site-view-heading h2 { font-size: 22px; }
+      .site-view-heading .toolbar-note { font-size: 12px; line-height: 1.45; }
+      .site-week { margin-bottom: 12px; }
+      .site-week > header { padding: 13px; }
+      .site-week > header strong { font-size: 17px; }
+      .site-nearest { align-items: flex-start; flex-direction: column; gap: 5px; padding: 10px 13px; }
+      .nearest-techs { width: 100%; }
+      .site-days-wrap { overflow: visible; }
+      .site-days { min-width: 0; grid-template-columns: 1fr; }
+      .site-day { min-height: 0; padding: 12px 13px; border-top: 1px solid var(--border); border-left: 0; }
+      .site-day:first-child { border-top: 0; }
+      .site-day > header strong { font-size: 13px; }
+      .site-day > header span { font-size: 11px; }
+      .site-tech { padding: 9px 10px; }
+      .site-tech strong { white-space: normal; font-size: 12px; }
+      .site-tech span, .site-tech small { white-space: normal; font-size: 10px; }
+      .quick-assign, .dialog-grid, .tech-picker { grid-template-columns: 1fr; }
+      .schedule-card-heading { align-items: flex-start; flex-direction: column; }
+      .schedule-scroll-region { max-height: 68vh; }
+      dialog { width: calc(100vw - 20px); }
+      .dialog-form { padding: 17px; }
+      .dialog-actions { flex-wrap: wrap; }
+      .dialog-actions button { flex: 1; }
+    }
   </style>
 </head>
 <body class="read-only">
