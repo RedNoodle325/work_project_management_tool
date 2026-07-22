@@ -784,10 +784,11 @@
     }
 
     function upgradeRoster() {
-      data.sites ||= [];
-      data.employees ||= [];
-      data.assignments ||= {};
-      data.jobs ||= [];
+      if (!data || typeof data !== "object" || Array.isArray(data)) data = structuredClone(demoData);
+      data.sites = Array.isArray(data.sites) ? data.sites : [];
+      data.employees = Array.isArray(data.employees) ? data.employees : [];
+      data.assignments = data.assignments && typeof data.assignments === "object" && !Array.isArray(data.assignments) ? data.assignments : {};
+      data.jobs = Array.isArray(data.jobs) ? data.jobs : [];
       const oldDemoNames = new Set(["Alex Rivera", "Jordan Lee", "Sam Patel"]);
       const isOldDemo = data.employees.length <= 3 && data.employees.every(employee => oldDemoNames.has(employee.name));
       if (!data.employees.length || isOldDemo) {
@@ -835,6 +836,7 @@
     async function loadData() {
       const localSchedule = loadLocalSchedule();
       if (localSchedule) data = localSchedule;
+      upgradeRoster();
       try {
         const response = await fetch("/api/employee-scheduler", { headers: authHeaders() });
         if (!response.ok) throw new Error("Could not load the shared schedule");
@@ -854,6 +856,7 @@
         canManageAccess = false;
         document.body.classList.add("read-only");
         document.body.classList.remove("owner-session");
+        upgradeRoster();
         setSaveStatus(localSchedule ? "Showing locally saved schedule data. Sign in again to resume shared editing." : "Could not load the shared schedule. Read-only mode is active.");
       } finally {
         scheduleLoaded = true;
