@@ -784,9 +784,23 @@
     }
 
     function upgradeRoster() {
+      // Older builds sometimes stored the schedule inside one or more `data`
+      // wrappers. Unwrap those payloads before validating the roster shape.
+      while (
+        data &&
+        typeof data === "object" &&
+        !Array.isArray(data) &&
+        data.data &&
+        typeof data.data === "object" &&
+        !Array.isArray(data.data) &&
+        !Array.isArray(data.sites) &&
+        !Array.isArray(data.employees)
+      ) {
+        data = data.data;
+      }
       if (!data || typeof data !== "object" || Array.isArray(data)) data = structuredClone(demoData);
-      data.sites = Array.isArray(data.sites) ? data.sites : [];
-      data.employees = Array.isArray(data.employees) ? data.employees : [];
+      data.sites = Array.isArray(data.sites) ? data.sites.filter(site => site && typeof site === "object") : [];
+      data.employees = Array.isArray(data.employees) ? data.employees.filter(employee => employee && typeof employee === "object") : [];
       data.assignments = data.assignments && typeof data.assignments === "object" && !Array.isArray(data.assignments) ? data.assignments : {};
       data.jobs = Array.isArray(data.jobs) ? data.jobs : [];
       const oldDemoNames = new Set(["Alex Rivera", "Jordan Lee", "Sam Patel"]);
@@ -1051,6 +1065,18 @@
     }
 
     function render() {
+      // Render is called from several async paths, so repair incompatible saved
+      // payloads at the final boundary as well as when data is initially loaded.
+      if (
+        !data ||
+        typeof data !== "object" ||
+        Array.isArray(data) ||
+        !Array.isArray(data.sites) ||
+        !Array.isArray(data.employees) ||
+        !data.assignments ||
+        typeof data.assignments !== "object" ||
+        Array.isArray(data.assignments)
+      ) upgradeRoster();
       document.getElementById("weekStart").value = fmt(currentMonday);
       renderSiteDropdowns();
       renderAssignmentTools();
