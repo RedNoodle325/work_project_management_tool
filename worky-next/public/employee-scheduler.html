@@ -265,6 +265,13 @@
       border-radius: 8px;
       font-size: 11px;
     }
+    .cell .assignment-status { color: #fff; border-color: transparent; font-weight: 800; }
+    .cell .assignment-status.status-Working { background: #16a34a; }
+    .cell .assignment-status.status-Vacation { background: #0284c7; }
+    .cell .assignment-status.status-Sick { background: #ea580c; }
+    .cell .assignment-status.status-Off { background: #64748b; }
+    .cell .assignment-status.status-PTO { background: #0f766e; }
+    .cell .assignment-status.status-Holiday { background: #622c90; }
 
     .readonly-schedule-cell {
       min-height: 42px;
@@ -365,6 +372,12 @@
     .today-metric { padding: 5px 8px; border-left: 2px solid var(--border); }
     .today-metric-label { color: var(--muted); font-size: 10px; font-weight: 700; }
     .today-metric-value { margin-top: 2px; font-size: 20px; font-weight: 800; }
+    .today-metric.status-card-Working { border-color: #a8ddb9; background: #effaf2; }.today-metric.status-card-Working .today-metric-value { color: #157d38; }
+    .today-metric.status-card-Vacation { border-color: #b9dbef; background: #eff9fd; }.today-metric.status-card-Vacation .today-metric-value { color: #0274a9; }
+    .today-metric.status-card-Sick { border-color: #f1c49b; background: #fff5ec; }.today-metric.status-card-Sick .today-metric-value { color: #c9550b; }
+    .today-metric.status-card-Off { border-color: #c6ced5; background: #f5f7f8; }.today-metric.status-card-Off .today-metric-value { color: #53616d; }
+    .today-metric.status-card-PTO { border-color: #a9d8cf; background: #eefaf7; }.today-metric.status-card-PTO .today-metric-value { color: #0b685c; }
+    .today-metric.status-card-Holiday { border-color: #d9c7eb; background: #f8f3fd; }.today-metric.status-card-Holiday .today-metric-value { color: #622c90; }
     .weekly-metrics { grid-template-columns: repeat(3, 1fr); gap: 6px; }
     .weekly-metrics .metric { padding: 6px 10px; border: 0; border-left: 2px solid var(--border); border-radius: 0; background: transparent; }
     .weekly-metrics .metric .value { font-size: 21px; }
@@ -682,7 +695,7 @@
   </dialog>
 
   <script>
-    const statuses = ["Unassigned", "Day Off", "PTO", "Holiday"];
+    const statuses = ["Working", "Vacation", "Sick", "Off", "PTO", "Holiday"];
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const siteColorSets = [
       { accent: "#713bb5", deep: "#3b176f", soft: "#eadbfb", border: "#c69fe9", card: "#faf5ff" },
@@ -823,9 +836,9 @@
         site.postalCode ||= site.zip_code || "";
       });
       Object.values(data.assignments).forEach(assignment => {
-        if (assignment.status === "Vacation") assignment.status = "PTO";
-        if (assignment.status === "Off" || assignment.status === "Sick") assignment.status = "Day Off";
-        if (["PTO", "Holiday", "Day Off"].includes(assignment.status)) assignment.siteId = "";
+        if (assignment.status === "Unassigned" || !assignment.status) assignment.status = "Working";
+        if (assignment.status === "Day Off") assignment.status = "Off";
+        if (!statuses.includes(assignment.status)) assignment.status = "Working";
       });
     }
 
@@ -932,7 +945,7 @@
           employeeId: empId,
           date,
           siteId: "",
-          status: "Unassigned",
+          status: "Working",
           start: "",
           end: "",
           scope: "",
@@ -943,8 +956,7 @@
     }
 
     function assignmentStatus(assignment) {
-      if (["PTO", "Holiday", "Day Off"].includes(assignment.status)) return assignment.status;
-      return assignment.siteId ? "Working" : "Unassigned";
+      return statuses.includes(assignment.status) ? assignment.status : "Working";
     }
 
     let currentView = "tech";
@@ -1004,7 +1016,10 @@
         .map(employee => ({
           employee,
           distance: distanceMiles(site, employee),
-          openDays: weekDates.filter(date => assignmentStatus(getAssignment(employee.id, date)) === "Unassigned").length
+          openDays: weekDates.filter(date => {
+            const assignment = getAssignment(employee.id, date);
+            return assignmentStatus(assignment) === "Working" && !assignment.siteId;
+          }).length
         }))
         .filter(item => item.distance !== null)
         .sort((left, right) => left.distance - right.distance || right.openDays - left.openDays || left.employee.name.localeCompare(right.employee.name));
@@ -1061,7 +1076,7 @@
         counts[status] = (counts[status] || 0) + 1;
       });
       document.getElementById("todayDateLabel").textContent = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-      document.getElementById("todayMetrics").innerHTML = ["Working", "Day Off", "PTO", "Holiday", "Unassigned"].map(status => `<div class="today-metric"><div class="today-metric-label">${status}</div><div class="today-metric-value">${counts[status] || 0}</div></div>`).join("");
+      document.getElementById("todayMetrics").innerHTML = statuses.map(status => `<div class="today-metric status-card-${status.replace(/\s+/g, "-")}"><div class="today-metric-label">${status}</div><div class="today-metric-value">${counts[status] || 0}</div></div>`).join("");
     }
 
     function render() {
@@ -1187,9 +1202,8 @@
             const detail = a.scope || a.notes || "";
             return `<td>
               <div class="readonly-schedule-cell">
-                ${effectiveStatus === "Working"
-                  ? `<div class="readonly-location">${escapeHtml(siteName || "Assigned site")}</div>`
-                  : `<span class="pill ${effectiveStatus}">${escapeHtml(effectiveStatus)}</span>`}
+                <span class="pill ${effectiveStatus}">${escapeHtml(effectiveStatus)}</span>
+                ${siteName ? `<div class="readonly-location">${escapeHtml(siteName)}</div>` : ""}
                 ${detail ? `<div class="readonly-detail">${escapeHtml(detail)}</div>` : ""}
               </div>
             </td>`;
@@ -1207,13 +1221,12 @@
 
           return `<td>
             <div class="cell">
-              <select ${canEdit ? "" : "disabled"} onchange="updateAssignmentSelection('${emp.id}','${date}',this.value)">
-                <optgroup label="Availability">
-                  ${statuses.map(status => `<option value="status:${status}" ${!a.siteId && a.status === status ? "selected" : ""}>${status}</option>`).join("")}
-                </optgroup>
-                <optgroup label="Sites">
-                  ${data.sites.map(site => `<option value="site:${site.id}" ${a.siteId === site.id ? "selected" : ""}>${site.name}</option>`).join("")}
-                </optgroup>
+              <select class="assignment-status status-${effectiveStatus.replace(/\s+/g, "-")}" ${canEdit ? "" : "disabled"} onchange="updateAssignment('${emp.id}','${date}','status',this.value)">
+                ${statuses.map(status => `<option ${effectiveStatus === status ? "selected" : ""}>${status}</option>`).join("")}
+              </select>
+              <select ${canEdit ? "" : "disabled"} onchange="updateAssignment('${emp.id}','${date}','siteId',this.value)">
+                <option value="">No site mapped</option>
+                ${data.sites.map(site => `<option value="${site.id}" ${a.siteId === site.id ? "selected" : ""}>${site.name}</option>`).join("")}
               </select>
               <input ${canEdit ? "" : "disabled"} value="${escapeHtml(a.scope || "")}" placeholder="Scope of work" onchange="updateAssignment('${emp.id}','${date}','scope',this.value)" />
               <input ${canEdit ? "" : "disabled"} value="${escapeHtml(a.notes || "")}" placeholder="Notes" onchange="updateAssignment('${emp.id}','${date}','notes',this.value)" />
@@ -1271,30 +1284,13 @@
       if (!canEdit) return;
       const a = getAssignment(empId, date);
       if (field === "status") {
-        a.status = value;
-        if (value !== "Unassigned") a.siteId = "";
+        a.status = statuses.includes(value) ? value : "Working";
       } else if (field === "siteId") {
-        if (a.status === "PTO" && value) return;
         a.siteId = value;
-        a.status = value ? "Working" : "Unassigned";
       } else {
         a[field] = value;
       }
 
-      render();
-    }
-
-    function updateAssignmentSelection(empId, date, value) {
-      if (!canEdit) return;
-      const a = getAssignment(empId, date);
-      const [type, selectedValue] = value.split(":", 2);
-      if (type === "site" && selectedValue) {
-        a.siteId = selectedValue;
-        a.status = "Working";
-      } else if (type === "status" && statuses.includes(selectedValue)) {
-        a.status = selectedValue;
-        a.siteId = "";
-      }
       render();
     }
 
@@ -1419,7 +1415,6 @@
       dates.forEach(date => {
         const assignment = getAssignment(employeeId, date);
         assignment.status = "PTO";
-        assignment.siteId = "";
         assignment.scope = "";
         assignment.notes = note;
       });
