@@ -407,16 +407,16 @@
     .site-view-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 12px; }
     .site-view-heading h2 { margin: 0 0 4px; }
     .site-view-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; padding-right: 3px; }
-    .site-week { margin-bottom: 14px; overflow: hidden; border: 1px solid var(--border); border-radius: 11px; background: #fff; }
+    .site-week { margin-bottom: 14px; overflow: hidden; border: 1px solid var(--site-border, var(--border)); border-radius: 11px; background: #fff; }
     .site-week:last-child { margin-bottom: 0; }
-    .site-week > header { display: flex; align-items: center; gap: 11px; padding: 13px 15px; color: var(--text); border-bottom: 1px solid var(--border); background: linear-gradient(90deg, var(--accent-soft), #fff 58%); }
-    .site-week-mark { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; color: #fff; border-radius: 8px; background: linear-gradient(145deg, #251a4d, #622c90); font-size: 12px; font-weight: 900; }
+    .site-week > header { display: flex; align-items: center; gap: 11px; padding: 13px 15px; color: var(--text); border-bottom: 1px solid var(--site-border, var(--border)); background: linear-gradient(90deg, var(--site-soft, var(--accent-soft)), #fff 58%); }
+    .site-week-mark { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; color: #fff; border-radius: 8px; background: var(--site-accent, linear-gradient(145deg, #251a4d, #622c90)); font-size: 12px; font-weight: 900; }
     .site-week > header div { min-width: 0; }
     .site-week > header strong, .site-week > header div > span { display: block; }
     .site-week > header > .site-week-mark { display: grid; margin: 0; color: #fff; }
     .site-week > header strong { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
     .site-week > header div > span { margin-top: 3px; color: var(--muted); font-size: 10px; }
-    .site-week > header b { margin-left: auto; padding: 5px 8px; color: var(--accent); border-radius: 999px; background: #fff; font-size: 10px; }
+    .site-week > header b { margin-left: auto; padding: 5px 8px; color: var(--site-accent, var(--accent)); border-radius: 999px; background: #fff; font-size: 10px; }
     .site-nearest { display: flex; align-items: center; gap: 9px; min-height: 43px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: #fcfcfc; }
     .site-nearest > strong { flex: 0 0 auto; color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
     .nearest-techs { display: flex; gap: 6px; min-width: 0; overflow-x: auto; }
@@ -430,9 +430,9 @@
     .site-day > header { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding: 0 0 7px; color: var(--text); border-bottom: 1px solid #edf0f1; background: transparent; }
     .site-day > header strong { font-size: 11px; }
     .site-day > header span { color: var(--muted); font-size: 9px; }
-    .site-day > header b { min-width: 20px; height: 20px; display: grid; place-items: center; margin-left: auto; color: var(--accent); border-radius: 50%; background: var(--accent-soft); font-size: 9px; }
+    .site-day > header b { min-width: 20px; height: 20px; display: grid; place-items: center; margin-left: auto; color: var(--site-accent, var(--accent)); border-radius: 50%; background: var(--site-soft, var(--accent-soft)); font-size: 9px; }
     .site-tech-list { display: grid; gap: 6px; }
-    .site-tech { padding: 7px 8px; border: 1px solid #e8e1ee; border-radius: 7px; background: #fbf9fc; }
+    .site-tech { padding: 7px 8px; border: 1px solid var(--site-border, #e8e1ee); border-radius: 7px; background: var(--site-card, #fbf9fc); }
     .site-tech strong, .site-tech span, .site-tech small { display: block; }
     .site-tech strong { overflow: hidden; font-size: 11px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
     .site-tech span { margin-top: 3px; color: var(--muted); font-size: 9px; }
@@ -684,6 +684,14 @@
   <script>
     const statuses = ["Unassigned", "Day Off", "PTO", "Holiday"];
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const siteColorSets = [
+      { accent: "#622c90", soft: "#f2edf7", border: "#dfd2e9", card: "#fcfaff" },
+      { accent: "#007c98", soft: "#e6f5f8", border: "#c9e5eb", card: "#f8fdfe" },
+      { accent: "#4f8c29", soft: "#edf6e8", border: "#d3e8c6", card: "#fbfefa" },
+      { accent: "#c26a13", soft: "#fff3e5", border: "#f0d9bb", card: "#fffdfa" },
+      { accent: "#b43f5b", soft: "#fbecef", border: "#edcad3", card: "#fffafb" },
+      { accent: "#3866a8", soft: "#eaf0fa", border: "#cedbf0", card: "#fbfcff" }
+    ];
 
     const demoData = {
       sites: [
@@ -988,7 +996,9 @@
     function renderSiteSchedule() {
       const siteFilter = document.getElementById("siteFilter").value;
       const sites = siteFilter ? data.sites.filter(site => site.id === siteFilter) : data.sites;
-      const weeks = sites.map(site => {
+      const weeks = sites.map((site, index) => {
+        const colors = siteColorSets[index % siteColorSets.length];
+        const siteStyle = `--site-accent:${colors.accent};--site-soft:${colors.soft};--site-border:${colors.border};--site-card:${colors.card};`;
         const uniqueTechnicians = new Set();
         const nearby = closestTechniciansForSite(site);
         const dayColumns = days.map((day, index) => {
@@ -1014,7 +1024,7 @@
           : !Number.isFinite(site.latitude) || !Number.isFinite(site.longitude)
             ? `<span class="nearest-empty">Distance lookup is unavailable for ${escapeHtml(site.postalCode)}.</span>`
             : nearbyChips + moreNearby || `<span class="nearest-empty">Add technician ZIP codes to see who is closest.</span>`;
-        return `<article class="site-week">
+        return `<article class="site-week" style="${siteStyle}">
           <header><span class="site-week-mark">${escapeHtml(site.name.slice(0, 2).toUpperCase())}</span><div><strong>${escapeHtml(site.name)}</strong><span>${escapeHtml([address, site.postalCode].filter(Boolean).join(" ") || site.customer || "Project site")}</span></div><b>${uniqueTechnicians.size} tech${uniqueTechnicians.size === 1 ? "" : "s"}</b></header>
           <div class="site-nearest"><strong>Closest by ZIP</strong><div class="nearest-techs">${nearest}</div></div>
           <div class="site-days-wrap"><div class="site-days">${dayColumns}</div></div>
