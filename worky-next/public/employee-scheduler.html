@@ -407,17 +407,17 @@
     .site-view-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 12px; }
     .site-view-heading h2 { margin: 0 0 4px; }
     .site-view-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; padding-right: 3px; }
-    .site-week { margin-bottom: 14px; overflow: hidden; border: 1px solid var(--site-border, var(--border)); border-radius: 11px; background: #fff; }
+    .site-week { margin-bottom: 14px; overflow: hidden; border: 1px solid var(--site-border, var(--border)); border-left: 6px solid var(--site-accent, var(--accent)); border-radius: 11px; background: #fff; box-shadow: 0 9px 24px color-mix(in srgb, var(--site-accent, var(--accent)) 12%, transparent); }
     .site-week:last-child { margin-bottom: 0; }
-    .site-week > header { display: flex; align-items: center; gap: 11px; padding: 13px 15px; color: var(--text); border-bottom: 1px solid var(--site-border, var(--border)); background: linear-gradient(90deg, var(--site-soft, var(--accent-soft)), #fff 58%); }
-    .site-week-mark { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; color: #fff; border-radius: 8px; background: var(--site-accent, linear-gradient(145deg, #251a4d, #622c90)); font-size: 12px; font-weight: 900; }
+    .site-week > header { display: flex; align-items: center; gap: 11px; padding: 13px 15px; color: #fff; border-bottom: 1px solid var(--site-border, var(--border)); background: linear-gradient(112deg, var(--site-accent, var(--accent)), var(--site-deep, #251a4d)); }
+    .site-week-mark { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; color: var(--site-accent, var(--accent)); border-radius: 8px; background: #fff; font-size: 12px; font-weight: 900; box-shadow: 0 4px 12px rgba(0,0,0,.16); }
     .site-week > header div { min-width: 0; }
     .site-week > header strong, .site-week > header div > span { display: block; }
     .site-week > header > .site-week-mark { display: grid; margin: 0; color: #fff; }
     .site-week > header strong { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
-    .site-week > header div > span { margin-top: 3px; color: var(--muted); font-size: 10px; }
-    .site-week > header b { margin-left: auto; padding: 5px 8px; color: var(--site-accent, var(--accent)); border-radius: 999px; background: #fff; font-size: 10px; }
-    .site-nearest { display: flex; align-items: center; gap: 9px; min-height: 43px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: #fcfcfc; }
+    .site-week > header div > span { margin-top: 3px; color: rgba(255,255,255,.75); font-size: 10px; }
+    .site-week > header b { margin-left: auto; padding: 5px 8px; color: var(--site-deep, var(--text)); border-radius: 999px; background: #fff; font-size: 10px; }
+    .site-nearest { display: flex; align-items: center; gap: 9px; min-height: 43px; padding: 8px 14px; border-bottom: 1px solid var(--site-border, var(--border)); background: var(--site-card, #fcfcfc); }
     .site-nearest > strong { flex: 0 0 auto; color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
     .nearest-techs { display: flex; gap: 6px; min-width: 0; overflow-x: auto; }
     .nearest-tech { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 5px 8px; color: var(--text); border: 1px solid #e2d8ea; border-radius: 999px; background: #fff; font-size: 10px; font-weight: 700; }
@@ -425,14 +425,14 @@
     .nearest-empty { color: #9aa1a5; font-size: 10px; }
     .site-days-wrap { overflow-x: auto; }
     .site-days { min-width: 1050px; display: grid; grid-template-columns: repeat(7, minmax(145px, 1fr)); }
-    .site-day { min-height: 132px; padding: 10px; border-left: 1px solid var(--border); }
+    .site-day { min-height: 132px; padding: 10px; border-left: 1px solid var(--site-border, var(--border)); background: color-mix(in srgb, var(--site-card, #fff) 68%, #fff); }
     .site-day:first-child { border-left: 0; }
     .site-day > header { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding: 0 0 7px; color: var(--text); border-bottom: 1px solid #edf0f1; background: transparent; }
     .site-day > header strong { font-size: 11px; }
     .site-day > header span { color: var(--muted); font-size: 9px; }
     .site-day > header b { min-width: 20px; height: 20px; display: grid; place-items: center; margin-left: auto; color: var(--site-accent, var(--accent)); border-radius: 50%; background: var(--site-soft, var(--accent-soft)); font-size: 9px; }
     .site-tech-list { display: grid; gap: 6px; }
-    .site-tech { padding: 7px 8px; border: 1px solid var(--site-border, #e8e1ee); border-radius: 7px; background: var(--site-card, #fbf9fc); }
+    .site-tech { padding: 7px 8px; border: 1px solid var(--site-border, #e8e1ee); border-left: 3px solid var(--site-accent, var(--accent)); border-radius: 7px; background: var(--site-card, #fbf9fc); }
     .site-tech strong, .site-tech span, .site-tech small { display: block; }
     .site-tech strong { overflow: hidden; font-size: 11px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
     .site-tech span { margin-top: 3px; color: var(--muted); font-size: 9px; }
@@ -685,12 +685,12 @@
     const statuses = ["Unassigned", "Day Off", "PTO", "Holiday"];
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const siteColorSets = [
-      { accent: "#622c90", soft: "#f2edf7", border: "#dfd2e9", card: "#fcfaff" },
-      { accent: "#007c98", soft: "#e6f5f8", border: "#c9e5eb", card: "#f8fdfe" },
-      { accent: "#4f8c29", soft: "#edf6e8", border: "#d3e8c6", card: "#fbfefa" },
-      { accent: "#c26a13", soft: "#fff3e5", border: "#f0d9bb", card: "#fffdfa" },
-      { accent: "#b43f5b", soft: "#fbecef", border: "#edcad3", card: "#fffafb" },
-      { accent: "#3866a8", soft: "#eaf0fa", border: "#cedbf0", card: "#fbfcff" }
+      { accent: "#713bb5", deep: "#3b176f", soft: "#eadbfb", border: "#c69fe9", card: "#faf5ff" },
+      { accent: "#087fb8", deep: "#075682", soft: "#d7f0fc", border: "#91d4ed", card: "#f2fbff" },
+      { accent: "#4e9d2a", deep: "#28671b", soft: "#dff3d3", border: "#a9d98e", card: "#f7fdf2" },
+      { accent: "#dc790e", deep: "#963807", soft: "#ffebce", border: "#f1bd76", card: "#fff9f0" },
+      { accent: "#c24067", deep: "#7f1d3c", soft: "#f9dce5", border: "#e9a2b5", card: "#fff6f8" },
+      { accent: "#426fc2", deep: "#203d83", soft: "#dce7fb", border: "#a6bfea", card: "#f5f8ff" }
     ];
 
     const demoData = {
@@ -998,7 +998,7 @@
       const sites = siteFilter ? data.sites.filter(site => site.id === siteFilter) : data.sites;
       const weeks = sites.map((site, index) => {
         const colors = siteColorSets[index % siteColorSets.length];
-        const siteStyle = `--site-accent:${colors.accent};--site-soft:${colors.soft};--site-border:${colors.border};--site-card:${colors.card};`;
+        const siteStyle = `--site-accent:${colors.accent};--site-deep:${colors.deep};--site-soft:${colors.soft};--site-border:${colors.border};--site-card:${colors.card};`;
         const uniqueTechnicians = new Set();
         const nearby = closestTechniciansForSite(site);
         const dayColumns = days.map((day, index) => {
