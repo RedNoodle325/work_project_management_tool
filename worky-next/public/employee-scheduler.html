@@ -609,7 +609,7 @@
             <select id="employeeClassification" aria-label="Classification"><option value="">Classification</option><option>S1</option><option>S2</option><option>S3</option><option>S3/TL</option></select>
             <select id="employeeSpecialty" aria-label="Chiller or air"><option value="">Chiller / Air</option><option>Air</option><option>Chiller</option><option>Air / Chiller</option><option>Chiller / Air</option></select>
             <input id="employeeHomeState" placeholder="Home state" maxlength="2" />
-            <input id="employeePostalCode" placeholder="ZIP / postal code" />
+            <input id="employeePostalCode" placeholder="ZIP / postal code (optional)" />
             <input class="wide" id="employeeNotes" placeholder="Roster notes" />
           </div>
           <div class="edit-actions"><button id="employeeSaveButton" onclick="saveEmployee()">Add Technician</button><button id="employeeCancelButton" class="secondary hidden" onclick="cancelEmployeeEdit()">Cancel</button></div>
@@ -1140,7 +1140,7 @@
       employeeList.innerHTML = data.employees.map(emp => {
         return `<div class="person">
           <div><strong>${escapeHtml(emp.name)}</strong>
-            <div class="person-meta"><span>${escapeHtml(technicianLabel(emp))}</span><span>${escapeHtml(emp.homeState || "No home state")}</span><span class="${emp.postalCode ? "" : "postal-missing"}">${emp.postalCode ? `ZIP ${escapeHtml(emp.postalCode)}` : "ZIP needed"}</span><span>DOH ${displayDate(emp.startDate)}</span></div>
+            <div class="person-meta"><span>${escapeHtml(technicianLabel(emp))}</span><span>${escapeHtml(emp.homeState || "No home state")}</span>${emp.postalCode ? `<span>ZIP ${escapeHtml(emp.postalCode)}</span>` : ""}<span>DOH ${displayDate(emp.startDate)}</span></div>
             ${emp.notes ? `<div class="person-note">${escapeHtml(emp.notes)}</div>` : ""}
           </div>
           <div class="person-actions owner-only">
@@ -1234,7 +1234,7 @@
           </td>`;
         }).join("");
 
-        return `<tr><td><strong>${escapeHtml(emp.name)}</strong><br><span class="hours">${escapeHtml(technicianLabel(emp))}${emp.homeState ? ` · ${escapeHtml(emp.homeState)}` : ""}${emp.postalCode ? ` · ${escapeHtml(emp.postalCode)}` : " · ZIP needed"}</span></td>${cells}</tr>`;
+        return `<tr><td><strong>${escapeHtml(emp.name)}</strong><br><span class="hours">${escapeHtml(technicianLabel(emp))}${emp.homeState ? ` · ${escapeHtml(emp.homeState)}` : ""}${emp.postalCode ? ` · ${escapeHtml(emp.postalCode)}` : ""}</span></td>${cells}</tr>`;
       }).join("");
 
       document.getElementById("scheduleTable").innerHTML = `<thead><tr><th>${selectedSiteName}</th>${dateHeaders}</tr></thead><tbody>${rows}</tbody>`;
@@ -1477,20 +1477,21 @@
       const name = document.getElementById("employeeName").value.trim();
       if (!name) { alert("Technician name cannot be blank."); return; }
       const postalCode = document.getElementById("employeePostalCode").value.trim();
-      if (!postalCode) { alert("A ZIP / postal code is required for every technician."); return; }
-      let location;
-      try {
-        location = await lookupPostal(postalCode);
-      } catch (error) {
-        alert(error.message || "Enter a valid technician ZIP code.");
-        return;
+      let location = {};
+      if (postalCode) {
+        try {
+          location = await lookupPostal(postalCode);
+        } catch (error) {
+          alert(error.message || "Enter a valid technician ZIP code.");
+          return;
+        }
       }
       const values = {
         name,
         startDate: document.getElementById("employeeStartDate").value,
         classification: document.getElementById("employeeClassification").value,
         specialty: document.getElementById("employeeSpecialty").value,
-        homeState: document.getElementById("employeeHomeState").value.trim().toUpperCase() || location.state,
+        homeState: document.getElementById("employeeHomeState").value.trim().toUpperCase() || location.state || "",
         postalCode: location.postalCode || postalCode,
         country: location.country,
         latitude: location.latitude,
