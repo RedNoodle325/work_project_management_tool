@@ -4,10 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useState, type ReactNode } from 'react'
-import { Building2, LayoutDashboard, LogOut, Menu, Search, X } from 'lucide-react'
+import { Building2, CalendarDays, LayoutDashboard, LogOut, Menu, Search, X } from 'lucide-react'
 
 const nav = [
-  { href: '/', label: 'Overview', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
+  { href: '/scheduler', label: 'Scheduler', icon: CalendarDays },
   { href: '/sites', label: 'Sites', icon: Building2 },
 ]
 
@@ -15,6 +16,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const path = usePathname()
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
+  const hideChrome = path === '/scheduler'
+
+  if (hideChrome) {
+    return <main className="x-main x-main-full">{children}</main>
+  }
+
   return <div className="x-shell">
     {open && <button className="x-mobile-shade" aria-label="Close menu" onClick={() => setOpen(false)} />}
     <aside className={`x-sidebar ${open ? 'open' : ''}`}>

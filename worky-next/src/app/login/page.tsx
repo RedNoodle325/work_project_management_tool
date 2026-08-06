@@ -10,7 +10,7 @@ export default function LoginPage() {
   const router = useRouter()
 
   useEffect(() => {
-    if (isAuthenticated) router.replace('/')
+    if (isAuthenticated) router.replace('/dashboard')
   }, [isAuthenticated, router])
 
   return <Login />
