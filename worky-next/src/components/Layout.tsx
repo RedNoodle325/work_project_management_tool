@@ -7,8 +7,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { BookOpen, Building2, CalendarDays, KeyRound, LayoutDashboard, ListChecks, LogIn, LogOut, Menu, Search, Settings, X } from 'lucide-react'
 
 const nav = [
-  { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { href: '/scheduler', label: 'Scheduler', icon: CalendarDays },
+  { href: '/', label: 'Overview', icon: LayoutDashboard },
   { href: '/sites', label: 'Sites', icon: Building2 },
   { href: '/issues', label: 'Issues', icon: ListChecks },
   { href: '/scheduler-prod', label: 'Scheduler Prod', icon: CalendarDays },
