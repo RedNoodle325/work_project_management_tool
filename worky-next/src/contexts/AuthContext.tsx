@@ -1,3 +1,5 @@
+'use client'
+
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import { API, getToken, setToken, clearToken } from '../api'
 import type { AuthUser } from '../types'
@@ -27,7 +29,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!getToken()) {
+    const token = getToken()
+
+    if (!token) {
       localStorage.removeItem('auth_user')
       const loadingTimer = window.setTimeout(() => setLoading(false), 0)
       return () => window.clearTimeout(loadingTimer)
@@ -44,7 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }, 0)
 
-    API.auth.me()
+    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+      .then(async res => {
+        if (!res.ok) throw new Error('Session expired')
+        return res.json() as Promise<{ email: string; display_name?: string }>
+      })
       .then(u => {
         const response = u as { email: string; display_name?: string; access_role?: AuthUser['role'] }
         const authUser: AuthUser = { id: '', email: response.email, name: response.display_name, role: response.access_role }

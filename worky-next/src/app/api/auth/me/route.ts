@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/requireAuth'
+import { extractToken, verifyToken } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   const { error, claims } = await requireAuth(req, { allowReadOnlyOwner: true, allowScheduler: true })
