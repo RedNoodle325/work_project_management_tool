@@ -1,5 +1,6 @@
-import { redirect } from 'next/navigation'
+import { AuthGuard } from '@/components/AuthGuard'
+import { Schedule } from '@/pages-impl/Schedule'
 
 export default function Page() {
-  redirect('/scheduler')
+  return <AuthGuard><Schedule /></AuthGuard>
 }

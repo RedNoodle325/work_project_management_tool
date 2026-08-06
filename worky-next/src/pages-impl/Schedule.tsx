@@ -1,761 +1,713 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import Link from 'next/link'
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Eye,
-  EyeOff,
-  LockKeyhole,
-  LogIn,
-  LogOut,
-  Upload,
-} from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useState, useEffect, useMemo } from 'react'
+import { API } from '../api'
+import type { JobSchedule as ScheduleJob, Site, Technician, User } from '../types'
+import { Modal } from '../components/Modal'
+import { useToastFn } from '@/app/providers'
 
-const STATUSES = ['Working', 'Unassigned', 'OFF', 'Travel', 'Vacation', 'Sick', 'Training'] as const
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
-const TECH_TYPES = ['Air', 'Chiller'] as const
-const STORAGE_KEY = 'employeeSchedulerData'
-const PANEL_STORAGE_KEY = 'managementPanelCollapsed'
+// ── Config ─────────────────────────────────────────────────────────────────────
 
-type Status = (typeof STATUSES)[number]
-type TechType = (typeof TECH_TYPES)[number]
-type ViewMode = 'detailed' | 'compact'
-
-interface Site {
-  id: string
-  name: string
+const PRI_CONFIG: Record<number, { label: string; bg: string; color: string }> = {
+  1: { label: 'CRITICAL', bg: '#dc2626', color: '#fff' },
+  2: { label: 'HIGH',     bg: '#ea580c', color: '#fff' },
+  3: { label: 'MEDIUM',   bg: '#2563eb', color: '#fff' },
+  4: { label: 'LOW',      bg: '#6b7280', color: '#fff' },
+  5: { label: 'BACKLOG',  bg: '#374151', color: '#9ca3af' },
 }
 
-interface Employee {
-  id: string
-  name: string
-  role: string
-  techType: TechType
-  homeCity: string
-  homeSite: string
+const TYPE_CONFIG: Record<string, { bg: string; color: string }> = {
+  'PM Warranty':          { bg: '#dcfce7', color: '#16a34a' },
+  'EXT Warranty':         { bg: '#bbf7d0', color: '#15803d' },
+  'Startup':              { bg: '#dbeafe', color: '#1d4ed8' },
+  'Startup and Warranty': { bg: '#ede9fe', color: '#7c3aed' },
+  'Billable':             { bg: '#fef9c3', color: '#a16207' },
+  'Special Project':      { bg: '#fce7f3', color: '#be185d' },
+  'Sales Concession':     { bg: '#ffedd5', color: '#c2410c' },
+  'Training':             { bg: '#e0f2fe', color: '#0369a1' },
+  'Pre-startup':          { bg: '#f0fdf4', color: '#166534' },
+  'Weekend Support':      { bg: '#fdf4ff', color: '#7e22ce' },
 }
 
-interface Assignment {
-  employeeId: string
-  date: string
-  siteId: string
-  siteWasSet: boolean
-  status: Status
-  notes: string
+const JOB_TYPES = Object.keys(TYPE_CONFIG)
+
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  scheduled:   { label: 'Scheduled',   color: '#2563eb' },
+  in_progress: { label: 'In Progress', color: '#d97706' },
+  complete:    { label: 'Complete',    color: '#16a34a' },
+  cancelled:   { label: 'Cancelled',   color: '#6b7280' },
 }
 
-interface SchedulerData {
+type FilterKey = 'all' | 'this_week' | 'next_week' | 'upcoming'
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function getWeekBounds(offsetWeeks = 0): { start: Date; end: Date } {
+  const now = new Date()
+  const day = now.getDay()
+  const mon = new Date(now)
+  mon.setDate(now.getDate() - ((day + 6) % 7) + offsetWeeks * 7)
+  mon.setHours(0, 0, 0, 0)
+  const sun = new Date(mon)
+  sun.setDate(mon.getDate() + 6)
+  sun.setHours(23, 59, 59, 999)
+  return { start: mon, end: sun }
+}
+
+function fmtDateShort(dt?: string) {
+  if (!dt) return '—'
+  return new Date(dt + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function pmInitials(userId: string, users: User[]): string {
+  const u = users.find(u => u.id === userId)
+  if (!u) return '?'
+  const parts = (u.name || u.email || '?').split(' ')
+  return parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : (u.name || u.email || '?').slice(0, 2).toUpperCase()
+}
+
+// ── Extended job type (API may return extra fields) ────────────────────────────
+
+interface Job extends ScheduleJob {
+  title?: string
+  name?: string
+  description?: string
+  _techCount?: number
+}
+
+// ── Job Card ───────────────────────────────────────────────────────────────────
+
+interface JobCardProps {
+  job: Job
+  site?: Site
+  users: User[]
+  selected: boolean
+  onSelect: () => void
+  onEdit: (e: React.MouseEvent) => void
+}
+
+function JobCard({ job, site, users, selected, onSelect, onEdit }: JobCardProps) {
+  const pri = PRI_CONFIG[job.priority ?? 5] ?? PRI_CONFIG[5]
+  const typeCfg = job.job_type ? (TYPE_CONFIG[job.job_type] ?? { bg: '#e5e7eb', color: '#374151' }) : null
+  const statusCfg = STATUS_CONFIG[job.status ?? 'scheduled'] ?? STATUS_CONFIG.scheduled
+  const techCount = job._techCount ?? 0
+
+  return (
+    <div
+      onClick={onSelect}
+      style={{
+        padding: '12px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer',
+        transition: 'background .12s', borderLeft: `3px solid ${selected ? 'var(--accent)' : 'transparent'}`,
+        background: selected ? 'var(--accent)11' : undefined,
+      }}
+      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'var(--bg3)' }}
+      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+        <span style={{ background: pri.bg, color: pri.color, fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 4, whiteSpace: 'nowrap', letterSpacing: '.04em', textTransform: 'uppercase', flexShrink: 0 }}>
+          {pri.label}
+        </span>
+        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {job.name || job.title || 'Untitled Job'}
+        </span>
+        <span
+          onClick={onEdit}
+          style={{ cursor: 'pointer', color: 'var(--text3)', fontSize: 14, padding: '0 2px', lineHeight: 1 }}
+          title="Edit job"
+        >✏</span>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {site?.name ?? <span style={{ color: 'var(--text3)' }}>Unknown Site</span>}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11, color: 'var(--text3)' }}>
+        {typeCfg && job.job_type && (
+          <span style={{ background: typeCfg.bg, color: typeCfg.color, fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 99, whiteSpace: 'nowrap' }}>
+            {job.job_type}
+          </span>
+        )}
+        <span style={{ background: `${statusCfg.color}22`, color: statusCfg.color, border: `1px solid ${statusCfg.color}44`, fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 99 }}>
+          {statusCfg.label}
+        </span>
+        <span style={{ flex: 1 }} />
+        {job.start_date && (
+          <span>{fmtDateShort(job.start_date)}{job.end_date ? ` → ${fmtDateShort(job.end_date)}` : ''}</span>
+        )}
+        {job.pm_user_id && (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 22, height: 22, borderRadius: '50%', background: 'var(--accent)', color: '#fff',
+            fontSize: 9, fontWeight: 800, flexShrink: 0,
+          }} title="PM">
+            {pmInitials(job.pm_user_id, users)}
+          </span>
+        )}
+        {techCount > 0 && (
+          <span style={{ fontSize: 10, color: 'var(--text3)' }}>{techCount} tech{techCount !== 1 ? 's' : ''}</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Job Modal ──────────────────────────────────────────────────────────────────
+
+interface JobModalProps {
+  job: Job | null
   sites: Site[]
-  employees: Employee[]
-  assignments: Record<string, Assignment>
+  users: User[]
+  onSave: (j: Job) => void
+  onDelete: (id: string) => void
+  onClose: () => void
 }
 
-const demoData: SchedulerData = {
-  sites: [
-    { id: 'site-mesa', name: 'Mesa' },
-    { id: 'site-llano', name: 'Llano' },
-    { id: 'site-tor1a', name: 'TOR1A' },
-  ],
-  employees: [
-    { id: 'emp-1', name: 'Alex Rivera', role: 'Technician', techType: 'Air', homeCity: 'Mesa', homeSite: 'site-mesa' },
-    { id: 'emp-2', name: 'Jordan Lee', role: 'Lead Tech', techType: 'Chiller', homeCity: 'Phoenix', homeSite: 'site-llano' },
-    { id: 'emp-3', name: 'Sam Patel', role: 'Technician', techType: 'Air', homeCity: 'Toronto', homeSite: 'site-tor1a' },
-  ],
-  assignments: {},
-}
+function JobModal({ job, sites, users, onSave, onDelete, onClose }: JobModalProps) {
+  const toast = useToastFn()
+  const [saving, setSaving] = useState(false)
+  const [name, setName] = useState(job?.name ?? job?.title ?? '')
+  const [siteId, setSiteId] = useState(job?.site_id ?? '')
+  const [jobType, setJobType] = useState(job?.job_type ?? '')
+  const [priority, setPriority] = useState(String(job?.priority ?? '3'))
+  const [status, setStatus] = useState(job?.status ?? 'scheduled')
+  const [contractNumber, setContractNumber] = useState(job?.contract_number ?? '')
+  const [pmUserId, setPmUserId] = useState(job?.pm_user_id ?? '')
+  const [startDate, setStartDate] = useState(job?.start_date ?? '')
+  const [endDate, setEndDate] = useState(job?.end_date ?? '')
+  const [notes, setNotes] = useState(job?.notes ?? '')
 
-function cloneDemoData(): SchedulerData {
-  return {
-    sites: demoData.sites.map(site => ({ ...site })),
-    employees: demoData.employees.map(employee => ({ ...employee })),
-    assignments: {},
-  }
-}
-
-function getMonday(date: Date): Date {
-  const d = new Date(date)
-  const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-  d.setDate(diff)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-function fmt(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
-
-function displayDate(date: Date): string {
-  const day = String(date.getDate()).padStart(2, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  return `${day}-${month}-${date.getFullYear()}`
-}
-
-function addDays(date: Date, amount: number): Date {
-  const d = new Date(date)
-  d.setDate(d.getDate() + amount)
-  return d
-}
-
-function uid(prefix: string): string {
-  return `${prefix}-${Math.random().toString(36).slice(2, 9)}`
-}
-
-function assignmentKey(empId: string, date: string): string {
-  return `${empId}|${date}`
-}
-
-function normalizeData(input: Partial<SchedulerData>): SchedulerData {
-  const sites = Array.isArray(input.sites) ? input.sites : []
-  const employees = Array.isArray(input.employees) ? input.employees : []
-  const assignments = input.assignments && typeof input.assignments === 'object' ? input.assignments : {}
-
-  return {
-    sites: sites.map(site => ({
-      id: String(site.id || uid('site')),
-      name: String(site.name || 'Unnamed Site'),
-    })),
-    employees: employees.map(employee => ({
-      id: String(employee.id || uid('emp')),
-      name: String(employee.name || 'Unnamed Employee'),
-      role: String(employee.role || ''),
-      techType: TECH_TYPES.includes(employee.techType as TechType) ? employee.techType as TechType : 'Air',
-      homeCity: String(employee.homeCity || ''),
-      homeSite: String(employee.homeSite || ''),
-    })),
-    assignments: Object.fromEntries(
-      Object.entries(assignments).map(([key, assignment]) => {
-        const source = assignment as Partial<Assignment>
-        return [key, {
-          employeeId: String(source.employeeId || ''),
-          date: String(source.date || ''),
-          siteId: String(source.siteId || ''),
-          siteWasSet: Boolean(source.siteWasSet),
-          status: STATUSES.includes(source.status as Status) ? source.status as Status : 'Working',
-          notes: String(source.notes || ''),
-        }]
-      }),
-    ),
-  }
-}
-
-function loadData(): SchedulerData {
-  if (typeof window === 'undefined') return cloneDemoData()
-  const saved = window.localStorage.getItem(STORAGE_KEY)
-  if (!saved) return cloneDemoData()
-
-  try {
-    return normalizeData(JSON.parse(saved) as Partial<SchedulerData>)
-  } catch {
-    return cloneDemoData()
-  }
-}
-
-function defaultAssignment(data: SchedulerData, empId: string, date: string): Assignment {
-  const employee = data.employees.find(emp => emp.id === empId)
-  return {
-    employeeId: empId,
-    date,
-    siteId: employee?.homeSite || '',
-    siteWasSet: false,
-    status: 'Working',
-    notes: '',
-  }
-}
-
-function getAssignment(data: SchedulerData, empId: string, date: string): Assignment {
-  const existing = data.assignments[assignmentKey(empId, date)]
-  if (!existing) return defaultAssignment(data, empId, date)
-
-  if (existing.siteWasSet === undefined && !existing.siteId) {
-    return { ...existing, siteId: data.employees.find(emp => emp.id === empId)?.homeSite || '', siteWasSet: false }
-  }
-
-  return existing
-}
-
-function statusClass(status: string): string {
-  return `xs-status xs-status-${status.toLowerCase().replace(/\s+/g, '-')}`
-}
-
-function siteName(data: SchedulerData, siteId: string): string {
-  return data.sites.find(site => site.id === siteId)?.name || ''
-}
-
-export function Schedule() {
-  const { user, isAuthenticated, login, logout } = useAuth()
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [hydrated, setHydrated] = useState(false)
-  const [data, setData] = useState<SchedulerData>(cloneDemoData)
-  const [currentMonday, setCurrentMonday] = useState(() => getMonday(new Date()))
-  const [currentView, setCurrentView] = useState<ViewMode>('detailed')
-  const [siteFilter, setSiteFilter] = useState('')
-  const [techTypeFilter, setTechTypeFilter] = useState('')
-  const [managementPanelCollapsed, setManagementPanelCollapsed] = useState(false)
-  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
-  const [editingSiteId, setEditingSiteId] = useState<string | null>(null)
-  const [employeeForm, setEmployeeForm] = useState({ name: '', role: '', techType: 'Air' as TechType, homeCity: '', homeSite: '' })
-  const [siteFormName, setSiteFormName] = useState('')
-  const [loginOpen, setLoginOpen] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loginError, setLoginError] = useState('')
-  const [loginLoading, setLoginLoading] = useState(false)
-
-  const canEdit = isAuthenticated
-
-  useEffect(() => {
-    setData(loadData())
-    setManagementPanelCollapsed(window.localStorage.getItem(PANEL_STORAGE_KEY) === 'true')
-    setHydrated(true)
-  }, [])
-
-  useEffect(() => {
-    if (hydrated && canEdit) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-  }, [canEdit, data, hydrated])
-
-  useEffect(() => {
-    if (hydrated) window.localStorage.setItem(PANEL_STORAGE_KEY, String(managementPanelCollapsed))
-  }, [hydrated, managementPanelCollapsed])
-
-  useEffect(() => {
-    if (!siteFilter || data.sites.some(site => site.id === siteFilter)) return
-    setSiteFilter('')
-  }, [data.sites, siteFilter])
-
-  useEffect(() => {
-    if (!employeeForm.homeSite && data.sites[0]) {
-      setEmployeeForm(prev => ({ ...prev, homeSite: data.sites[0].id }))
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return toast('Job name is required', 'error')
+    setSaving(true)
+    const data: Partial<Job> = {
+      title: name.trim(),
+      name: name.trim(),
+      site_id: siteId || undefined,
+      job_type: jobType || undefined,
+      priority: priority ? parseInt(priority) : undefined,
+      status,
+      contract_number: contractNumber || undefined,
+      pm_user_id: pmUserId || undefined,
+      start_date: startDate || undefined,
+      end_date: endDate || undefined,
+      description: notes || undefined,
     }
-  }, [data.sites, employeeForm.homeSite])
-
-  const weekDates = useMemo(() => DAYS.map((_, index) => addDays(currentMonday, index)), [currentMonday])
-
-  function employeeHasVisibleSiteActivity(empId: string, siteId: string): boolean {
-    const weekKeys = new Set(weekDates.map(fmt))
-    const employee = data.employees.find(emp => emp.id === empId)
-    if (employee?.homeSite === siteId) return true
-
-    return Object.values(data.assignments).some(assignment =>
-      assignment.employeeId === empId &&
-      weekKeys.has(assignment.date) &&
-      assignment.siteId === siteId,
-    )
-  }
-
-  const visibleEmployees = useMemo(() => data.employees.filter(employee => {
-    const matchesSite = !siteFilter || employeeHasVisibleSiteActivity(employee.id, siteFilter)
-    const matchesType = !techTypeFilter || employee.techType === techTypeFilter
-    return matchesSite && matchesType
-  }), [data, siteFilter, techTypeFilter, weekDates])
-
-  const todayMetrics = useMemo(() => {
-    const todayKey = fmt(new Date())
-    const counts: Record<Status | 'OFF', number> = {
-      Working: 0,
-      Vacation: 0,
-      Travel: 0,
-      Sick: 0,
-      Training: 0,
-      OFF: 0,
-      Unassigned: 0,
-    }
-
-    visibleEmployees.forEach(employee => {
-      const assignment = getAssignment(data, employee.id, todayKey)
-      let status = assignment.status
-      if (siteFilter && assignment.siteId && assignment.siteId !== siteFilter) status = 'Travel'
-      counts[status] += 1
-    })
-
-    return counts
-  }, [data, siteFilter, visibleEmployees])
-
-  const weeklyMetrics = useMemo(() => {
-    const metrics = { unassigned: 0, travel: 0, vacation: 0 }
-    visibleEmployees.forEach(employee => {
-      weekDates.forEach(date => {
-        const assignment = getAssignment(data, employee.id, fmt(date))
-        let status = assignment.status
-        if (siteFilter && assignment.siteId && assignment.siteId !== siteFilter) status = 'Travel'
-        if (status === 'Unassigned') metrics.unassigned += 1
-        if (status === 'Travel') metrics.travel += 1
-        if (status === 'Vacation') metrics.vacation += 1
-      })
-    })
-    return metrics
-  }, [data, siteFilter, visibleEmployees, weekDates])
-
-  const selectedSiteName = siteFilter ? siteName(data, siteFilter) || 'Selected Site' : 'All Sites / Master View'
-  const compactSiteName = siteFilter ? siteName(data, siteFilter) || 'Selected Site' : 'All Sites'
-  const weekEnd = addDays(currentMonday, 6)
-  const weekDateLabel = `${currentMonday.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: currentMonday.getFullYear() === weekEnd.getFullYear() ? undefined : 'numeric' })} - ${weekEnd.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
-  const todayDateLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
-
-  function requireEdit(): boolean {
-    if (canEdit) return true
-    setLoginOpen(true)
-    return false
-  }
-
-  function updateAssignment(empId: string, date: string, patch: Partial<Assignment>) {
-    if (!requireEdit()) return
-    setData(prev => {
-      const key = assignmentKey(empId, date)
-      const current = getAssignment(prev, empId, date)
-      return {
-        ...prev,
-        assignments: {
-          ...prev.assignments,
-          [key]: {
-            ...current,
-            ...patch,
-            siteWasSet: patch.siteId !== undefined ? true : current.siteWasSet,
-          },
-        },
-      }
-    })
-  }
-
-  function saveEmployee() {
-    if (!requireEdit()) return
-    const name = employeeForm.name.trim()
-    if (!name) return window.alert('Employee name cannot be blank.')
-
-    const values = {
-      name,
-      role: employeeForm.role.trim(),
-      techType: employeeForm.techType,
-      homeCity: employeeForm.homeCity.trim(),
-      homeSite: employeeForm.homeSite,
-    }
-
-    setData(prev => ({
-      ...prev,
-      employees: editingEmployeeId
-        ? prev.employees.map(employee => employee.id === editingEmployeeId ? { ...employee, ...values } : employee)
-        : [...prev.employees, { id: uid('emp'), ...values }],
-    }))
-    cancelEmployeeEdit()
-  }
-
-  function modifyEmployee(employee: Employee) {
-    if (!requireEdit()) return
-    setEditingEmployeeId(employee.id)
-    setEmployeeForm({
-      name: employee.name,
-      role: employee.role || '',
-      techType: employee.techType || 'Air',
-      homeCity: employee.homeCity || '',
-      homeSite: employee.homeSite || data.sites[0]?.id || '',
-    })
-  }
-
-  function cancelEmployeeEdit() {
-    setEditingEmployeeId(null)
-    setEmployeeForm({ name: '', role: '', techType: 'Air', homeCity: '', homeSite: data.sites[0]?.id || '' })
-  }
-
-  function removeEmployee(id: string) {
-    if (!requireEdit()) return
-    setData(prev => ({
-      ...prev,
-      employees: prev.employees.filter(employee => employee.id !== id),
-      assignments: Object.fromEntries(Object.entries(prev.assignments).filter(([, assignment]) => assignment.employeeId !== id)),
-    }))
-  }
-
-  function saveSite() {
-    if (!requireEdit()) return
-    const name = siteFormName.trim()
-    if (!name) return window.alert('Site name cannot be blank.')
-
-    setData(prev => ({
-      ...prev,
-      sites: editingSiteId
-        ? prev.sites.map(site => site.id === editingSiteId ? { ...site, name } : site)
-        : [...prev.sites, { id: uid('site'), name }],
-    }))
-    cancelSiteEdit()
-  }
-
-  function modifySite(site: Site) {
-    if (!requireEdit()) return
-    setEditingSiteId(site.id)
-    setSiteFormName(site.name)
-  }
-
-  function cancelSiteEdit() {
-    setEditingSiteId(null)
-    setSiteFormName('')
-  }
-
-  function removeSite(id: string) {
-    if (!requireEdit()) return
-    setData(prev => ({
-      sites: prev.sites.filter(site => site.id !== id),
-      employees: prev.employees.map(employee => employee.homeSite === id ? { ...employee, homeSite: '' } : employee),
-      assignments: Object.fromEntries(Object.entries(prev.assignments).map(([key, assignment]) => [
-        key,
-        assignment.siteId === id ? { ...assignment, siteId: '' } : assignment,
-      ])),
-    }))
-  }
-
-  function exportData() {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const anchor = document.createElement('a')
-    anchor.href = URL.createObjectURL(blob)
-    anchor.download = 'employee-scheduler-data.json'
-    anchor.click()
-    URL.revokeObjectURL(anchor.href)
-  }
-
-  function importData(event: ChangeEvent<HTMLInputElement>) {
-    if (!requireEdit()) return
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        setData(normalizeData(JSON.parse(String(reader.result)) as Partial<SchedulerData>))
-      } catch {
-        window.alert('Could not import file. Please use a valid scheduler JSON export.')
-      } finally {
-        event.target.value = ''
-      }
-    }
-    reader.readAsText(file)
-  }
-
-  async function submitLogin(event: FormEvent) {
-    event.preventDefault()
-    setLoginError('')
-    setLoginLoading(true)
     try {
-      await login(email, password)
-      setPassword('')
-      setLoginOpen(false)
-    } catch (error) {
-      setLoginError(error instanceof Error ? error.message : 'Sign in failed')
+      let result: Job
+      if (job) {
+        result = await API.schedule.updateJob(job.id, data) as Job
+        toast('Job updated')
+      } else {
+        result = await API.schedule.createJob(data) as Job
+        toast('Job created')
+      }
+      onSave(result)
+      onClose()
+    } catch (err: unknown) {
+      toast('Error: ' + (err as Error).message, 'error')
     } finally {
-      setLoginLoading(false)
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!job) return
+    if (!confirm('Delete this job? This cannot be undone.')) return
+    try {
+      await API.schedule.deleteJob(job.id)
+      onDelete(job.id)
+      toast('Job deleted')
+      onClose()
+    } catch (err: unknown) {
+      toast('Error: ' + (err as Error).message, 'error')
     }
   }
 
   return (
-    <main className="xs-page">
-      <header className="xs-header">
-        <Link className="xs-brand" href="/">
-          <img src="/brand/xnrgy-mark.svg" alt="XNRGY" />
-          <span>Zaktrack.pm</span>
-        </Link>
-        <nav className="xs-tabs" aria-label="Schedule views">
-          <button className={currentView === 'detailed' ? 'active' : ''} type="button" onClick={() => setCurrentView('detailed')}>Weekly Schedule</button>
-          <button className={currentView === 'compact' ? 'active' : ''} type="button" onClick={() => setCurrentView('compact')}>Compact View</button>
-        </nav>
-        <div className="xs-controls">
-          <div className="xs-week-control">
-            <button type="button" onClick={() => setCurrentMonday(prev => addDays(prev, -7))} aria-label="Previous week" title="Previous week"><ChevronLeft size={18} /></button>
-            <label>
-              <CalendarDays size={15} />
-              <input type="date" value={fmt(currentMonday)} onChange={event => setCurrentMonday(getMonday(new Date(event.target.value)))} aria-label="Week starting date" />
-            </label>
-            <button type="button" onClick={() => setCurrentMonday(prev => addDays(prev, 7))} aria-label="Next week" title="Next week"><ChevronRight size={18} /></button>
-          </div>
-          <select value={siteFilter} onChange={event => setSiteFilter(event.target.value)} aria-label="Filter by site">
-            <option value="">All Sites / Master View</option>
-            {data.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}
-          </select>
-          <select value={techTypeFilter} onChange={event => setTechTypeFilter(event.target.value)} aria-label="Filter by technician type">
-            <option value="">All Tech Types</option>
-            {TECH_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
-          </select>
-          <details className="xs-menu">
-            <summary aria-label="Utilities">...</summary>
-            <div>
-              <button type="button" onClick={exportData}><Download size={15} /> Export Data</button>
-              <button type="button" disabled={!canEdit} onClick={() => fileInputRef.current?.click()}><Upload size={15} /> Import Data</button>
-              <input ref={fileInputRef} className="hidden" type="file" accept="application/json" onChange={importData} />
-            </div>
-          </details>
-          {canEdit ? (
-            <button className="xs-auth-button" type="button" onClick={logout} title={user?.email || 'Sign out'}><LogOut size={16} /> Sign Out</button>
-          ) : (
-            <button className="xs-auth-button" type="button" onClick={() => setLoginOpen(true)}><LogIn size={16} /> Login</button>
-          )}
+    <Modal title={job ? 'Edit Job' : 'New Job'} onClose={onClose} maxWidth={560}>
+      <form onSubmit={handleSubmit} style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 4 }}>
+        <div className="form-group" style={{ marginBottom: 14 }}>
+          <label>Job Name *</label>
+          <input required value={name} onChange={e => setName(e.target.value)} placeholder="Enter job name" />
         </div>
-      </header>
-
-      {!canEdit && (
-        <section className="xs-readonly">
-          <LockKeyhole size={17} />
-          <strong>Read-only scheduler</strong>
-          <span>Sign in to edit assignments, roster, sites, and imports.</span>
-          <button type="button" onClick={() => setLoginOpen(true)}>Login</button>
-        </section>
-      )}
-
-      <section className="xs-summary">
-        <div className="xs-summary-group">
-          <div className="xs-summary-heading">
-            <h2>Today</h2>
-            <span>{todayDateLabel}</span>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="form-group">
+            <label>Site</label>
+            <select value={siteId} onChange={e => setSiteId(e.target.value)}>
+              <option value="">—</option>
+              {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
           </div>
-          <div className="xs-today-metrics">
-            {(['Working', 'Vacation', 'Travel', 'Sick', 'Training', 'OFF', 'Unassigned'] as const).map(status => (
-              <div className="xs-metric" key={status}>
-                <span>{status}</span>
-                <strong>{todayMetrics[status]}</strong>
+          <div className="form-group">
+            <label>Job Type</label>
+            <select value={jobType} onChange={e => setJobType(e.target.value)}>
+              <option value="">—</option>
+              {JOB_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="form-group">
+            <label>Priority</label>
+            <select value={priority} onChange={e => setPriority(e.target.value)}>
+              <option value="">—</option>
+              {[[1,'1 — Critical'],[2,'2 — High'],[3,'3 — Medium'],[4,'4 — Low'],[5,'5 — Backlog']].map(([v,l]) => (
+                <option key={v} value={String(v)}>{String(l)}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Status</label>
+            <select value={status} onChange={e => setStatus(e.target.value)}>
+              <option value="scheduled">Scheduled</option>
+              <option value="in_progress">In Progress</option>
+              <option value="complete">Complete</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+        <div className="form-group" style={{ marginBottom: 14 }}>
+          <label>Contract Number</label>
+          <input value={contractNumber} onChange={e => setContractNumber(e.target.value)} placeholder="e.g. C-12345" />
+        </div>
+        <div className="form-group" style={{ marginBottom: 14 }}>
+          <label>PM</label>
+          <select value={pmUserId} onChange={e => setPmUserId(e.target.value)}>
+            <option value="">—</option>
+            {users.map(u => <option key={u.id} value={u.id}>{u.name || u.email || u.id}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="form-group">
+            <label>Start Date</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label>End Date</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+          </div>
+        </div>
+        <div className="form-group" style={{ marginBottom: 14 }}>
+          <label>Notes</label>
+          <textarea rows={3} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes…" />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 4, gap: 8 }}>
+          {job ? (
+            <button type="button" className="btn btn-sm" onClick={handleDelete} style={{ color: 'var(--red)', borderColor: 'var(--red)', background: 'transparent' }}>Delete Job</button>
+          ) : <span />}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{job ? 'Save Changes' : 'Create Job'}</button>
+          </div>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+// ── Technician Manager Modal ───────────────────────────────────────────────────
+
+interface TechManagerProps {
+  techs: Technician[]
+  onSave: (updated: Technician[]) => void
+  onClose: () => void
+}
+
+function TechManagerModal({ techs, onSave, onClose }: TechManagerProps) {
+  const toast = useToastFn()
+  const [list, setList] = useState<Technician[]>(techs)
+  const [adding, setAdding] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [newRegion, setNewRegion] = useState('')
+
+  async function handleAdd() {
+    if (!newName.trim()) return toast('Name required', 'error')
+    try {
+      const created = await API.schedule.createTech({ name: newName.trim(), email: newEmail || undefined, region: newRegion || undefined })
+      const updated = [created, ...list]
+      setList(updated)
+      onSave(updated)
+      setAdding(false)
+      setNewName(''); setNewEmail(''); setNewRegion('')
+      toast('Technician added')
+    } catch (err: unknown) { toast('Error: ' + (err as Error).message, 'error') }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('Remove this technician?')) return
+    try {
+      await API.schedule.deleteTech(id)
+      const updated = list.filter(t => t.id !== id)
+      setList(updated)
+      onSave(updated)
+      toast('Technician removed')
+    } catch (err: unknown) { toast('Error: ' + (err as Error).message, 'error') }
+  }
+
+  return (
+    <Modal title="Manage Technicians" onClose={onClose} maxWidth={500}>
+      <div style={{ maxHeight: '60vh', overflowY: 'auto', marginBottom: 12 }}>
+        {list.map(t => (
+          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</div>
+              {(t.email || t.region) && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{[t.email, t.region].filter(Boolean).join(' · ')}</div>}
+            </div>
+            <button className="btn btn-sm" onClick={() => handleDelete(t.id)} style={{ color: 'var(--red)', borderColor: 'var(--red)', background: 'transparent' }}>Remove</button>
+          </div>
+        ))}
+        {list.length === 0 && <div style={{ color: 'var(--text3)', textAlign: 'center', padding: 24 }}>No technicians yet</div>}
+      </div>
+      {adding ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12, padding: 12, background: 'var(--bg3)', borderRadius: 8 }}>
+          <input placeholder="Name *" value={newName} onChange={e => setNewName(e.target.value)} autoFocus />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <input placeholder="Email" value={newEmail} onChange={e => setNewEmail(e.target.value)} />
+            <input placeholder="Region" value={newRegion} onChange={e => setNewRegion(e.target.value)} />
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setAdding(false)}>Cancel</button>
+            <button className="btn btn-primary btn-sm" onClick={handleAdd}>Add</button>
+          </div>
+        </div>
+      ) : (
+        <button className="btn btn-secondary" onClick={() => setAdding(true)} style={{ marginBottom: 12 }}>+ Add Technician</button>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="btn btn-secondary" onClick={onClose}>Close</button>
+      </div>
+    </Modal>
+  )
+}
+
+// ── Assignment Panel ───────────────────────────────────────────────────────────
+
+interface AssignPanelProps {
+  job: Job
+  site?: Site
+  allTechs: Technician[]
+  techsForSite: Technician[]
+  assignedTechs: Technician[]
+  onAssign: (techId: string) => void
+  onRemove: (techId: string) => void
+  onEdit: () => void
+}
+
+function AssignPanel({ job, site, allTechs: _allTechs, assignedTechs, techsForSite, onAssign, onRemove, onEdit }: AssignPanelProps) {
+  const [techSearch, setTechSearch] = useState('')
+  const [visibleCount, setVisibleCount] = useState(20)
+
+  const assignedIds = new Set(assignedTechs.map(t => t.id))
+  let available = techsForSite.filter(t => !assignedIds.has(t.id))
+  if (techSearch) {
+    const q = techSearch.toLowerCase()
+    available = available.filter(t => (t.name || '').toLowerCase().includes(q) || (t.region || '').toLowerCase().includes(q))
+  }
+  const visible = available.slice(0, visibleCount)
+  const hasMore = available.length > visibleCount
+
+  return (
+    <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', position: 'sticky', top: 16 }}>
+      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{job.name || job.title || 'Job'}</div>
+          {site && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{site.name}</div>}
+        </div>
+        <button className="btn btn-sm btn-secondary" onClick={onEdit} style={{ fontSize: 11 }}>✏ Edit</button>
+      </div>
+
+      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text3)', padding: '12px 16px 6px' }}>
+        Assigned Techs ({assignedTechs.length})
+      </div>
+      <div style={{ minHeight: 40 }}>
+        {assignedTechs.length === 0 ? (
+          <div style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>No technicians assigned yet</div>
+        ) : assignedTechs.map(t => (
+          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)' }}>{t.name || '—'}</div>
+              {t.region && <div style={{ fontSize: 10, color: 'var(--text3)' }}>{t.region}</div>}
+            </div>
+            <button
+              className="btn btn-sm"
+              onClick={() => onRemove(t.id)}
+              style={{ color: 'var(--red)', borderColor: 'var(--red)', background: 'transparent', padding: '2px 8px', fontSize: 11 }}
+            >×</button>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text3)', padding: '16px 16px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Available Technicians</span>
+        <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{available.length} found</span>
+      </div>
+      <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
+        <input
+          placeholder="Search by name or location…"
+          value={techSearch}
+          onChange={e => { setTechSearch(e.target.value); setVisibleCount(20) }}
+          style={{ width: '100%', padding: '7px 10px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 12 }}
+        />
+      </div>
+      <div style={{ overflowY: 'auto', maxHeight: 420 }}>
+        {visible.length === 0 ? (
+          <div style={{ padding: 16, textAlign: 'center', color: 'var(--text3)', fontSize: 12 }}>No available technicians found</div>
+        ) : visible.map(t => (
+          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6b7280', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)' }}>{t.name || '—'}</div>
+              {t.region && <div style={{ fontSize: 10, color: 'var(--text3)' }}>{t.region}</div>}
+            </div>
+            <button className="btn btn-sm btn-primary" onClick={() => onAssign(t.id)} style={{ padding: '3px 10px', fontSize: 11 }}>+ Assign</button>
+          </div>
+        ))}
+        {hasMore && (
+          <div style={{ padding: 10, textAlign: 'center' }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setVisibleCount(v => v + 20)} style={{ fontSize: 11 }}>
+              Load {Math.min(20, available.length - visibleCount)} more…
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
+
+export function Schedule() {
+  const toast = useToastFn()
+
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [sites, setSites] = useState<Site[]>([])
+  const [techs, setTechs] = useState<Technician[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
+  const [assignedTechs, setAssignedTechs] = useState<Technician[]>([])
+  const [techsForSite, setTechsForSite] = useState<Technician[]>([])
+
+  const [editingJob, setEditingJob] = useState<Job | null | undefined>(undefined)
+  const [showTechManager, setShowTechManager] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      API.sites.list().catch(() => [] as Site[]),
+      API.schedule.listTechs().catch(() => [] as Technician[]),
+      API.auth.listUsers().catch(() => [] as User[]),
+    ]).then(([s, t, u]) => {
+      setSites(s)
+      setTechs(t)
+      setUsers(u)
+    }).finally(() => {
+      loadJobs()
+    })
+  }, [])
+
+  async function loadJobs() {
+    try {
+      const loaded = await API.schedule.listJobs()
+      setJobs(loaded as Job[])
+    } catch (err: unknown) {
+      toast('Failed to load jobs: ' + (err as Error).message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const siteMap = useMemo(() => Object.fromEntries(sites.map(s => [s.id, s])), [sites])
+
+  const filteredJobs = useMemo(() => {
+    let list = jobs
+    if (activeFilter !== 'all') {
+      if (activeFilter === 'this_week') {
+        const { start, end } = getWeekBounds(0)
+        list = list.filter(j => { const d = j.start_date ? new Date(j.start_date) : null; return d && d >= start && d <= end })
+      } else if (activeFilter === 'next_week') {
+        const { start, end } = getWeekBounds(1)
+        list = list.filter(j => { const d = j.start_date ? new Date(j.start_date) : null; return d && d >= start && d <= end })
+      } else if (activeFilter === 'upcoming') {
+        const { end } = getWeekBounds(1)
+        list = list.filter(j => { const d = j.start_date ? new Date(j.start_date) : null; return d && d > end })
+      }
+    }
+    return [...list].sort((a, b) => {
+      const pa = (a as Job).priority ?? 5, pb = (b as Job).priority ?? 5
+      if (pa !== pb) return pa - pb
+      const da = a.start_date ?? '', db = b.start_date ?? ''
+      return da < db ? -1 : da > db ? 1 : 0
+    })
+  }, [jobs, activeFilter])
+
+  async function selectJob(jobId: string) {
+    setSelectedJobId(jobId)
+    const job = jobs.find(j => j.id === jobId) as Job | undefined
+    try {
+      const siteT = job?.site_id ? await API.schedule.getTechsForSite(job.site_id).catch(() => techs) : techs
+      setTechsForSite(siteT)
+      // Use technician_ids from job if available
+      const ids = job?.technician_ids ?? []
+      setAssignedTechs(techs.filter(t => ids.includes(t.id)))
+    } catch {
+      setTechsForSite(techs)
+      setAssignedTechs([])
+    }
+  }
+
+  async function handleAssign(techId: string) {
+    if (!selectedJobId) return
+    const job = jobs.find(j => j.id === selectedJobId) as Job | undefined
+    if (!job) return
+    const newIds = [...(job.technician_ids ?? []), techId]
+    try {
+      const updated = await API.schedule.updateJob(selectedJobId, { technician_ids: newIds }) as Job
+      setJobs(prev => prev.map(j => j.id === selectedJobId ? { ...j, ...updated, _techCount: newIds.length } : j))
+      setAssignedTechs(prev => [...prev, techs.find(t => t.id === techId)!].filter(Boolean))
+      toast('Technician assigned')
+    } catch (err: unknown) { toast('Error: ' + (err as Error).message, 'error') }
+  }
+
+  async function handleRemove(techId: string) {
+    if (!selectedJobId) return
+    const job = jobs.find(j => j.id === selectedJobId) as Job | undefined
+    if (!job) return
+    const newIds = (job.technician_ids ?? []).filter(id => id !== techId)
+    try {
+      const updated = await API.schedule.updateJob(selectedJobId, { technician_ids: newIds }) as Job
+      setJobs(prev => prev.map(j => j.id === selectedJobId ? { ...j, ...updated, _techCount: newIds.length } : j))
+      setAssignedTechs(prev => prev.filter(t => t.id !== techId))
+      toast('Technician removed')
+    } catch (err: unknown) { toast('Error: ' + (err as Error).message, 'error') }
+  }
+
+  const selectedJob = selectedJobId ? (jobs.find(j => j.id === selectedJobId) as Job) : null
+
+  if (loading) return <div style={{ color: 'var(--text2)', padding: 40, textAlign: 'center' }}>Loading…</div>
+
+  const filterTabs: { key: FilterKey; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'this_week', label: 'This Week' },
+    { key: 'next_week', label: 'Next Week' },
+    { key: 'upcoming', label: 'Upcoming' },
+  ]
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--border)', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Schedule</h1>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Dispatch &amp; Job Assignment</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary" onClick={() => setShowTechManager(true)}>Manage Techs</button>
+          <button className="btn btn-primary" onClick={() => setEditingJob(null)}>+ New Job</button>
+        </div>
+      </div>
+
+      {/* Layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'clamp(300px, 380px, 40%) 1fr', gap: 20, alignItems: 'start' }}>
+        {/* Left: Job Queue */}
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Job Queue</span>
+            <span style={{ fontSize: 11, color: 'var(--text3)' }}>{filteredJobs.length} job{filteredJobs.length !== 1 ? 's' : ''}</span>
+          </div>
+          {/* Filter tabs */}
+          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', padding: '0 16px', background: 'var(--bg)' }}>
+            {filterTabs.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveFilter(tab.key)}
+                style={{
+                  padding: '8px 12px', fontSize: 11, fontWeight: 600,
+                  color: activeFilter === tab.key ? 'var(--accent)' : 'var(--text3)',
+                  cursor: 'pointer', border: 'none', background: 'none',
+                  borderBottom: `2px solid ${activeFilter === tab.key ? 'var(--accent)' : 'transparent'}`,
+                  marginBottom: -1, transition: 'color .15s, border-color .15s', whiteSpace: 'nowrap',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
+            {filteredJobs.length === 0 ? (
+              <div style={{ padding: '60px 24px', textAlign: 'center', color: 'var(--text3)' }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>No jobs{activeFilter !== 'all' ? ' in this period' : ''}</div>
+                <div style={{ fontSize: 11, marginTop: 6 }}>Add a job with the "+ New Job" button</div>
               </div>
+            ) : filteredJobs.map(job => (
+              <JobCard
+                key={job.id}
+                job={job as Job}
+                site={job.site_id ? siteMap[job.site_id] : undefined}
+                users={users}
+                selected={job.id === selectedJobId}
+                onSelect={() => selectJob(job.id)}
+                onEdit={e => { e.stopPropagation(); setEditingJob(job as Job) }}
+              />
             ))}
           </div>
         </div>
-        <div className="xs-divider" />
-        <div className="xs-summary-group">
-          <div className="xs-summary-heading">
-            <h2>Weekly Risk</h2>
-            <span>{weekDateLabel}</span>
+
+        {/* Right: Assignment Panel */}
+        {selectedJob ? (
+          <AssignPanel
+            job={selectedJob}
+            site={selectedJob.site_id ? siteMap[selectedJob.site_id] : undefined}
+            allTechs={techs}
+            techsForSite={techsForSite}
+            assignedTechs={assignedTechs}
+            onAssign={handleAssign}
+            onRemove={handleRemove}
+            onEdit={() => setEditingJob(selectedJob)}
+          />
+        ) : (
+          <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ padding: '60px 24px', textAlign: 'center', color: 'var(--text3)' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>Select a job to assign technicians</div>
+              <div style={{ fontSize: 11, marginTop: 6 }}>Click any job in the queue to manage assignments</div>
+            </div>
           </div>
-          <div className="xs-weekly-metrics">
-            <div className="xs-metric"><span>Employees</span><strong>{visibleEmployees.length}</strong></div>
-            <div className="xs-metric"><span>Unassigned Days</span><strong>{weeklyMetrics.unassigned}</strong></div>
-            <div className="xs-metric"><span>Travel Days</span><strong>{weeklyMetrics.travel}</strong></div>
-            <div className="xs-metric"><span>Vacation Days</span><strong>{weeklyMetrics.vacation}</strong></div>
-          </div>
-        </div>
-      </section>
+        )}
+      </div>
 
-      {currentView === 'detailed' ? (
-        <section className={`xs-grid ${managementPanelCollapsed ? 'management-collapsed' : ''}`}>
-          <aside className="xs-panel">
-            <div className="xs-panel-head">
-              <h2>Roster and Sites</h2>
-              <button
-                type="button"
-                onClick={() => setManagementPanelCollapsed(value => !value)}
-                aria-expanded={!managementPanelCollapsed}
-                aria-label={managementPanelCollapsed ? 'Expand roster and sites panel' : 'Collapse roster and sites panel'}
-                title={managementPanelCollapsed ? 'Expand roster and sites panel' : 'Collapse roster and sites panel'}
-              >
-                {managementPanelCollapsed ? <Eye size={16} /> : <EyeOff size={16} />}
-              </button>
-            </div>
-            <div className="xs-panel-body">
-              <section>
-                <h3>Employees</h3>
-                <div className="xs-form">
-                  <input disabled={!canEdit} value={employeeForm.name} onChange={event => setEmployeeForm(prev => ({ ...prev, name: event.target.value }))} onKeyDown={event => { if (event.key === 'Enter') saveEmployee() }} placeholder="Employee name" />
-                  <div className="xs-row">
-                    <input disabled={!canEdit} value={employeeForm.role} onChange={event => setEmployeeForm(prev => ({ ...prev, role: event.target.value }))} onKeyDown={event => { if (event.key === 'Enter') saveEmployee() }} placeholder="Role / skill" />
-                    <select disabled={!canEdit} value={employeeForm.homeSite} onChange={event => setEmployeeForm(prev => ({ ...prev, homeSite: event.target.value }))}>
-                      {data.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="xs-row">
-                    <select disabled={!canEdit} value={employeeForm.techType} onChange={event => setEmployeeForm(prev => ({ ...prev, techType: event.target.value as TechType }))} aria-label="Technician type">
-                      {TECH_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
-                    </select>
-                    <input disabled={!canEdit} value={employeeForm.homeCity} onChange={event => setEmployeeForm(prev => ({ ...prev, homeCity: event.target.value }))} placeholder="Enter city" />
-                  </div>
-                  <div className="xs-edit-actions">
-                    <button type="button" disabled={!canEdit} onClick={saveEmployee}>{editingEmployeeId ? 'Save Employee' : 'Add Employee'}</button>
-                    {editingEmployeeId && <button className="secondary" type="button" onClick={cancelEmployeeEdit}>Cancel</button>}
-                  </div>
-                </div>
-                <div className="xs-list">
-                  {data.employees.map(employee => (
-                    <article className="xs-person" key={employee.id}>
-                      <div>
-                        <strong>{employee.name}</strong>
-                        <span>{siteName(data, employee.homeSite) || 'No site'}</span>
-                        <span>{employee.techType}</span>
-                        <small>{employee.role || 'No role'}{employee.homeCity ? ` - ${employee.homeCity}` : ''}</small>
-                      </div>
-                      <div>
-                        <button className="secondary" type="button" disabled={!canEdit} onClick={() => modifyEmployee(employee)}>Modify</button>
-                        <button className="secondary" type="button" disabled={!canEdit} onClick={() => removeEmployee(employee.id)}>Remove</button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h3>Sites</h3>
-                <div className="xs-form">
-                  <input disabled={!canEdit} value={siteFormName} onChange={event => setSiteFormName(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') saveSite() }} placeholder="Site name" />
-                  <div className="xs-edit-actions">
-                    <button type="button" disabled={!canEdit} onClick={saveSite}>{editingSiteId ? 'Save Site' : 'Add Site'}</button>
-                    {editingSiteId && <button className="secondary" type="button" onClick={cancelSiteEdit}>Cancel</button>}
-                  </div>
-                </div>
-                <div className="xs-list">
-                  {data.sites.map(site => (
-                    <article className="xs-person" key={site.id}>
-                      <div><strong>{site.name}</strong><small>Site</small></div>
-                      <div>
-                        <button className="secondary" type="button" disabled={!canEdit} onClick={() => modifySite(site)}>Modify</button>
-                        <button className="secondary" type="button" disabled={!canEdit} onClick={() => removeSite(site.id)}>Remove</button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            </div>
-          </aside>
-
-          <section className="xs-schedule-card">
-            {managementPanelCollapsed && (
-              <button className="xs-expand-panel" type="button" onClick={() => setManagementPanelCollapsed(false)}>
-                <Eye size={16} /> Show Roster
-              </button>
-            )}
-            <div className="xs-schedule-heading">
-              <h2>{selectedSiteName}</h2>
-              <span>{visibleEmployees.length ? `${visibleEmployees.length} employees visible` : 'No employees visible'}</span>
-            </div>
-            <div className="xs-table-wrap">
-              <table className="xs-table">
-                <thead>
-                  <tr>
-                    <th>{selectedSiteName}</th>
-                    {weekDates.map((date, index) => <th key={fmt(date)}>{DAYS[index]}<br />{displayDate(date)}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleEmployees.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="xs-empty-cell">
-                        No employees currently have {selectedSiteName} as their home site or scheduled activity for this week.
-                      </td>
-                    </tr>
-                  ) : visibleEmployees.map(employee => (
-                    <tr key={employee.id}>
-                      <td>
-                        <strong>{employee.name}</strong>
-                        <span>{siteName(data, employee.homeSite) || 'No home site'}</span>
-                        <span>{employee.techType}</span>
-                        <small>{employee.role || ''}</small>
-                      </td>
-                      {weekDates.map((date, index) => {
-                        const dateKey = fmt(date)
-                        const assignment = getAssignment(data, employee.id, dateKey)
-
-                        if (siteFilter && assignment.siteId && assignment.siteId !== siteFilter) {
-                          return (
-                            <td key={dateKey} data-day={`${DAYS[index]} ${displayDate(date)}`}>
-                              <div className="xs-cell">
-                                <span className={statusClass('Travel')}>Other Site</span>
-                                <small>{employee.name} is assigned to {siteName(data, assignment.siteId) || 'another site'} this day.</small>
-                              </div>
-                            </td>
-                          )
-                        }
-
-                        if (siteFilter && !assignment.siteId && employee.homeSite !== siteFilter) {
-                          return (
-                            <td key={dateKey} data-day={`${DAYS[index]} ${displayDate(date)}`}>
-                              <div className="xs-cell">
-                                <span className={statusClass('Unassigned')}>No {compactSiteName} Activity</span>
-                              </div>
-                            </td>
-                          )
-                        }
-
-                        return (
-                          <td key={dateKey} data-day={`${DAYS[index]} ${displayDate(date)}`}>
-                            <div className="xs-cell">
-                              <span className={statusClass(assignment.status)}>{assignment.status}</span>
-                              <select disabled={!canEdit} value={assignment.status} onChange={event => updateAssignment(employee.id, dateKey, { status: event.target.value as Status })}>
-                                {STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
-                              </select>
-                              <select disabled={!canEdit} value={assignment.siteId} onChange={event => updateAssignment(employee.id, dateKey, { siteId: event.target.value })}>
-                                <option value="">No site</option>
-                                {data.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}
-                              </select>
-                              <input disabled={!canEdit} value={assignment.notes || ''} placeholder="Notes" onChange={event => updateAssignment(employee.id, dateKey, { notes: event.target.value })} />
-                            </div>
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </section>
-      ) : (
-        <section className="xs-compact-card">
-          <div className="xs-schedule-heading">
-            <h2>Compact Schedule</h2>
-            <span>{compactSiteName}</span>
-          </div>
-          {visibleEmployees.length ? (
-            <div className="xs-compact-schedule">
-              <div className="xs-compact-row">
-                <div className="xs-compact-cell header">{compactSiteName}</div>
-                {weekDates.map((date, index) => <div className="xs-compact-cell header" key={fmt(date)}>{DAYS[index]}<br />{displayDate(date)}</div>)}
-              </div>
-              {visibleEmployees.map(employee => (
-                <div className="xs-compact-row data" key={employee.id}>
-                  <div className="xs-compact-cell employee">
-                    {employee.name}
-                    <span>{siteName(data, employee.homeSite) || 'No site'}</span>
-                    <span>{employee.techType}</span>
-                    <small>{employee.role || ''}</small>
-                  </div>
-                  {weekDates.map(date => {
-                    const assignment = getAssignment(data, employee.id, fmt(date))
-                    let status = assignment.status
-                    if (siteFilter && assignment.siteId && assignment.siteId !== siteFilter) status = 'Travel'
-                    const assignedSite = siteName(data, assignment.siteId)
-
-                    return (
-                      <div className="xs-compact-cell" key={fmt(date)}>
-                        <span className={statusClass(status)}>{status}</span>
-                        {assignedSite && <small>{assignedSite}</small>}
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="xs-empty-cell">No employees are visible for this site and week.</div>
-          )}
-        </section>
+      {/* Job Modal */}
+      {editingJob !== undefined && (
+        <JobModal
+          job={editingJob}
+          sites={sites}
+          users={users}
+          onSave={saved => {
+            setJobs(prev => {
+              const idx = prev.findIndex(j => j.id === saved.id)
+              return idx >= 0 ? prev.map((j, i) => i === idx ? saved : j) : [...prev, saved]
+            })
+          }}
+          onDelete={id => {
+            setJobs(prev => prev.filter(j => j.id !== id))
+            if (selectedJobId === id) { setSelectedJobId(null); setAssignedTechs([]) }
+          }}
+          onClose={() => setEditingJob(undefined)}
+        />
       )}
 
-      {loginOpen && (
-        <div className="xs-login-modal" role="dialog" aria-modal="true" aria-labelledby="scheduler-login-title">
-          <form onSubmit={submitLogin}>
-            <header>
-              <img src="/brand/xnrgy-mark.svg" alt="XNRGY" />
-              <button type="button" onClick={() => setLoginOpen(false)} aria-label="Close login">x</button>
-            </header>
-            <span>Authenticated Access</span>
-            <h2 id="scheduler-login-title">Unlock scheduler editing</h2>
-            <label>
-              <span>Email address</span>
-              <input type="email" required autoFocus value={email} onChange={event => setEmail(event.target.value)} placeholder="you@xnrgy.com" />
-            </label>
-            <label>
-              <span>Password</span>
-              <input type="password" required value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter your password" />
-            </label>
-            {loginError && <p>{loginError}</p>}
-            <button type="submit" disabled={loginLoading}>{loginLoading ? 'Signing in...' : 'Login'}</button>
-          </form>
-        </div>
+      {/* Tech Manager */}
+      {showTechManager && (
+        <TechManagerModal
+          techs={techs}
+          onSave={setTechs}
+          onClose={() => setShowTechManager(false)}
+        />
       )}
-    </main>
+    </div>
   )
 }
