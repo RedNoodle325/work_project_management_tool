@@ -1,310 +1,84 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { API } from '../api'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { BookOpen, ExternalLink, FileText, FolderKanban, Link as LinkIcon, Pencil, Plus, Search, Trash2, Wrench, X } from 'lucide-react'
+import { API } from '@/api'
 import { useToastFn } from '@/app/providers'
-import { Modal } from '../components/Modal'
-import type { ResourceLink } from '../types'
-import { ExternalLink, Plus, Pencil, Trash2, BookOpen, FileText, BarChart2, Link } from 'lucide-react'
+import type { ResourceLink } from '@/types'
 
-const CATEGORIES = [
-  { value: 'tracker',   label: 'Trackers',   icon: BarChart2,  color: '#3b82f6' },
-  { value: 'form',      label: 'Forms',      icon: FileText,   color: '#8b5cf6' },
-  { value: 'reference', label: 'References', icon: BookOpen,   color: '#f97316' },
-  { value: 'general',   label: 'General',    icon: Link,       color: '#64748b' },
+const categories = [
+  { value: 'sharepoint', label: 'SharePoint', icon: FolderKanban },
+  { value: 'document', label: 'Files & documents', icon: FileText },
+  { value: 'tool', label: 'Tools & trackers', icon: Wrench },
+  { value: 'reference', label: 'References', icon: BookOpen },
+  { value: 'general', label: 'General', icon: LinkIcon },
 ]
 
-function catMeta(cat: string) {
-  return CATEGORIES.find(c => c.value === cat) ?? CATEGORIES[3]
-}
-
-interface FormState {
-  name: string
-  url: string
-  category: string
-  description: string
-}
-
-const EMPTY: FormState = { name: '', url: '', category: 'general', description: '' }
+type LinkForm = { name: string; url: string; category: string; description: string }
+const emptyForm: LinkForm = { name: '', url: '', category: 'sharepoint', description: '' }
 
 export function Resources() {
   const toast = useToastFn()
   const [links, setLinks] = useState<ResourceLink[]>([])
+  const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [editTarget, setEditTarget] = useState<ResourceLink | null>(null)
-  const [form, setForm] = useState<FormState>(EMPTY)
+  const [error, setError] = useState('')
+  const [editing, setEditing] = useState<ResourceLink | null | undefined>(undefined)
+
+  const load = () => API.resourceLinks.list().then(setLinks).catch(error => setError(error.message)).finally(() => setLoading(false))
+  useEffect(() => { API.resourceLinks.list().then(setLinks).catch(error => setError(error.message)).finally(() => setLoading(false)) }, [])
+
+  const filtered = useMemo(() => {
+    const text = query.trim().toLowerCase()
+    if (!text) return links
+    return links.filter(link => `${link.name} ${link.description || ''} ${link.category}`.toLowerCase().includes(text))
+  }, [links, query])
+
+  const grouped = categories.map(category => ({
+    ...category,
+    links: filtered.filter(link => normalizedCategory(link.category) === category.value),
+  })).filter(group => group.links.length)
+
+  async function remove(link: ResourceLink) {
+    if (!window.confirm(`Delete ${link.name}?`)) return
+    try { await API.resourceLinks.delete(link.id); toast('Link deleted'); load() }
+    catch (error) { toast((error as Error).message, 'error') }
+  }
+
+  return <div className="x-page x-resources-page">
+    <header className="x-directory-head">
+      <div><span className="x-kicker">Quick access</span><h1>Resources</h1><p>Keep SharePoint locations, frequently used files, and everyday tools one click away.</p></div>
+      <button className="x-resource-add" onClick={() => setEditing(null)}><Plus size={16} /> Add link</button>
+    </header>
+
+    <label className="x-directory-search"><Search size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search resources..." /></label>
+
+    {error ? <div className="x-load-panel"><strong>Resources are unavailable</strong><p>{error}. Run database/006_resource_links.sql, then try again.</p><button className="primary" onClick={() => { setError(''); setLoading(true); load() }}>Try again</button></div>
+      : loading ? <div className="x-resource-empty">Loading resources…</div>
+      : filtered.length === 0 ? <div className="x-resource-empty"><LinkIcon size={24} /><strong>{query ? 'No matching resources' : 'Your resource library is empty'}</strong><p>{query ? 'Try a different search.' : 'Add your company SharePoint, working files, trackers, and reference links.'}</p>{!query && <button onClick={() => setEditing(null)}><Plus size={15} /> Add your first link</button>}</div>
+      : <div className="x-resource-groups">{grouped.map(group => { const Icon = group.icon; return <section key={group.value} className="x-resource-group"><header><Icon size={16} /><h2>{group.label}</h2><span>{group.links.length}</span></header><div className="x-resource-grid">{group.links.map(link => <article className="x-resource-card" key={link.id}><div className="x-resource-icon"><Icon size={19} /></div><div className="x-resource-copy"><h3>{link.name}</h3>{link.description && <p>{link.description}</p>}{link.url && <small>{host(link.url)}</small>}</div><div className="x-resource-actions"><button aria-label={`Edit ${link.name}`} onClick={() => setEditing(link)}><Pencil size={14} /></button><button aria-label={`Delete ${link.name}`} onClick={() => remove(link)}><Trash2 size={14} /></button></div>{link.url && <a href={link.url} target="_blank" rel="noopener noreferrer">Open <ExternalLink size={14} /></a>}</article>)}</div></section> })}</div>}
+
+    {editing !== undefined && <LinkEditor link={editing} close={() => setEditing(undefined)} saved={() => { setEditing(undefined); load() }} />}
+  </div>
+}
+
+function LinkEditor({ link, close, saved }: { link: ResourceLink | null; close: () => void; saved: () => void }) {
+  const toast = useToastFn()
+  const [form, setForm] = useState<LinkForm>(link ? { name: link.name, url: link.url || '', category: normalizedCategory(link.category), description: link.description || '' } : emptyForm)
   const [saving, setSaving] = useState(false)
-
-  async function load() {
+  const [error, setError] = useState('')
+  const set = (key: keyof LinkForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(current => ({ ...current, [key]: event.target.value }))
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setSaving(true); setError('')
     try {
-      setLinks(await API.resourceLinks.list())
-    } catch (e) {
-      toast('Failed to load resources: ' + (e as Error).message, 'error')
-    } finally {
-      setLoading(false)
-    }
+      if (link) await API.resourceLinks.update(link.id, form)
+      else await API.resourceLinks.create(form)
+      toast(link ? 'Link updated' : 'Link added'); saved()
+    } catch (error) { setError((error as Error).message) }
+    finally { setSaving(false) }
   }
-
-  useEffect(() => { load() }, [])
-
-  function openNew() {
-    setEditTarget(null)
-    setForm(EMPTY)
-    setShowModal(true)
-  }
-
-  function openEdit(link: ResourceLink) {
-    setEditTarget(link)
-    setForm({ name: link.name, url: link.url ?? '', category: link.category, description: link.description ?? '' })
-    setShowModal(true)
-  }
-
-  async function handleSave() {
-    if (!form.name.trim()) return toast('Name is required', 'error')
-    setSaving(true)
-    try {
-      if (editTarget) {
-        await API.resourceLinks.update(editTarget.id, form)
-        toast('Link updated')
-      } else {
-        await API.resourceLinks.create(form)
-        toast('Link added')
-      }
-      setShowModal(false)
-      load()
-    } catch (e) {
-      toast('Error: ' + (e as Error).message, 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleDelete(link: ResourceLink) {
-    if (!confirm(`Delete "${link.name}"?`)) return
-    try {
-      await API.resourceLinks.delete(link.id)
-      toast('Deleted')
-      load()
-    } catch (e) {
-      toast('Error: ' + (e as Error).message, 'error')
-    }
-  }
-
-  // Group by category in display order
-  const grouped = CATEGORIES.map(cat => ({
-    ...cat,
-    items: links.filter(l => l.category === cat.value),
-  })).filter(g => g.items.length > 0)
-
-  return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h1>Resources</h1>
-          <div className="page-subtitle">Quick links to trackers, forms, and reference documents</div>
-        </div>
-        <button className="btn btn-primary" onClick={openNew}>
-          <Plus size={14} style={{ marginRight: 4 }} />
-          Add Link
-        </button>
-      </div>
-
-      {loading ? (
-        <div style={{ color: 'var(--text3)', padding: 40, textAlign: 'center' }}>Loading…</div>
-      ) : links.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
-          No links yet — add a tracker, form, or document link above.
-        </div>
-      ) : (
-        grouped.map(group => {
-          const Icon = group.icon
-          return (
-            <div key={group.value} style={{ marginBottom: 20 }}>
-              {/* Category header */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                marginBottom: 8,
-              }}>
-                <Icon size={14} color={group.color} />
-                <span style={{
-                  fontSize: 11, fontWeight: 700, letterSpacing: 0.06,
-                  textTransform: 'uppercase', color: group.color,
-                }}>
-                  {group.label}
-                </span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
-                {group.items.map(link => (
-                  <LinkCard
-                    key={link.id}
-                    link={link}
-                    accentColor={group.color}
-                    onEdit={() => openEdit(link)}
-                    onDelete={() => handleDelete(link)}
-                  />
-                ))}
-              </div>
-            </div>
-          )
-        })
-      )}
-
-      {/* Uncategorised (categories not in our list) */}
-      {(() => {
-        const knownCats = new Set(CATEGORIES.map(c => c.value))
-        const other = links.filter(l => !knownCats.has(l.category))
-        if (!other.length) return null
-        return (
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.06, textTransform: 'uppercase', color: 'var(--text3)', marginBottom: 8 }}>
-              Other
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
-              {other.map(link => (
-                <LinkCard key={link.id} link={link} accentColor="#64748b" onEdit={() => openEdit(link)} onDelete={() => handleDelete(link)} />
-              ))}
-            </div>
-          </div>
-        )
-      })()}
-
-      {showModal && (
-        <Modal
-          title={editTarget ? 'Edit Link' : 'Add Link'}
-          onClose={() => setShowModal(false)}
-          maxWidth={480}
-        >
-          <div className="form-grid">
-            <div className="form-group full">
-              <label>Name *</label>
-              <input
-                autoFocus
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. DC PM Tracker"
-              />
-            </div>
-            <div className="form-group full">
-              <label>URL</label>
-              <input
-                value={form.url}
-                onChange={e => setForm(f => ({ ...f, url: e.target.value }))}
-                placeholder="https://…"
-                type="url"
-              />
-            </div>
-            <div className="form-group">
-              <label>Category</label>
-              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                {CATEGORIES.map(c => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group full">
-              <label>Description</label>
-              <input
-                value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Short note about what this is"
-              />
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-            <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : editTarget ? 'Save' : 'Add'}
-            </button>
-          </div>
-        </Modal>
-      )}
-    </div>
-  )
+  return <div className="x-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}><form className="x-modal" onSubmit={submit}><header><div><span className="x-kicker">Resource library</span><h2>{link ? 'Edit link' : 'Add link'}</h2></div><button type="button" aria-label="Close" onClick={close}><X size={18} /></button></header><label className="x-field"><span>Name</span><input autoFocus value={form.name} onChange={set('name')} placeholder="e.g. Company SharePoint" required /></label><label className="x-field"><span>Web address</span><input type="url" value={form.url} onChange={set('url')} placeholder="https://company.sharepoint.com/..." required /></label><label className="x-field"><span>Category</span><select value={form.category} onChange={set('category')}>{categories.map(category => <option value={category.value} key={category.value}>{category.label}</option>)}</select></label><label className="x-field"><span>Description</span><input value={form.description} onChange={set('description')} placeholder="What you use this for" /></label>{error && <p className="x-error">{error}</p>}<footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save link'}</button></footer></form></div>
 }
 
-// ── Link card ──────────────────────────────────────────────────────────────────
-function LinkCard({
-  link, accentColor, onEdit, onDelete,
-}: {
-  link: ResourceLink
-  accentColor: string
-  onEdit: () => void
-  onDelete: () => void
-}) {
-  const meta = catMeta(link.category)
-  const Icon = meta.icon
-
-  return (
-    <div style={{
-      background: 'var(--bg2)',
-      border: '1px solid var(--border)',
-      borderRadius: 10,
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-    }}>
-      {/* Accent bar */}
-      <div style={{ height: 3, background: accentColor, flexShrink: 0 }} />
-
-      <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {/* Title row */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-            <Icon size={13} color={accentColor} style={{ flexShrink: 0 }} />
-            <span style={{
-              fontSize: 13, fontWeight: 600, color: 'var(--text)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {link.name}
-            </span>
-          </div>
-          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button
-              title="Edit"
-              onClick={onEdit}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2, display: 'flex' }}
-            >
-              <Pencil size={12} />
-            </button>
-            <button
-              title="Delete"
-              onClick={onDelete}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', padding: 2, display: 'flex', opacity: 0.6 }}
-            >
-              <Trash2 size={12} />
-            </button>
-          </div>
-        </div>
-
-        {link.description && (
-          <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.4 }}>
-            {link.description}
-          </div>
-        )}
-      </div>
-
-      {/* Open button */}
-      {link.url && (
-        <a
-          href={link.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            padding: '8px 14px',
-            borderTop: '1px solid var(--border)',
-            fontSize: 12, fontWeight: 600,
-            color: accentColor,
-            textDecoration: 'none',
-            background: `${accentColor}0a`,
-          }}
-        >
-          <ExternalLink size={12} />
-          Open
-        </a>
-      )}
-    </div>
-  )
-}
+function host(value: string) { try { return new URL(value).hostname.replace(/^www\./, '') } catch { return value } }
+function normalizedCategory(value: string) { if (value === 'tracker') return 'tool'; if (value === 'form') return 'document'; return categories.some(category => category.value === value) ? value : 'general' }

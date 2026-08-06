@@ -8,6 +8,8 @@ alter table public.sites add column if not exists address text;
 alter table public.sites add column if not exists postal_code text;
 alter table public.units add column if not exists commission_level text not null default 'none';
 alter table public.units add column if not exists operational_status text;
+alter table public.units add column if not exists warranty_start_date date;
+alter table public.units add column if not exists warranty_end_date date;
 
 update public.sites s
 set customer_id = l.customer_id

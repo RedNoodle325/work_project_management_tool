@@ -34,3 +34,17 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Worky Next
+
+## User roles
+
+Run [`database/011_user_roles.sql`](database/011_user_roles.sql) once against the production database before deploying this version. It keeps the original owner as `owner` and changes existing secondary accounts to `scheduler`, preserving current access until the owner updates them under **Users & permissions**.
+
+Roles are enforced by the API on every request:
+
+- `owner`: full access, including user and role management.
+- `admin`: all operational data and scheduler access, but cannot manage accounts.
+- `project_manager`: manages project records and daily reports.
+- `technician`: submits daily tech reports; otherwise read-only.
+- `scheduler`: manages employee scheduling only.
+- `viewer`: read-only.

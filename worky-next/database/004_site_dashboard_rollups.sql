@@ -3,6 +3,8 @@ begin;
 
 alter table public.units add column if not exists commission_level text not null default 'none';
 alter table public.units add column if not exists operational_status text;
+alter table public.units add column if not exists warranty_start_date date;
+alter table public.units add column if not exists warranty_end_date date;
 
 drop view if exists public.site_overview;
 create view public.site_overview as

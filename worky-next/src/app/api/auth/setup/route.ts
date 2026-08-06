@@ -15,6 +15,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Email, password, and display_name are required' }, { status: 400 })
   }
 
+  const normalizedEmail = email.trim().toLowerCase()
+  if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+    return NextResponse.json({ error: 'Enter a valid email address' }, { status: 400 })
+  }
+
   if (password.length < 8) {
     return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
   }
@@ -22,12 +27,12 @@ export async function POST(req: NextRequest) {
   const password_hash = await hash(password, 12)
 
   const [user] = await sql`
-    INSERT INTO public.users (email, password_hash, display_name)
-    VALUES (${email.toLowerCase()}, ${password_hash}, ${display_name})
+    INSERT INTO public.users (email, password_hash, display_name, access_role)
+    VALUES (${normalizedEmail}, ${password_hash}, ${display_name.trim()}, 'owner')
     RETURNING id, email, display_name
   `
 
-  const token = await signToken({ sub: user.id, email: user.email, name: user.display_name })
+  const token = await signToken({ sub: user.id, email: user.email, name: user.display_name, role: 'owner' })
 
-  return NextResponse.json({ token, email: user.email, display_name: user.display_name })
+  return NextResponse.json({ token, email: user.email, display_name: user.display_name, access_role: 'owner' })
 }

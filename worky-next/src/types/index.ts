@@ -276,7 +276,7 @@ export interface ResourceLink {
   id: string
   name: string
   url?: string
-  category: string   // tracker | form | reference | general
+  category: string   // sharepoint | document | tool | reference | general
   description?: string
   sort_order?: number
   created_at?: string
@@ -340,13 +340,14 @@ export interface AuthUser {
   id: string
   email: string
   name?: string
-  role?: string
+  role?: 'owner' | 'admin' | 'project_manager' | 'technician' | 'scheduler' | 'viewer'
 }
 
 export interface LoginResponse {
   token: string
   email: string
   display_name?: string
+  access_role: NonNullable<AuthUser['role']>
 }
 
 // ── Daily Tech Report ─────────────────────────────────────────────────────────

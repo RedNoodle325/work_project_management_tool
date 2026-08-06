@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose'
 import type { NextRequest } from 'next/server'
+import type { Role } from './permissions'
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET!)
 
@@ -7,6 +8,7 @@ export interface Claims {
   sub: string
   email: string
   name?: string
+  role: Role | 'visitor'
   exp?: number
   iat?: number
 }

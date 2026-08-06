@@ -26,6 +26,8 @@ export interface SiteSummaryV2 {
   location_id?: string
   customer_id: string
   customer_name?: string
+  project_number?: string
+  representative_name?: string
   name: string
   site_code?: string
   campus_code?: string
@@ -62,6 +64,8 @@ export interface HierarchyCustomerV2 extends CustomerV2 {
 export interface ProjectV2 {
   id: string
   site_id: string
+  representative_id?: string
+  representative_name?: string
   project_number: string
   name: string
   status: string
@@ -97,7 +101,7 @@ export interface IssueV2 {
   id: string
   site_id: string
   unit_id?: string
-  asr_id: string
+  asr_id?: string
   title: string
   description?: string
   priority: string
@@ -105,6 +109,20 @@ export interface IssueV2 {
   asr_number?: string
   unit_tag?: string
   reported_at: string
+}
+
+export interface LeanIssueV2 {
+  id: string
+  site_id: string
+  site_name: string
+  issue_number: string
+  description?: string
+  equipment_name?: string
+  serial_number?: string
+  source_url?: string
+  source?: string
+  internal_notes?: string
+  updated_at: string
 }
 
 export interface ContactV2 {
@@ -130,6 +148,31 @@ export interface SiteUpdateV2 {
   update_type?: 'general' | 'status' | 'service' | 'parts' | 'commercial' | 'milestone'
   is_pinned?: boolean
   attachment_count?: number
+}
+
+export interface SiteScheduleEventV2 {
+  id: string
+  site_id: string
+  title: string
+  planned_start: string
+  planned_working_days: number
+  current_start: string
+  current_working_days: number
+  weekends_are_workdays: boolean
+  actual_start?: string
+  actual_complete?: string
+  status: 'planned' | 'delayed' | 'in_progress' | 'complete' | 'cancelled'
+  notes?: string
+}
+
+export interface SiteScheduleChangeV2 {
+  id: string
+  schedule_event_id: string
+  field_name: string
+  previous_value?: string
+  new_value?: string
+  note?: string
+  changed_at: string
 }
 
 export interface AttachmentV2 {

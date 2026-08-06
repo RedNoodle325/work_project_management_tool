@@ -1,6 +1,7 @@
 import { AuthGuard } from '@/components/AuthGuard'
-import { Todos } from '@/pages-impl/Todos'
+import { PrivateAuthGuard } from '@/components/PrivateAuthGuard'
+import { TodoistTodos } from '@/pages-impl/TodoistTodos'
 
 export default function Page() {
-  return <AuthGuard><Todos /></AuthGuard>
+  return <AuthGuard><PrivateAuthGuard><TodoistTodos /></PrivateAuthGuard></AuthGuard>
 }

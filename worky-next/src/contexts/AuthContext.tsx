@@ -8,6 +8,7 @@ interface AuthContextValue {
   user: AuthUser | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  setup: (email: string, password: string, displayName: string) => Promise<void>
   logout: () => void
   isAuthenticated: boolean
 }
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
   login: async () => {},
+  setup: async () => {},
   logout: () => {},
   isAuthenticated: false,
 })
@@ -52,7 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return res.json() as Promise<{ email: string; display_name?: string }>
       })
       .then(u => {
-        const authUser: AuthUser = { id: '', email: u.email, name: u.display_name }
+        const response = u as { email: string; display_name?: string; access_role?: AuthUser['role'] }
+        const authUser: AuthUser = { id: '', email: response.email, name: response.display_name, role: response.access_role }
         setUser(authUser)
         localStorage.setItem('auth_user', JSON.stringify(authUser))
       })
@@ -65,7 +68,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const res = await API.auth.login(email, password)
     setToken(res.token)
-    const u: AuthUser = { id: '', email: res.email, name: res.display_name }
+    const u: AuthUser = { id: '', email: res.email, name: res.display_name, role: res.access_role }
+    setUser(u)
+    localStorage.setItem('auth_user', JSON.stringify(u))
+  }
+
+  const setup = async (email: string, password: string, displayName: string) => {
+    const res = await API.auth.setup({ email, password, display_name: displayName })
+    setToken(res.token)
+    const u: AuthUser = { id: '', email: res.email, name: res.display_name, role: res.access_role }
     setUser(u)
     localStorage.setItem('auth_user', JSON.stringify(u))
   }
@@ -76,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, loading, login, setup, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   )

@@ -8,7 +8,29 @@ export async function GET(request: NextRequest) {
 
   const [customers, sites, updates, documents] = await Promise.all([
     sql`select count(*)::int as count from public.customers where status = 'active'`,
-    sql`select * from public.site_overview order by coalesce(last_update_at, created_at) desc`,
+    sql`
+      select
+        overview.*,
+        coalesce(on_site_visits.visits, '[]'::json) as active_visits
+      from public.site_overview overview
+      left join lateral (
+        select json_agg(json_build_object(
+          'id', visit.id,
+          'technician_names', visit.technician_names,
+          'summary', visit.summary,
+          'started_at', visit.started_at,
+          'scheduled_for', visit.scheduled_for
+        ) order by coalesce(visit.started_at, visit.scheduled_for) desc) as visits
+        from public.service_visits visit
+        join public.asrs asr on asr.id = visit.asr_id
+        where asr.site_id = overview.id
+          and visit.status = 'in_progress'
+      ) on_site_visits on true
+      order by
+        case when on_site_visits.visits is not null then 0 else 1 end,
+        case overview.status when 'critical' then 0 when 'attention' then 1 when 'offline' then 2 else 3 end,
+        coalesce(overview.last_update_at, overview.created_at) desc
+    `,
     sql`
       select su.*, s.name as site_name, s.status as site_status, l.campus_code, c.name as customer_name,
         (select count(*)::int from public.attachments a where a.update_id = su.id) as attachment_count

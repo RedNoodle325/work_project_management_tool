@@ -64,11 +64,16 @@ export const API = {
     login: (email: string, password: string) =>
       apiFetch<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
     me: () => apiFetch<User>('/auth/me'),
-    setup: (data: { email: string; password: string; name: string }) =>
+    setup: (data: { email: string; password: string; display_name: string }) =>
       apiFetch<LoginResponse>('/auth/setup', { method: 'POST', body: JSON.stringify(data) }),
     changePassword: (data: { current_password: string; new_password: string }) =>
       apiFetch('/auth/change-password', { method: 'POST', body: JSON.stringify(data) }),
     listUsers: () => apiFetch<User[]>('/users'),
+    createUser: (data: { email: string; password: string; display_name: string; access_role: string }) =>
+      apiFetch<User>('/users', { method: 'POST', body: JSON.stringify(data) }),
+    updateUser: (id: string, data: { display_name?: string; password?: string; access_role?: string }) =>
+      apiFetch<User>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    deleteUser: (id: string) => apiFetch(`/users/${id}`, { method: 'DELETE' }),
   },
 
   // Sites

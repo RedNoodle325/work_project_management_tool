@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Employee Scheduler Prototype</title>
+  <style>
+    :root {
+      --bg: #f5f6f6;
+      --panel: #ffffff;
+      --text: #25282b;
+      --muted: #6f767b;
+      --border: #e5e8ea;
+      --accent: #622c90;
+      --accent-soft: #f2edf7;
+      --danger: #b93b4d;
+      --shadow: 0 8px 30px rgba(37, 40, 43, 0.035);
+      --radius: 11px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, Aptos, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      padding: 24px 32px;
+      padding: 20px 28px;
+      background: linear-gradient(135deg, #211840, #622c90);
+      color: white;
+    }
+
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 26px;
+      letter-spacing: -0.025em;
+    }
+
+    header p {
+      margin: 0;
+      opacity: 0.85;
+    }
+
+    main {
+      padding: 24px 32px 40px;
+      display: grid;
+      gap: 20px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .filters, .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 14px;
+    }
+
+    .metric {
+      padding: 16px;
+      border-radius: 16px;
+      background: #fcfcfc;
+      border: 1px solid var(--border);
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .metric .value {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    button, select, input, textarea {
+      font: inherit;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: white;
+      color: var(--text);
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+
+    button.secondary {
+      background: white;
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    button.danger {
+      background: var(--danger);
+      border-color: var(--danger);
+    }
+
+    button:hover { filter: brightness(0.97); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(360px, 430px) 1fr;
+      gap: 20px;
+      align-items: start;
+      min-width: 0;
+    }
+
+    .grid > * { min-width: 0; }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .form {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .row > * { flex: 1; }
+
+    .list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .person {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fbfdff;
+      overflow: hidden;
+    }
+
+    .person > div:first-child {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .person small {
+      display: block;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .person-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .person-actions button {
+      padding: 8px 10px;
+      white-space: nowrap;
+    }
+
+    .form input,
+    .form select {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .schedule-wrap {
+      max-width: 100%;
+      overflow: auto;
+    }
+
+    table {
+      border-collapse: separate;
+      border-spacing: 0;
+      width: 100%;
+      min-width: 980px;
+    }
+
+    th, td {
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 10px;
+      vertical-align: top;
+      background: white;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #f8fafc;
+      text-align: left;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    th:first-child, td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background: #f8fafc;
+      min-width: 190px;
+      font-weight: 700;
+    }
+
+    th:first-child { z-index: 3; }
+
+    .cell {
+      display: grid;
+      gap: 4px;
+      min-height: 0;
+    }
+
+    .cell select, .cell input {
+      width: 100%;
+      padding: 5px 7px;
+      border-radius: 8px;
+      font-size: 11px;
+    }
+    .cell .assignment-status { color: #fff; border-color: transparent; font-weight: 800; }
+    .cell .assignment-status.status-Working { background: #16a34a; }
+    .cell .assignment-status.status-Vacation { background: #0284c7; }
+    .cell .assignment-status.status-Sick { background: #ea580c; }
+    .cell .assignment-status.status-Off { background: #64748b; }
+    .cell .assignment-status.status-PTO { background: #0f766e; }
+    .cell .assignment-status.status-Holiday { background: #622c90; }
+
+    .readonly-schedule-cell {
+      min-height: 42px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 3px;
+      padding: 0;
+    }
+
+    .readonly-location {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+
+    .readonly-detail {
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.35;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 4px 7px;
+      font-size: 11px;
+      font-weight: 800;
+      color: white;
+      width: fit-content;
+    }
+
+    .Working { background: #16a34a; }
+    .Travel { background: #7c3aed; }
+    .Vacation { background: #0284c7; }
+    .Sick { background: #ea580c; }
+    .Training { background: #0f766e; }
+    .Off { background: #64748b; }
+    .PTO { background: #0284c7; }
+    .Holiday { background: #622c90; }
+    .Unassigned { background: #94a3b8; }
+
+    .hours {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .toolbar-note {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .hidden { display: none; }
+
+    body.read-only .owner-only { display: none !important; }
+    html, body { height: 100%; overflow: hidden; }
+    body { display: flex; flex-direction: column; }
+    .app-header {
+      flex: 0 0 auto;
+      min-height: 58px;
+      display: grid;
+      grid-template-columns: auto minmax(320px, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      padding: 9px 24px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+      box-shadow: 0 5px 20px rgba(37, 26, 77, .06);
+    }
+    .header-tabs { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: #f7f7f8; }
+    .header-tab { padding: 7px 13px; color: var(--muted); border: 0; border-radius: 7px; background: transparent; font-size: 13px; }
+    .header-tab.active { color: var(--accent); background: #fff; box-shadow: 0 1px 4px rgba(37, 26, 77, .10); }
+    .header-controls, .week-control, .header-actions { display: flex; align-items: center; gap: 8px; }
+    .header-controls { justify-content: center; }
+    .week-control { gap: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 10px; }
+    .week-control button { width: 36px; height: 36px; padding: 0; color: var(--text); border: 0; border-radius: 0; background: #fff; }
+    .week-control input { width: 142px; padding: 8px 10px; border-width: 0 1px; border-radius: 0; font-weight: 700; }
+    .header-site-filter { min-width: 190px; font-weight: 700; }
+    .action-menu { position: relative; }
+    .action-menu > summary { min-width: 104px; padding: 9px 12px; color: var(--text); border: 1px solid var(--border); border-radius: 10px; background: #fff; cursor: pointer; font-size: 13px; font-weight: 800; list-style: none; text-align: center; }
+    .action-menu > summary::-webkit-details-marker { display: none; }
+    .action-menu > summary::after { content: "⌄"; margin-left: 7px; color: var(--muted); }
+    .action-menu[open] > summary { color: var(--accent); border-color: #d8cae4; background: var(--accent-soft); }
+    .action-menu-panel { position: absolute; z-index: 20; top: calc(100% + 7px); right: 0; min-width: 190px; display: grid; gap: 4px; padding: 7px; border: 1px solid var(--border); border-radius: 11px; background: #fff; box-shadow: 0 14px 38px rgba(37,26,77,.16); }
+    .action-menu-panel button { width: 100%; padding: 9px 10px; color: var(--text); border: 0; background: transparent; font-size: 13px; text-align: left; }
+    .action-menu-panel button:hover { color: var(--accent); background: var(--accent-soft); }
+    main { flex: 1 1 auto; min-height: 0; overflow: hidden; padding: 18px 24px 24px; display: flex; flex-direction: column; }
+    .combined-summary { display: grid; grid-template-columns: 1.25fr 1px 1fr; gap: 18px; align-items: center; flex: 0 0 auto; padding: 14px 18px; }
+    .summary-divider { align-self: stretch; background: var(--border); }
+    .summary-group-heading { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+    .summary-group-heading h2 { margin: 0; }
+    .today-metrics { display: grid; grid-template-columns: repeat(5, minmax(70px, 1fr)); gap: 5px; }
+    .today-metric { padding: 5px 8px; border-left: 2px solid var(--border); }
+    .today-metric-label { color: var(--muted); font-size: 10px; font-weight: 700; }
+    .today-metric-value { margin-top: 2px; font-size: 20px; font-weight: 800; }
+    .today-metric.status-card-Working { border-color: #a8ddb9; background: #effaf2; }.today-metric.status-card-Working .today-metric-value { color: #157d38; }
+    .today-metric.status-card-Vacation { border-color: #b9dbef; background: #eff9fd; }.today-metric.status-card-Vacation .today-metric-value { color: #0274a9; }
+    .today-metric.status-card-Sick { border-color: #f1c49b; background: #fff5ec; }.today-metric.status-card-Sick .today-metric-value { color: #c9550b; }
+    .today-metric.status-card-Off { border-color: #c6ced5; background: #f5f7f8; }.today-metric.status-card-Off .today-metric-value { color: #53616d; }
+    .today-metric.status-card-PTO { border-color: #a9d8cf; background: #eefaf7; }.today-metric.status-card-PTO .today-metric-value { color: #0b685c; }
+    .today-metric.status-card-Holiday { border-color: #d9c7eb; background: #f8f3fd; }.today-metric.status-card-Holiday .today-metric-value { color: #622c90; }
+    .weekly-metrics { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .weekly-metrics .metric { padding: 6px 10px; border: 0; border-left: 2px solid var(--border); border-radius: 0; background: transparent; }
+    .weekly-metrics .metric .value { font-size: 21px; }
+    .view-panel { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    .view-panel.hidden, .hidden { display: none !important; }
+    #techView > .grid { height: 100%; grid-template-columns: minmax(330px, 390px) minmax(0, 1fr); align-items: stretch; }
+    #techView aside.card { height: 100%; overflow-y: auto; }
+    .fixed-schedule-card { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .schedule-card-heading { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 10px; }
+    .quick-assign { display: grid; grid-template-columns: minmax(170px, 1.2fr) minmax(130px, 1fr) 145px 145px auto; gap: 8px; margin-bottom: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--accent-soft); }
+    .quick-assign select, .quick-assign input, .quick-assign button { min-width: 0; width: 100%; }
+    .owner-access { display: none !important; }
+    body.owner-session .owner-access { display: inline-flex !important; }
+    dialog { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 40px); padding: 0; color: var(--text); border: 0; border-radius: 14px; box-shadow: 0 24px 80px rgba(37,26,77,.28); }
+    dialog::backdrop { background: rgba(37,26,77,.54); }
+    .dialog-form { display: grid; gap: 14px; padding: 22px; }
+    .dialog-form header { display: flex; justify-content: space-between; align-items: flex-start; padding: 0 0 14px; color: var(--text); border-bottom: 1px solid var(--border); background: none; }
+    .dialog-form header h2 { margin: 0 0 4px; }
+    .dialog-form header p { margin: 0; color: var(--muted); font-size: 12px; }
+    .dialog-form header button { padding: 6px 10px; }
+    .dialog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .dialog-grid .wide { grid-column: 1 / -1; }
+    .dialog-form label { display: grid; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .dialog-form textarea { min-height: 76px; resize: vertical; }
+    .tech-picker { max-height: 190px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; overflow: auto; padding: 10px; border: 1px solid var(--border); border-radius: 10px; }
+    .tech-picker label { display: flex; align-items: center; gap: 7px; padding: 6px; color: var(--text); border-radius: 7px; background: var(--bg); font-size: 12px; }
+    .tech-picker input { width: auto; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+    .schedule-scroll-region { flex: 1 1 auto; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+    .schedule-scroll-region thead th { position: sticky; top: 0; z-index: 3; }
+    .schedule-scroll-region thead th:first-child { z-index: 5; }
+    .schedule-scroll-region tbody td:first-child { z-index: 2; }
+    .roster-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .roster-fields .wide { grid-column: 1 / -1; }
+    .edit-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    .person-meta { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .person-note { margin-top: 5px; color: #8a5b13; font-size: 11px; }
+    .postal-missing { color: #a15c09 !important; font-weight: 800; }
+    .site-view-card { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .site-view-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 12px; }
+    .site-view-heading h2 { margin: 0 0 4px; }
+    .site-view-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; padding-right: 3px; }
+    .site-week { margin-bottom: 14px; overflow: hidden; border: 1px solid var(--site-border, var(--border)); border-left: 6px solid var(--site-accent, var(--accent)); border-radius: 11px; background: #fff; box-shadow: 0 9px 24px color-mix(in srgb, var(--site-accent, var(--accent)) 12%, transparent); }
+    .site-week:last-child { margin-bottom: 0; }
+    .site-week > header { display: flex; align-items: center; gap: 11px; padding: 13px 15px; color: #fff; border-bottom: 1px solid var(--site-border, var(--border)); background: linear-gradient(112deg, var(--site-accent, var(--accent)), var(--site-deep, #251a4d)); }
+    .site-week-mark { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; color: var(--site-accent, var(--accent)); border-radius: 8px; background: #fff; font-size: 12px; font-weight: 900; box-shadow: 0 4px 12px rgba(0,0,0,.16); }
+    .site-week > header div { min-width: 0; }
+    .site-week > header strong, .site-week > header div > span { display: block; }
+    .site-week > header > .site-week-mark { display: grid; margin: 0; color: #fff; }
+    .site-week > header strong { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+    .site-week > header div > span { margin-top: 3px; color: rgba(255,255,255,.75); font-size: 10px; }
+    .site-week > header b { margin-left: auto; padding: 5px 8px; color: var(--site-deep, var(--text)); border-radius: 999px; background: #fff; font-size: 10px; }
+    .site-nearest { display: flex; align-items: center; gap: 9px; min-height: 43px; padding: 8px 14px; border-bottom: 1px solid var(--site-border, var(--border)); background: var(--site-card, #fcfcfc); }
+    .site-nearest > strong { flex: 0 0 auto; color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+    .nearest-techs { display: flex; gap: 6px; min-width: 0; overflow-x: auto; }
+    .nearest-tech { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 5px 8px; color: var(--text); border: 1px solid #e2d8ea; border-radius: 999px; background: #fff; font-size: 10px; font-weight: 700; }
+    .nearest-tech span { color: var(--muted); font-size: 8px; font-weight: 600; }
+    .nearest-empty { color: #9aa1a5; font-size: 10px; }
+    .site-days-wrap { overflow-x: auto; }
+    .site-days { min-width: 1050px; display: grid; grid-template-columns: repeat(7, minmax(145px, 1fr)); }
+    .site-day { min-height: 132px; padding: 10px; border-left: 1px solid var(--site-border, var(--border)); background: color-mix(in srgb, var(--site-card, #fff) 68%, #fff); }
+    .site-day:first-child { border-left: 0; }
+    .site-day > header { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding: 0 0 7px; color: var(--text); border-bottom: 1px solid #edf0f1; background: transparent; }
+    .site-day > header strong { font-size: 11px; }
+    .site-day > header span { color: var(--muted); font-size: 9px; }
+    .site-day > header b { min-width: 20px; height: 20px; display: grid; place-items: center; margin-left: auto; color: var(--site-accent, var(--accent)); border-radius: 50%; background: var(--site-soft, var(--accent-soft)); font-size: 9px; }
+    .site-tech-list { display: grid; gap: 6px; }
+    .site-tech { padding: 7px 8px; border: 1px solid var(--site-border, #e8e1ee); border-left: 3px solid var(--site-accent, var(--accent)); border-radius: 7px; background: var(--site-card, #fbf9fc); }
+    .site-tech strong, .site-tech span, .site-tech small { display: block; }
+    .site-tech strong { overflow: hidden; font-size: 11px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+    .site-tech span { margin-top: 3px; color: var(--muted); font-size: 9px; }
+    .site-tech small { margin-top: 4px; overflow: hidden; color: #78520e; font-size: 9px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+    .site-day-empty { padding: 12px 4px; color: #a0a6aa; font-size: 10px; text-align: center; }
+
+    body.read-only #scheduleTable td { padding: 7px 8px; }
+    body.read-only #scheduleTable th { padding: 8px; }
+    body.read-only #scheduleTable th:first-child,
+    body.read-only #scheduleTable td:first-child { min-width: 170px; }
+    body.read-only #employeeList .person,
+    body.read-only #siteList .person { padding: 7px 9px; border-radius: 9px; }
+    body.read-only #employeeList,
+    body.read-only #siteList { gap: 5px; }
+    body.read-only .person-meta { margin-top: 2px; font-size: 10px; }
+    body.read-only .person-note { margin-top: 3px; font-size: 10px; }
+
+    @media (max-width: 1050px) {
+      .app-header { grid-template-columns: auto 1fr; gap: 8px 14px; padding: 9px 18px; }
+      .header-controls { justify-content: flex-end; }
+      .header-actions { grid-column: 1 / -1; justify-content: flex-end; }
+      .combined-summary { grid-template-columns: 1fr; }
+      .summary-divider { display: none; }
+      #techView > .grid { grid-template-columns: 310px minmax(0, 1fr); }
+      .quick-assign { grid-template-columns: 1fr 1fr; }
+      .quick-assign button { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 900px) {
+      main { padding: 18px; }
+      .grid { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 600px) {
+      html, body { height: auto; min-height: 100%; overflow-x: hidden; overflow-y: auto; }
+      body { display: block; }
+      .app-header { position: sticky; top: 0; z-index: 10; grid-template-columns: 1fr; gap: 10px; padding: 12px 14px; }
+      .header-tabs { width: fit-content; }
+      .header-tab { padding: 8px 14px; }
+      .header-controls { width: 100%; display: grid; grid-template-columns: 1fr; justify-content: stretch; }
+      .week-control { width: 100%; }
+      .week-control input { width: 100%; flex: 1; min-width: 0; }
+      .header-site-filter { width: 100%; min-width: 0; }
+      .header-actions { grid-column: auto; justify-content: stretch; }
+      .header-actions .action-menu { flex: 1; }
+      .action-menu > summary { width: 100%; }
+
+      main { min-height: 0; overflow: visible; padding: 12px; display: block; }
+      .combined-summary { gap: 16px; padding: 17px; }
+      .summary-group-heading { align-items: flex-start; flex-direction: column; gap: 3px; }
+      .summary-group-heading h2 { font-size: 20px; }
+      .today-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .today-metric { min-height: 62px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fbfcfc; }
+      .today-metric-value { font-size: 23px; }
+      .weekly-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .weekly-metrics .metric { min-height: 78px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #fbfcfc; }
+      .weekly-metrics .metric:last-child { grid-column: 1 / -1; }
+      .weekly-metrics .metric .value { font-size: 25px; }
+
+      .view-panel, .site-view-card, .site-view-scroll, #techView > .grid, #techView aside.card, .fixed-schedule-card { height: auto; min-height: 0; overflow: visible; }
+      #techView > .grid { grid-template-columns: 1fr; gap: 12px; }
+      .site-view-card { padding: 16px; }
+      .site-view-heading { align-items: flex-start; margin-bottom: 14px; }
+      .site-view-heading h2 { font-size: 22px; }
+      .site-view-heading .toolbar-note { font-size: 12px; line-height: 1.45; }
+      .site-week { margin-bottom: 12px; }
+      .site-week > header { padding: 13px; }
+      .site-week > header strong { font-size: 17px; }
+      .site-nearest { align-items: flex-start; flex-direction: column; gap: 5px; padding: 10px 13px; }
+      .nearest-techs { width: 100%; }
+      .site-days-wrap { overflow: visible; }
+      .site-days { min-width: 0; grid-template-columns: 1fr; }
+      .site-day { min-height: 0; padding: 12px 13px; border-top: 1px solid var(--border); border-left: 0; }
+      .site-day:first-child { border-top: 0; }
+      .site-day > header strong { font-size: 13px; }
+      .site-day > header span { font-size: 11px; }
+      .site-tech { padding: 9px 10px; }
+      .site-tech strong { white-space: normal; font-size: 12px; }
+      .site-tech span, .site-tech small { white-space: normal; font-size: 10px; }
+      .quick-assign, .dialog-grid, .tech-picker { grid-template-columns: 1fr; }
+      .schedule-card-heading { align-items: flex-start; flex-direction: column; }
+      .schedule-scroll-region { max-height: 68vh; }
+      dialog { width: calc(100vw - 20px); }
+      .dialog-form { padding: 17px; }
+      .dialog-actions { flex-wrap: wrap; }
+      .dialog-actions button { flex: 1; }
+    }
+  </style>
+</head>
+<body class="read-only">
+  <header class="app-header">
+    <nav class="header-tabs" aria-label="Schedule views">
+      <button id="techTab" class="header-tab active" type="button" onclick="setView('tech')">Tech View</button>
+      <button id="siteTab" class="header-tab" type="button" onclick="setView('site')">Site View</button>
+    </nav>
+    <div class="header-controls">
+      <div class="week-control">
+        <button type="button" onclick="changeWeek(-7)" aria-label="Previous week">←</button>
+        <input type="date" id="weekStart" onchange="setWeekFromInput()" aria-label="Week starting date" />
+        <button type="button" onclick="changeWeek(7)" aria-label="Next week">→</button>
+      </div>
+      <select id="siteFilter" class="header-site-filter" onchange="render()" aria-label="Filter by site"></select>
+    </div>
+    <div class="header-actions owner-only">
+      <details class="action-menu">
+        <summary>Schedule</summary>
+        <div class="action-menu-panel">
+          <button type="button" onclick="openJobDialog()">Create new job</button>
+          <button type="button" onclick="openPtoDialog()">Log technician PTO</button>
+          <button type="button" onclick="generateDispatch()">Generate dispatch</button>
+          <button type="button" class="owner-access" onclick="openSchedulerLoginDialog()">Manage scheduler login</button>
+        </div>
+      </details>
+      <details class="action-menu">
+        <summary>Data</summary>
+        <div class="action-menu-panel">
+          <button type="button" onclick="exportExcel(this)">Export Excel</button>
+          <button type="button" onclick="document.getElementById('importFile').click()">Import Excel</button>
+        </div>
+      </details>
+      <input id="importFile" class="hidden" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="importData(event)" />
+    </div>
+  </header>
+
+  <main>
+    <section class="combined-summary card">
+      <div class="summary-group">
+        <div class="summary-group-heading"><h2>Today</h2><span class="toolbar-note" id="todayDateLabel"></span></div>
+        <div class="today-metrics" id="todayMetrics"></div>
+      </div>
+      <div class="summary-divider"></div>
+      <div class="summary-group">
+        <div class="summary-group-heading"><h2>Week at a glance</h2><span class="toolbar-note" id="weekDateLabel"></span></div>
+        <div class="summary weekly-metrics">
+          <div class="metric"><div class="label">Technicians</div><div class="value" id="metricEmployees">0</div></div>
+          <div class="metric"><div class="label">Scheduled Site Days</div><div class="value" id="metricAssigned">0</div></div>
+          <div class="metric"><div class="label">PTO / Holiday Days</div><div class="value" id="metricTimeOff">0</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="techView" class="view-panel">
+      <section class="grid">
+      <aside class="card">
+        <h2>Sites</h2>
+        <div class="form owner-only">
+          <input id="siteName" placeholder="Add a site" />
+          <div class="row"><input id="siteCity" placeholder="City" /><input id="siteState" placeholder="State" maxlength="2" /><input id="sitePostalCode" placeholder="ZIP / postal" /></div>
+          <div class="edit-actions"><button id="siteSaveButton" onclick="saveSite()">Add Site</button><button id="siteCancelButton" class="secondary hidden" onclick="cancelSiteEdit()">Cancel</button></div>
+        </div>
+        <div class="list" id="siteList"></div>
+
+        <hr style="border:0;border-top:1px solid var(--border);margin:18px 0;">
+
+        <h2>Technician Roster</h2>
+        <div class="form owner-only">
+          <div class="roster-fields">
+            <input class="wide" id="employeeName" placeholder="Technician name" />
+            <input id="employeeStartDate" type="date" aria-label="Date of hire" />
+            <select id="employeeClassification" aria-label="Classification"><option value="">Classification</option><option>S1</option><option>S2</option><option>S3</option><option>S3/TL</option></select>
+            <select id="employeeSpecialty" aria-label="Chiller or air"><option value="">Chiller / Air</option><option>Air</option><option>Chiller</option><option>Air / Chiller</option><option>Chiller / Air</option></select>
+            <input id="employeeHomeState" placeholder="Home state" maxlength="2" />
+            <input id="employeePostalCode" placeholder="ZIP / postal code (optional)" />
+            <input class="wide" id="employeeNotes" placeholder="Roster notes" />
+          </div>
+          <div class="edit-actions"><button id="employeeSaveButton" onclick="saveEmployee()">Add Technician</button><button id="employeeCancelButton" class="secondary hidden" onclick="cancelEmployeeEdit()">Cancel</button></div>
+        </div>
+        <div class="list" id="employeeList"></div>
+      </aside>
+
+      <section class="card fixed-schedule-card">
+        <div class="schedule-card-heading">
+          <h2>Weekly Schedule</h2>
+          <div class="toolbar-note" id="saveStatus">Loading shared schedule…</div>
+        </div>
+        <div class="quick-assign owner-only">
+          <select id="quickEmployee" aria-label="Technician for quick assignment"></select>
+          <select id="quickSite" aria-label="Site for quick assignment"></select>
+          <input id="quickStart" type="date" aria-label="Assignment start date" />
+          <input id="quickEnd" type="date" aria-label="Assignment end date" />
+          <button type="button" onclick="assignDateRange()">Assign Site</button>
+        </div>
+        <div class="schedule-wrap schedule-scroll-region">
+          <table id="scheduleTable"></table>
+        </div>
+      </section>
+      </section>
+    </section>
+
+    <section id="siteView" class="view-panel hidden">
+      <section class="card site-view-card">
+        <div class="site-view-heading">
+          <div><h2>Weekly Site Staffing</h2><div class="toolbar-note">Technicians grouped by site for each day of the selected week.</div></div>
+        </div>
+        <div id="siteSchedule" class="site-view-scroll"></div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="jobDialog">
+    <form class="dialog-form" onsubmit="saveJob(event)">
+      <header><div><h2>Create a Job</h2><p>Select or create a site, define the work, and assign technicians.</p></div><button type="button" class="secondary" onclick="document.getElementById('jobDialog').close()">Close</button></header>
+      <div class="dialog-grid">
+        <label class="wide">Job name<input id="jobName" required placeholder="Example: Llano startup support" /></label>
+        <label class="wide">Site<select id="jobSite" onchange="loadJobSiteDetails()"></select></label>
+        <label class="wide">Site name<input id="jobSiteName" required placeholder="Site name" /></label>
+        <label class="wide">Street address<input id="jobAddress" placeholder="Street address" /></label>
+        <label>City<input id="jobCity" placeholder="City" /></label>
+        <label>State<input id="jobState" placeholder="State" maxlength="2" /></label>
+        <label>ZIP / postal code<input id="jobPostal" required placeholder="ZIP / postal code" /></label>
+        <label>Customer<input id="jobCustomer" placeholder="Customer" /></label>
+        <label class="wide">Scope of work<textarea id="jobScope" required placeholder="Describe the work planned for this job"></textarea></label>
+        <label>Start date<input id="jobStart" type="date" required /></label>
+        <label>End date<input id="jobEnd" type="date" required /></label>
+      </div>
+      <div><strong>Select technicians</strong><div id="jobTechnicians" class="tech-picker"></div></div>
+      <div class="dialog-actions"><button type="button" class="secondary" onclick="document.getElementById('jobDialog').close()">Cancel</button><button>Save Job & Assign</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="ptoDialog">
+    <form class="dialog-form" onsubmit="savePto(event)">
+      <header><div><h2>Log Technician PTO</h2><p>PTO overrides job and bulk site assignments for the selected dates.</p></div><button type="button" class="secondary" onclick="document.getElementById('ptoDialog').close()">Close</button></header>
+      <div class="dialog-grid">
+        <label class="wide">Technician<select id="ptoEmployee" required></select></label>
+        <label>Start date<input id="ptoStart" type="date" required /></label>
+        <label>End date<input id="ptoEnd" type="date" required /></label>
+        <label class="wide">Note<input id="ptoNote" placeholder="Optional PTO note" /></label>
+      </div>
+      <div class="dialog-actions"><button type="button" class="secondary" onclick="document.getElementById('ptoDialog').close()">Cancel</button><button>Save PTO</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="schedulerLoginDialog">
+    <form class="dialog-form" onsubmit="saveSchedulerLogin(event)">
+      <header><div><h2>Scheduler-only Login</h2><p>Create or reset an account that can edit only this scheduler.</p></div><button type="button" class="secondary" onclick="document.getElementById('schedulerLoginDialog').close()">Close</button></header>
+      <div id="schedulerAccounts" class="toolbar-note">Loading existing scheduler accounts…</div>
+      <div class="dialog-grid">
+        <label class="wide">Display name<input id="schedulerLoginName" required placeholder="Scheduling Team" /></label>
+        <label class="wide">Login email<input id="schedulerLoginEmail" type="email" required placeholder="scheduler@zaktrack.pm" /></label>
+        <label class="wide">Password<input id="schedulerLoginPassword" type="password" required minlength="8" placeholder="At least 8 characters" /></label>
+      </div>
+      <p class="toolbar-note">This email is only used as the sign-in name; the mailbox does not need to exist or receive messages.</p>
+      <div class="dialog-actions"><button type="button" class="secondary" onclick="document.getElementById('schedulerLoginDialog').close()">Cancel</button><button>Save Scheduler Login</button></div>
+    </form>
+  </dialog>
+
+  <script>
+    const statuses = ["Working", "Vacation", "Sick", "Off", "PTO", "Holiday"];
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const siteColorSets = [
+      { accent: "#713bb5", deep: "#3b176f", soft: "#eadbfb", border: "#c69fe9", card: "#faf5ff" },
+      { accent: "#087fb8", deep: "#075682", soft: "#d7f0fc", border: "#91d4ed", card: "#f2fbff" },
+      { accent: "#4e9d2a", deep: "#28671b", soft: "#dff3d3", border: "#a9d98e", card: "#f7fdf2" },
+      { accent: "#dc790e", deep: "#963807", soft: "#ffebce", border: "#f1bd76", card: "#fff9f0" },
+      { accent: "#c24067", deep: "#7f1d3c", soft: "#f9dce5", border: "#e9a2b5", card: "#fff6f8" },
+      { accent: "#426fc2", deep: "#203d83", soft: "#dce7fb", border: "#a6bfea", card: "#f5f8ff" }
+    ];
+
+    const demoData = {
+      sites: [
+        { id: "site-llano", name: "Llano", city: "Llano", state: "TX" },
+        { id: "site-abilene", name: "Abilene", city: "Abilene", state: "TX" },
+        { id: "site-nscale", name: "NScale" }
+      ],
+      employees: [
+        { id: "tech-travis-holler", name: "Travis Holler", startDate: "2022-04-22", classification: "S2", specialty: "Air / Chiller", homeState: "", notes: "Converting to EOL" },
+        { id: "tech-patrick-clark", name: "Patrick Clark", startDate: "2023-11-06", classification: "S2", specialty: "Air", homeState: "", notes: "CAHU Group" },
+        { id: "tech-thomas-kieffer", name: "Thomas Kieffer", startDate: "2023-11-06", classification: "S2", specialty: "Air", homeState: "", notes: "CAHU Group" },
+        { id: "tech-geoffrey-wingo", name: "Geoffrey Wingo", startDate: "2025-09-15", classification: "S3/TL", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-mike-burwell", name: "Mike Burwell", startDate: "2026-03-06", classification: "S2", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-yunier-dieguez-martinez", name: "Yunier Dieguez Martinez", startDate: "2026-04-13", classification: "S1", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-alejandro-durazo", name: "Alejandro Durazo", startDate: "2026-04-20", classification: "S1", specialty: "Air", homeState: "AZ", notes: "Converted Aerotek" },
+        { id: "tech-alexander-jayden-heimann", name: "Alexander \"Jayden\" Heimann", startDate: "2026-04-20", classification: "S1", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-dario-gonzalez", name: "Dario Gonzalez", startDate: "2026-04-20", classification: "S1", specialty: "Air", homeState: "AZ", notes: "Converted Aerotek" },
+        { id: "tech-lony-edwards", name: "Lony Edwards", startDate: "2026-04-27", classification: "S3/TL", specialty: "Air", homeState: "TX", notes: "Disability Mid-July" },
+        { id: "tech-manuel-ornelas", name: "Manuel Ornelas", startDate: "2026-04-27", classification: "S2", specialty: "Air", homeState: "TX", notes: "" },
+        { id: "tech-nicholius-jones", name: "Nicholius Jones", startDate: "2026-05-04", classification: "S1", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-colt-moody", name: "Colt Moody", startDate: "2026-05-05", classification: "S3/TL", specialty: "Chiller", homeState: "FL", notes: "" },
+        { id: "tech-casey-hunter", name: "Casey Hunter", startDate: "2026-05-26", classification: "S2", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-logan-costello", name: "Logan Costello", startDate: "2026-05-26", classification: "S3/TL", specialty: "Air", homeState: "KY", notes: "" },
+        { id: "tech-eric-volbrecht", name: "Eric Volbrecht", startDate: "2026-06-01", classification: "S3/TL", specialty: "Chiller", homeState: "TX", notes: "" },
+        { id: "tech-rex-singer", name: "Rex Singer", startDate: "2026-06-01", classification: "S3/TL", specialty: "Chiller / Air", homeState: "AZ", notes: "" },
+        { id: "tech-elvis-parra", name: "Elvis Parra", startDate: "2026-06-15", classification: "S1", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-tyler-emberton", name: "Tyler Emberton", startDate: "2026-06-15", classification: "S1", specialty: "Air", homeState: "IN", notes: "" },
+        { id: "tech-clayton-mcmurtrey", name: "Clayton McMurtrey", startDate: "2026-06-22", classification: "S2", specialty: "Chiller", homeState: "TX", notes: "" },
+        { id: "tech-eugene-mason", name: "Eugene Mason", startDate: "2026-06-22", classification: "S3", specialty: "Chiller", homeState: "NM", notes: "" },
+        { id: "tech-jason-shepard", name: "Jason Shepard", startDate: "2026-06-22", classification: "S3/TL", specialty: "Chiller", homeState: "TX", notes: "" },
+        { id: "tech-john-gao", name: "John Gao", startDate: "2026-06-22", classification: "S3", specialty: "Chiller", homeState: "TX", notes: "" },
+        { id: "tech-ethan-leggett", name: "Ethan Leggett", startDate: "2026-06-29", classification: "S2", specialty: "Chiller", homeState: "TX", notes: "" },
+        { id: "tech-greg-rahm", name: "Greg Rahm", startDate: "2026-06-29", classification: "S3", specialty: "Chiller", homeState: "AZ", notes: "" },
+        { id: "tech-shawn-farmer", name: "Shawn Farmer", startDate: "2026-06-29", classification: "S3", specialty: "Chiller", homeState: "TX", notes: "" },
+        { id: "tech-tyler-wilson", name: "Tyler Wilson", startDate: "2026-06-29", classification: "S1", specialty: "Air", homeState: "TX", notes: "" },
+        { id: "tech-boithabiso-moloi", name: "Boithabiso Moloi", startDate: "2026-07-06", classification: "S2", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-andy-dove", name: "Andy Dove", startDate: "2026-07-20", classification: "S3/TL", specialty: "Chiller", homeState: "AL", notes: "" },
+        { id: "tech-jacob-pardo-vargas", name: "Jacob Pardo Vargas", startDate: "2026-07-20", classification: "S1", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-joshua-zatarain", name: "Joshua Zatarain", startDate: "2026-07-20", classification: "S1", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-isaac-garcia", name: "Isaac Garcia", startDate: "2026-07-20", classification: "S1", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-david-turrubiartes", name: "David Turrubiartes", startDate: "2026-07-20", classification: "S1", specialty: "Chiller", homeState: "TX", notes: "" },
+        { id: "tech-jason-stanley", name: "Jason Stanley", startDate: "2026-07-27", classification: "S2", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-taven-wolfe", name: "Taven Wolfe", startDate: "2026-07-27", classification: "S1", specialty: "Chiller", homeState: "AZ", notes: "" },
+        { id: "tech-robert-larkins", name: "Robert Larkins - (Mark Nolan - Backfill)", startDate: "2026-07-27", classification: "S3/TL", specialty: "Chiller", homeState: "AZ", notes: "" },
+        { id: "tech-jesus-salazar", name: "Jesus Salazar", startDate: "2026-07-27", classification: "S1", specialty: "Air", homeState: "FL", notes: "" },
+        { id: "tech-saxon-spencer", name: "Saxon Spencer", startDate: "2026-08-03", classification: "S1", specialty: "Air", homeState: "TX", notes: "" },
+        { id: "tech-kyle-scholz", name: "Kyle Scholz", startDate: "2026-08-10", classification: "S2", specialty: "Air", homeState: "AZ", notes: "" },
+        { id: "tech-daniel-ramos", name: "Daniel Ramos", startDate: "2026-08-17", classification: "S2", specialty: "Air", homeState: "TX", notes: "" }
+      ],
+      assignments: {}
+    };
+
+    let data = structuredClone(demoData);
+    let currentMonday = getMonday(new Date());
+    let saveTimer;
+    let scheduleLoaded = false;
+    let canEdit = false;
+    let canManageAccess = false;
+
+    function getMonday(date) {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = d.getDate() - day;
+      d.setDate(diff);
+      d.setHours(0,0,0,0);
+      return d;
+    }
+
+    function fmt(date) {
+      return date.toISOString().slice(0,10);
+    }
+
+    function addDays(date, amount) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + amount);
+      return d;
+    }
+
+    function uid(prefix) {
+      return prefix + "-" + Math.random().toString(36).slice(2, 9);
+    }
+
+    function displayDate(value) {
+      if (!value) return "—";
+      const date = typeof value === "string" ? new Date(value + "T12:00:00") : value;
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = date.toLocaleDateString("en-US", { month: "short" });
+      const year = String(date.getFullYear()).slice(-2);
+      return `${day}-${month}-${year}`;
+    }
+
+    function upgradeRoster() {
+      // Older builds sometimes stored the schedule inside one or more `data`
+      // wrappers. Unwrap those payloads before validating the roster shape.
+      while (
+        data &&
+        typeof data === "object" &&
+        !Array.isArray(data) &&
+        data.data &&
+        typeof data.data === "object" &&
+        !Array.isArray(data.data) &&
+        !Array.isArray(data.sites) &&
+        !Array.isArray(data.employees)
+      ) {
+        data = data.data;
+      }
+      if (!data || typeof data !== "object" || Array.isArray(data)) data = structuredClone(demoData);
+      data.sites = Array.isArray(data.sites) ? data.sites.filter(site => site && typeof site === "object") : [];
+      data.employees = Array.isArray(data.employees) ? data.employees.filter(employee => employee && typeof employee === "object") : [];
+      data.assignments = data.assignments && typeof data.assignments === "object" && !Array.isArray(data.assignments) ? data.assignments : {};
+      data.jobs = Array.isArray(data.jobs) ? data.jobs : [];
+      const oldDemoNames = new Set(["Alex Rivera", "Jordan Lee", "Sam Patel"]);
+      const isOldDemo = data.employees.length <= 3 && data.employees.every(employee => oldDemoNames.has(employee.name));
+      if (!data.employees.length || isOldDemo) {
+        data.sites = structuredClone(demoData.sites);
+        data.employees = structuredClone(demoData.employees);
+        data.assignments = {};
+      }
+      data.employees.forEach(employee => {
+        employee.startDate ||= "";
+        employee.classification ||= employee.role?.match(/S[1-3](?:\/TL)?/)?.[0] || "";
+        employee.specialty ||= employee.role?.replace(employee.classification, "").replace(/[·|-]/g, "").trim() || "";
+        employee.homeState ||= "";
+        employee.postalCode ||= "";
+        employee.notes ||= "";
+        delete employee.homeSite;
+      });
+      data.sites.forEach(site => {
+        site.postalCode ||= site.zip_code || "";
+      });
+      Object.values(data.assignments).forEach(assignment => {
+        if (assignment.status === "Unassigned" || !assignment.status) assignment.status = "Working";
+        if (assignment.status === "Day Off") assignment.status = "Off";
+        if (!statuses.includes(assignment.status)) assignment.status = "Working";
+      });
+    }
+
+    function loadLocalSchedule() {
+      try {
+        const stored = JSON.parse(localStorage.getItem("employeeSchedulerData") || "null");
+        const localData = stored?.data && typeof stored.data === "object" ? stored.data : stored;
+        return localData && typeof localData === "object" && !Array.isArray(localData) ? localData : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function hasScheduleContent(schedule) {
+      return Boolean(schedule && (
+        schedule.employees?.length ||
+        schedule.sites?.length ||
+        Object.keys(schedule.assignments || {}).length
+      ));
+    }
+
+    async function loadData() {
+      const localSchedule = loadLocalSchedule();
+      if (localSchedule) data = localSchedule;
+      upgradeRoster();
+      try {
+        const response = await fetch("/api/employee-scheduler", { headers: authHeaders() });
+        if (!response.ok) throw new Error("Could not load the shared schedule");
+        const saved = await response.json();
+        canEdit = saved.can_edit === true;
+        canManageAccess = saved.is_owner === true;
+        document.body.classList.toggle("read-only", !canEdit);
+        document.body.classList.toggle("owner-session", canManageAccess);
+        if (hasScheduleContent(saved.data) || !localSchedule) data = saved.data || data;
+        upgradeRoster();
+        if (canEdit) await hydratePostalCoordinates();
+        setSaveStatus(canEdit
+          ? (hasScheduleContent(saved.data) ? "All changes are shared and saved automatically." : localSchedule ? "Recovered local changes — syncing them now." : "Ready — changes are shared and saved automatically.")
+          : "Read-only view — sign in with an authorized account to make changes.");
+      } catch (error) {
+        canEdit = false;
+        canManageAccess = false;
+        document.body.classList.add("read-only");
+        document.body.classList.remove("owner-session");
+        upgradeRoster();
+        setSaveStatus(localSchedule ? "Showing locally saved schedule data. Sign in again to resume shared editing." : "Could not load the shared schedule. Read-only mode is active.");
+      } finally {
+        scheduleLoaded = true;
+        render();
+      }
+    }
+
+    function authHeaders() {
+      const token = localStorage.getItem("auth_token");
+      return token ? { Authorization: "Bearer " + token } : {};
+    }
+
+    function setSaveStatus(message) {
+      const status = document.getElementById("saveStatus");
+      if (status) status.textContent = message;
+    }
+
+    function saveData() {
+      if (!canEdit) return;
+      localStorage.setItem("employeeSchedulerData", JSON.stringify({ data, savedAt: new Date().toISOString() }));
+      if (!scheduleLoaded) return;
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        setSaveStatus("Saving shared schedule…");
+        try {
+          const response = await fetch("/api/employee-scheduler", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({ data })
+          });
+          if (!response.ok) throw new Error("Could not save schedule");
+          setSaveStatus("All changes are shared and saved automatically.");
+        } catch (error) {
+          setSaveStatus("Could not reach the server — changes are saved locally for now.");
+        }
+      }, 400);
+    }
+
+    window.addEventListener("pagehide", () => {
+      if (!canEdit) return;
+      localStorage.setItem("employeeSchedulerData", JSON.stringify({ data, savedAt: new Date().toISOString() }));
+      fetch("/api/employee-scheduler", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ data }),
+        keepalive: true
+      }).catch(() => {});
+    });
+
+    function assignmentKey(empId, date) {
+      return empId + "|" + date;
+    }
+
+    function getAssignment(empId, date) {
+      const key = assignmentKey(empId, date);
+      if (!data.assignments[key]) {
+        const employee = data.employees.find(item => item.id === empId);
+        data.assignments[key] = {
+          employeeId: empId,
+          date,
+          siteId: "",
+          status: "Working",
+          start: "",
+          end: "",
+          scope: "",
+          notes: ""
+        };
+      }
+      return data.assignments[key];
+    }
+
+    function assignmentStatus(assignment) {
+      return statuses.includes(assignment.status) ? assignment.status : "Working";
+    }
+
+    let currentView = "tech";
+
+    function setView(view) {
+      currentView = view;
+      document.getElementById("techView").classList.toggle("hidden", view !== "tech");
+      document.getElementById("siteView").classList.toggle("hidden", view !== "site");
+      document.getElementById("techTab").classList.toggle("active", view === "tech");
+      document.getElementById("siteTab").classList.toggle("active", view === "site");
+    }
+
+    function technicianLabel(employee) {
+      return [employee.classification, employee.specialty].filter(Boolean).join(" · ") || employee.role || "Technician";
+    }
+
+    async function lookupPostal(postalCode) {
+      const response = await fetch("/api/employee-scheduler/postal-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ postalCode })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not locate that ZIP code.");
+      return result;
+    }
+
+    async function hydratePostalCoordinates() {
+      const records = [...data.sites, ...data.employees].filter(record => record.postalCode && (!Number.isFinite(record.latitude) || !Number.isFinite(record.longitude)));
+      await Promise.all(records.map(async record => {
+        try {
+          const location = await lookupPostal(record.postalCode);
+          record.latitude = location.latitude;
+          record.longitude = location.longitude;
+          record.country = location.country;
+          if (!record.city && location.city) record.city = location.city;
+          if (!record.state && location.state) record.state = location.state;
+          if (!record.homeState && location.state) record.homeState = location.state;
+        } catch {
+          // Keep the entered postal code; the next edit can retry lookup.
+        }
+      }));
+    }
+
+    function distanceMiles(from, to) {
+      if (![from.latitude, from.longitude, to.latitude, to.longitude].every(Number.isFinite)) return null;
+      const radians = value => value * Math.PI / 180;
+      const latitudeDelta = radians(to.latitude - from.latitude);
+      const longitudeDelta = radians(to.longitude - from.longitude);
+      const a = Math.sin(latitudeDelta / 2) ** 2 + Math.cos(radians(from.latitude)) * Math.cos(radians(to.latitude)) * Math.sin(longitudeDelta / 2) ** 2;
+      return 3958.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function closestTechniciansForSite(site) {
+      const weekDates = days.map((_, index) => fmt(addDays(currentMonday, index)));
+      return data.employees
+        .map(employee => ({
+          employee,
+          distance: distanceMiles(site, employee),
+          openDays: weekDates.filter(date => {
+            const assignment = getAssignment(employee.id, date);
+            return assignmentStatus(assignment) === "Working" && !assignment.siteId;
+          }).length
+        }))
+        .filter(item => item.distance !== null)
+        .sort((left, right) => left.distance - right.distance || right.openDays - left.openDays || left.employee.name.localeCompare(right.employee.name));
+    }
+
+    function renderSiteSchedule() {
+      const siteFilter = document.getElementById("siteFilter").value;
+      const sites = siteFilter ? data.sites.filter(site => site.id === siteFilter) : data.sites;
+      const weeks = sites.map((site, index) => {
+        const colors = siteColorSets[index % siteColorSets.length];
+        const siteStyle = `--site-accent:${colors.accent};--site-deep:${colors.deep};--site-soft:${colors.soft};--site-border:${colors.border};--site-card:${colors.card};`;
+        const uniqueTechnicians = new Set();
+        const nearby = closestTechniciansForSite(site);
+        const dayColumns = days.map((day, index) => {
+          const date = fmt(addDays(currentMonday, index));
+          const assigned = data.employees.map(employee => ({ employee, assignment: getAssignment(employee.id, date) }))
+            .filter(item => item.assignment.siteId === site.id && assignmentStatus(item.assignment) === "Working");
+          assigned.forEach(item => uniqueTechnicians.add(item.employee.id));
+          const technicians = assigned.map(({ employee, assignment }) => `<div class="site-tech">
+            <strong>${escapeHtml(employee.name)}</strong>
+            <span>${escapeHtml(technicianLabel(employee))}${employee.homeState ? ` · ${escapeHtml(employee.homeState)}` : ""}</span>
+            ${assignment.scope || assignment.notes ? `<small>${escapeHtml(assignment.scope || assignment.notes)}</small>` : ""}
+          </div>`).join("");
+          return `<section class="site-day">
+            <header><strong>${day}</strong><span>${displayDate(date)}</span><b>${assigned.length}</b></header>
+            <div class="site-tech-list">${technicians || `<div class="site-day-empty">No technicians</div>`}</div>
+          </section>`;
+        }).join("");
+        const address = [site.city, site.state].filter(Boolean).join(", ");
+        const nearbyChips = nearby.slice(0, 5).map(({ employee, openDays, distance }) => `<span class="nearest-tech">${escapeHtml(employee.name)}<span>${escapeHtml(employee.postalCode)} · ${Math.round(distance)} mi · ${openDays} open</span></span>`).join("");
+        const moreNearby = nearby.length > 5 ? `<span class="nearest-tech">+${nearby.length - 5} more</span>` : "";
+        const nearest = !site.postalCode
+          ? `<span class="nearest-empty">Add this site's ZIP code to calculate distance.</span>`
+          : !Number.isFinite(site.latitude) || !Number.isFinite(site.longitude)
+            ? `<span class="nearest-empty">Distance lookup is unavailable for ${escapeHtml(site.postalCode)}.</span>`
+            : nearbyChips + moreNearby || `<span class="nearest-empty">Add technician ZIP codes to see who is closest.</span>`;
+        return `<article class="site-week" style="${siteStyle}">
+          <header><span class="site-week-mark">${escapeHtml(site.name.slice(0, 2).toUpperCase())}</span><div><strong>${escapeHtml(site.name)}</strong><span>${escapeHtml([address, site.postalCode].filter(Boolean).join(" ") || site.customer || "Project site")}</span></div><b>${uniqueTechnicians.size} tech${uniqueTechnicians.size === 1 ? "" : "s"}</b></header>
+          <div class="site-nearest"><strong>Closest by ZIP</strong><div class="nearest-techs">${nearest}</div></div>
+          <div class="site-days-wrap"><div class="site-days">${dayColumns}</div></div>
+        </article>`;
+      }).join("");
+      document.getElementById("siteSchedule").innerHTML = weeks || `<div class="site-day-empty">No sites are available for this view.</div>`;
+    }
+
+    function renderTodaySummary() {
+      const today = new Date();
+      const siteFilter = document.getElementById("siteFilter").value;
+      const employees = siteFilter ? data.employees.filter(employee => employeeHasVisibleSiteActivity(employee.id, siteFilter)) : data.employees;
+      const counts = Object.fromEntries(statuses.map(status => [status, 0]));
+      employees.forEach(employee => {
+        const assignment = getAssignment(employee.id, fmt(today));
+        const status = assignmentStatus(assignment);
+        counts[status] = (counts[status] || 0) + 1;
+      });
+      document.getElementById("todayDateLabel").textContent = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+      document.getElementById("todayMetrics").innerHTML = statuses.map(status => `<div class="today-metric status-card-${status.replace(/\s+/g, "-")}"><div class="today-metric-label">${status}</div><div class="today-metric-value">${counts[status] || 0}</div></div>`).join("");
+    }
+
+    function render() {
+      // Render is called from several async paths, so repair incompatible saved
+      // payloads at the final boundary as well as when data is initially loaded.
+      if (
+        !data ||
+        typeof data !== "object" ||
+        Array.isArray(data) ||
+        !Array.isArray(data.sites) ||
+        !Array.isArray(data.employees) ||
+        !data.assignments ||
+        typeof data.assignments !== "object" ||
+        Array.isArray(data.assignments)
+      ) upgradeRoster();
+      document.getElementById("weekStart").value = fmt(currentMonday);
+      renderSiteDropdowns();
+      renderAssignmentTools();
+      renderRoster();
+      renderSchedule();
+      renderSiteSchedule();
+      renderTodaySummary();
+      renderMetrics();
+      saveData();
+    }
+
+    function renderSiteDropdowns() {
+      const siteFilter = document.getElementById("siteFilter");
+      const selectedSite = siteFilter.value;
+
+      const options = [`<option value="">All Sites / Master View</option>`].concat(data.sites.map(s => `<option value="${s.id}">${s.name}</option>`)).join("");
+      siteFilter.innerHTML = options;
+
+      if (selectedSite && data.sites.some(s => s.id === selectedSite)) {
+        siteFilter.value = selectedSite;
+      } else {
+        siteFilter.value = "";
+      }
+
+    }
+
+    function renderAssignmentTools() {
+      const technicianOptions = data.employees.map(employee => `<option value="${employee.id}">${escapeHtml(employee.name)}</option>`).join("");
+      const siteOptions = data.sites.map(site => `<option value="${site.id}">${escapeHtml(site.name)}</option>`).join("");
+      ["quickEmployee", "ptoEmployee"].forEach(id => {
+        const select = document.getElementById(id);
+        const selected = select.value;
+        select.innerHTML = `<option value="">Select technician</option>${technicianOptions}`;
+        if (data.employees.some(employee => employee.id === selected)) select.value = selected;
+      });
+      const quickSite = document.getElementById("quickSite");
+      const selectedSite = quickSite.value;
+      quickSite.innerHTML = `<option value="">Select site</option>${siteOptions}`;
+      if (data.sites.some(site => site.id === selectedSite)) quickSite.value = selectedSite;
+      if (!document.getElementById("quickStart").value) document.getElementById("quickStart").value = fmt(currentMonday);
+      if (!document.getElementById("quickEnd").value) document.getElementById("quickEnd").value = fmt(addDays(currentMonday, 6));
+    }
+
+    function renderRoster() {
+      const employeeList = document.getElementById("employeeList");
+      employeeList.innerHTML = data.employees.map(emp => {
+        return `<div class="person">
+          <div><strong>${escapeHtml(emp.name)}</strong>
+            <div class="person-meta"><span>${escapeHtml(technicianLabel(emp))}</span><span>${escapeHtml(emp.homeState || "No home state")}</span>${emp.postalCode ? `<span>ZIP ${escapeHtml(emp.postalCode)}</span>` : ""}<span>DOH ${displayDate(emp.startDate)}</span></div>
+            ${emp.notes ? `<div class="person-note">${escapeHtml(emp.notes)}</div>` : ""}
+          </div>
+          <div class="person-actions owner-only">
+            <button class="secondary" onclick="modifyEmployee('${emp.id}')">Modify</button>
+            <button class="secondary" onclick="removeEmployee('${emp.id}')">Remove</button>
+          </div>
+        </div>`;
+      }).join("");
+
+      const siteList = document.getElementById("siteList");
+      siteList.innerHTML = data.sites.map(site => `
+        <div class="person">
+          <div>${escapeHtml(site.name)}<small class="${site.postalCode ? "" : "postal-missing"}">${escapeHtml([site.city, site.state].filter(Boolean).join(", ") || "Site location not set")}${site.postalCode ? ` · ZIP ${escapeHtml(site.postalCode)}` : " · ZIP needed"}</small></div>
+          <div class="person-actions owner-only">
+            <button class="secondary" onclick="modifySite('${site.id}')">Modify</button>
+            <button class="secondary" onclick="removeSite('${site.id}')">Remove</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderSchedule() {
+      const siteFilter = document.getElementById("siteFilter").value;
+
+      const employees = siteFilter
+        ? data.employees.filter(emp => employeeHasVisibleSiteActivity(emp.id, siteFilter))
+        : data.employees;
+
+      const selectedSiteName = siteFilter
+        ? data.sites.find(s => s.id === siteFilter)?.name || "Selected Site"
+        : "All Sites / Master View";
+
+      const dateHeaders = days.map((day, i) => {
+        const d = addDays(currentMonday, i);
+        return `<th>${day}<br>${fmt(d)}</th>`;
+      }).join("");
+
+      if (employees.length === 0 && siteFilter) {
+        document.getElementById("scheduleTable").innerHTML = `
+          <thead><tr><th>${selectedSiteName}</th>${dateHeaders}</tr></thead>
+          <tbody>
+            <tr>
+              <td colspan="8" style="padding:22px;background:white;color:var(--muted);font-weight:600;">
+                No technicians are scheduled at ${selectedSiteName} this week.
+              </td>
+            </tr>
+          </tbody>`;
+        return;
+      }
+
+      const rows = employees.map(emp => {
+        const cells = days.map((_, i) => {
+          const date = fmt(addDays(currentMonday, i));
+          const a = getAssignment(emp.id, date);
+          const effectiveStatus = assignmentStatus(a);
+
+          if (!canEdit) {
+            const siteName = data.sites.find(site => site.id === a.siteId)?.name || "";
+            const detail = a.scope || a.notes || "";
+            return `<td>
+              <div class="readonly-schedule-cell">
+                <span class="pill ${effectiveStatus}">${escapeHtml(effectiveStatus)}</span>
+                ${siteName ? `<div class="readonly-location">${escapeHtml(siteName)}</div>` : ""}
+                ${detail ? `<div class="readonly-detail">${escapeHtml(detail)}</div>` : ""}
+              </div>
+            </td>`;
+          }
+
+          if (siteFilter && a.siteId && a.siteId !== siteFilter) {
+            const otherSite = data.sites.find(s => s.id === a.siteId)?.name || "Another site";
+            return `<td>
+              <div class="cell">
+                <span class="pill Working">At other site</span>
+                <div class="hours">${emp.name} is assigned to ${otherSite} this day.</div>
+              </div>
+            </td>`;
+          }
+
+          return `<td>
+            <div class="cell">
+              <select class="assignment-status status-${effectiveStatus.replace(/\s+/g, "-")}" ${canEdit ? "" : "disabled"} onchange="updateAssignment('${emp.id}','${date}','status',this.value)">
+                ${statuses.map(status => `<option ${effectiveStatus === status ? "selected" : ""}>${status}</option>`).join("")}
+              </select>
+              <select ${canEdit ? "" : "disabled"} onchange="updateAssignment('${emp.id}','${date}','siteId',this.value)">
+                <option value="">No site mapped</option>
+                ${data.sites.map(site => `<option value="${site.id}" ${a.siteId === site.id ? "selected" : ""}>${site.name}</option>`).join("")}
+              </select>
+              <input ${canEdit ? "" : "disabled"} value="${escapeHtml(a.scope || "")}" placeholder="Scope of work" onchange="updateAssignment('${emp.id}','${date}','scope',this.value)" />
+              <input ${canEdit ? "" : "disabled"} value="${escapeHtml(a.notes || "")}" placeholder="Notes" onchange="updateAssignment('${emp.id}','${date}','notes',this.value)" />
+            </div>
+          </td>`;
+        }).join("");
+
+        return `<tr><td><strong>${escapeHtml(emp.name)}</strong><br><span class="hours">${escapeHtml(technicianLabel(emp))}${emp.homeState ? ` · ${escapeHtml(emp.homeState)}` : ""}${emp.postalCode ? ` · ${escapeHtml(emp.postalCode)}` : ""}</span></td>${cells}</tr>`;
+      }).join("");
+
+      document.getElementById("scheduleTable").innerHTML = `<thead><tr><th>${selectedSiteName}</th>${dateHeaders}</tr></thead><tbody>${rows}</tbody>`;
+    }
+
+    function employeeHasVisibleSiteActivity(empId, siteId) {
+      const weekDates = days.map((_, i) => fmt(addDays(currentMonday, i)));
+      return Object.values(data.assignments).some(a =>
+        a.employeeId === empId &&
+        weekDates.includes(a.date) &&
+        a.siteId === siteId
+      );
+    }
+
+    function hasAssignmentAtSite(empId, siteId) {
+      return Object.values(data.assignments).some(a => a.employeeId === empId && a.siteId === siteId);
+    }
+
+    function renderMetrics() {
+      const siteFilter = document.getElementById("siteFilter").value;
+      let assigned = 0, timeOff = 0;
+      const visibleEmployees = new Set(
+        siteFilter
+          ? data.employees.filter(emp => employeeHasVisibleSiteActivity(emp.id, siteFilter)).map(emp => emp.id)
+          : data.employees.map(emp => emp.id)
+      );
+      const weekDates = days.map((_, i) => fmt(addDays(currentMonday, i)));
+
+      Object.values(data.assignments).forEach(a => {
+        if (!weekDates.includes(a.date)) return;
+        if (!visibleEmployees.has(a.employeeId)) return;
+        if (siteFilter && a.siteId && a.siteId !== siteFilter) return;
+        if (siteFilter && !a.siteId) return;
+
+        const status = assignmentStatus(a);
+        if (status === "Working") assigned++;
+        if (status === "PTO" || status === "Holiday") timeOff++;
+      });
+
+      document.getElementById("metricEmployees").textContent = visibleEmployees.size;
+      document.getElementById("metricAssigned").textContent = assigned;
+      document.getElementById("metricTimeOff").textContent = timeOff;
+      document.getElementById("weekDateLabel").textContent = `${displayDate(fmt(currentMonday))} – ${displayDate(fmt(addDays(currentMonday, 6)))}`;
+    }
+
+    function updateAssignment(empId, date, field, value) {
+      if (!canEdit) return;
+      const a = getAssignment(empId, date);
+      if (field === "status") {
+        a.status = statuses.includes(value) ? value : "Working";
+      } else if (field === "siteId") {
+        a.siteId = value;
+      } else {
+        a[field] = value;
+      }
+
+      render();
+    }
+
+    function datesBetween(start, end) {
+      if (!start || !end || end < start) return [];
+      const dates = [];
+      let cursor = start;
+      while (cursor <= end && dates.length < 370) {
+        dates.push(cursor);
+        cursor = fmt(addDays(new Date(`${cursor}T12:00:00`), 1));
+      }
+      return dates;
+    }
+
+    function assignDateRange() {
+      if (!canEdit) return;
+      const employeeId = document.getElementById("quickEmployee").value;
+      const siteId = document.getElementById("quickSite").value;
+      const dates = datesBetween(document.getElementById("quickStart").value, document.getElementById("quickEnd").value);
+      if (!employeeId || !siteId || !dates.length) { alert("Select a technician, site, and valid date range."); return; }
+      let skippedPto = 0;
+      dates.forEach(date => {
+        const assignment = getAssignment(employeeId, date);
+        if (assignment.status === "PTO") { skippedPto++; return; }
+        assignment.siteId = siteId;
+        assignment.status = "Working";
+      });
+      render();
+      if (skippedPto) alert(`${skippedPto} PTO day${skippedPto === 1 ? " was" : "s were"} preserved.`);
+    }
+
+    function openJobDialog() {
+      if (!canEdit) return;
+      const dialog = document.getElementById("jobDialog");
+      const siteSelect = document.getElementById("jobSite");
+      siteSelect.innerHTML = `<option value="new">Create a new site</option>` + data.sites.map(site => `<option value="${site.id}">${escapeHtml(site.name)}</option>`).join("");
+      document.getElementById("jobStart").value = fmt(currentMonday);
+      document.getElementById("jobEnd").value = fmt(addDays(currentMonday, 6));
+      document.getElementById("jobTechnicians").innerHTML = data.employees.map(employee => `<label><input type="checkbox" value="${employee.id}" />${escapeHtml(employee.name)}</label>`).join("");
+      loadJobSiteDetails();
+      dialog.showModal();
+    }
+
+    function loadJobSiteDetails() {
+      const siteId = document.getElementById("jobSite").value;
+      const site = data.sites.find(item => item.id === siteId);
+      document.getElementById("jobSiteName").value = site?.name || "";
+      document.getElementById("jobAddress").value = site?.address || "";
+      document.getElementById("jobCity").value = site?.city || "";
+      document.getElementById("jobState").value = site?.state || "";
+      document.getElementById("jobPostal").value = site?.postalCode || "";
+      document.getElementById("jobCustomer").value = site?.customer || "";
+    }
+
+    async function saveJob(event) {
+      event.preventDefault();
+      if (!canEdit) return;
+      const form = event.currentTarget;
+      const technicianIds = [...document.querySelectorAll("#jobTechnicians input:checked")].map(input => input.value);
+      if (!technicianIds.length) { alert("Select at least one technician."); return; }
+      const startDate = document.getElementById("jobStart").value;
+      const endDate = document.getElementById("jobEnd").value;
+      const dates = datesBetween(startDate, endDate);
+      if (!dates.length) { alert("Enter a valid job date range."); return; }
+      const siteValues = {
+        name: document.getElementById("jobSiteName").value.trim(),
+        address: document.getElementById("jobAddress").value.trim(),
+        city: document.getElementById("jobCity").value.trim(),
+        state: document.getElementById("jobState").value.trim().toUpperCase(),
+        postalCode: document.getElementById("jobPostal").value.trim(),
+        customer: document.getElementById("jobCustomer").value.trim()
+      };
+      try {
+        const location = await lookupPostal(siteValues.postalCode);
+        siteValues.latitude = location.latitude;
+        siteValues.longitude = location.longitude;
+        siteValues.country = location.country;
+        if (!siteValues.city) siteValues.city = location.city;
+        if (!siteValues.state) siteValues.state = location.state;
+      } catch (error) {
+        alert(error.message || "Enter a valid site ZIP code.");
+        return;
+      }
+      let siteId = document.getElementById("jobSite").value;
+      if (siteId === "new") {
+        siteId = uid("site");
+        data.sites.push({ id: siteId, ...siteValues });
+      } else {
+        const site = data.sites.find(item => item.id === siteId);
+        if (site) Object.assign(site, siteValues);
+      }
+      const scope = document.getElementById("jobScope").value.trim();
+      let skippedPto = 0;
+      technicianIds.forEach(employeeId => dates.forEach(date => {
+        const assignment = getAssignment(employeeId, date);
+        if (assignment.status === "PTO") { skippedPto++; return; }
+        assignment.siteId = siteId;
+        assignment.status = "Working";
+        assignment.scope = scope;
+      }));
+      data.jobs.push({ id: uid("job"), name: document.getElementById("jobName").value.trim(), siteId, scope, startDate, endDate, technicianIds });
+      document.getElementById("jobDialog").close();
+      form.reset();
+      render();
+      if (skippedPto) alert(`Job saved. ${skippedPto} PTO day${skippedPto === 1 ? " was" : "s were"} preserved.`);
+    }
+
+    function openPtoDialog() {
+      if (!canEdit) return;
+      document.getElementById("ptoStart").value = fmt(currentMonday);
+      document.getElementById("ptoEnd").value = fmt(addDays(currentMonday, 6));
+      document.getElementById("ptoDialog").showModal();
+    }
+
+    function savePto(event) {
+      event.preventDefault();
+      if (!canEdit) return;
+      const employeeId = document.getElementById("ptoEmployee").value;
+      const dates = datesBetween(document.getElementById("ptoStart").value, document.getElementById("ptoEnd").value);
+      if (!employeeId || !dates.length) { alert("Select a technician and valid PTO date range."); return; }
+      const note = document.getElementById("ptoNote").value.trim();
+      dates.forEach(date => {
+        const assignment = getAssignment(employeeId, date);
+        assignment.status = "PTO";
+        assignment.scope = "";
+        assignment.notes = note;
+      });
+      document.getElementById("ptoDialog").close();
+      event.currentTarget.reset();
+      render();
+    }
+
+    async function openSchedulerLoginDialog() {
+      if (!canManageAccess) return;
+      const dialog = document.getElementById("schedulerLoginDialog");
+      const accounts = document.getElementById("schedulerAccounts");
+      accounts.textContent = "Loading existing scheduler accounts…";
+      dialog.showModal();
+      try {
+        const response = await fetch("/api/auth/scheduler-user", { headers: authHeaders() });
+        if (!response.ok) throw new Error("Could not load scheduler accounts.");
+        const users = await response.json();
+        accounts.innerHTML = users.length
+          ? `<strong>Existing:</strong> ${users.map(user => escapeHtml(`${user.display_name || "Scheduler"} (${user.email})`)).join(", ")}. Enter the same email below to reset its password.`
+          : "No scheduler-only login has been created yet.";
+      } catch (error) {
+        accounts.textContent = error.message || "Could not load scheduler accounts.";
+      }
+    }
+
+    async function saveSchedulerLogin(event) {
+      event.preventDefault();
+      if (!canManageAccess) return;
+      const button = event.submitter;
+      button.disabled = true;
+      button.textContent = "Saving…";
+      try {
+        const response = await fetch("/api/auth/scheduler-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({
+            display_name: document.getElementById("schedulerLoginName").value,
+            email: document.getElementById("schedulerLoginEmail").value,
+            password: document.getElementById("schedulerLoginPassword").value
+          })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not save scheduler login.");
+        document.getElementById("schedulerLoginDialog").close();
+        event.currentTarget.reset();
+        alert(`Scheduler login saved for ${result.email}.`);
+      } catch (error) {
+        alert(error.message || "Could not save scheduler login.");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Save Scheduler Login";
+      }
+    }
+
+    let editingEmployeeId = null;
+
+    async function saveEmployee() {
+      if (!canEdit) return;
+      const name = document.getElementById("employeeName").value.trim();
+      if (!name) { alert("Technician name cannot be blank."); return; }
+      const postalCode = document.getElementById("employeePostalCode").value.trim();
+      let location = {};
+      if (postalCode) {
+        try {
+          location = await lookupPostal(postalCode);
+        } catch (error) {
+          alert(error.message || "Enter a valid technician ZIP code.");
+          return;
+        }
+      }
+      const values = {
+        name,
+        startDate: document.getElementById("employeeStartDate").value,
+        classification: document.getElementById("employeeClassification").value,
+        specialty: document.getElementById("employeeSpecialty").value,
+        homeState: document.getElementById("employeeHomeState").value.trim().toUpperCase() || location.state || "",
+        postalCode: location.postalCode || postalCode,
+        country: location.country,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        notes: document.getElementById("employeeNotes").value.trim()
+      };
+      if (editingEmployeeId) {
+        const employee = data.employees.find(item => item.id === editingEmployeeId);
+        if (!employee) return;
+        Object.assign(employee, values);
+      } else {
+        data.employees.push({ id: uid("tech"), ...values });
+      }
+      cancelEmployeeEdit(false);
+      render();
+    }
+
+    function modifyEmployee(id) {
+      if (!canEdit) return;
+      const emp = data.employees.find(e => e.id === id);
+      if (!emp) return;
+      editingEmployeeId = id;
+      document.getElementById("employeeName").value = emp.name;
+      document.getElementById("employeeStartDate").value = emp.startDate || "";
+      document.getElementById("employeeClassification").value = emp.classification || "";
+      document.getElementById("employeeSpecialty").value = emp.specialty || "";
+      document.getElementById("employeeHomeState").value = emp.homeState || "";
+      document.getElementById("employeePostalCode").value = emp.postalCode || "";
+      document.getElementById("employeeNotes").value = emp.notes || "";
+      document.getElementById("employeeSaveButton").textContent = "Save Technician";
+      document.getElementById("employeeCancelButton").classList.remove("hidden");
+      document.getElementById("employeeName").focus();
+    }
+
+    function cancelEmployeeEdit(shouldRender = true) {
+      editingEmployeeId = null;
+      ["employeeName", "employeeStartDate", "employeeHomeState", "employeePostalCode", "employeeNotes"].forEach(id => { document.getElementById(id).value = ""; });
+      document.getElementById("employeeClassification").value = "";
+      document.getElementById("employeeSpecialty").value = "";
+      document.getElementById("employeeSaveButton").textContent = "Add Technician";
+      document.getElementById("employeeCancelButton").classList.add("hidden");
+      if (shouldRender) render();
+    }
+
+    function removeEmployee(id) {
+      if (!canEdit) return;
+      data.employees = data.employees.filter(e => e.id !== id);
+      Object.keys(data.assignments).forEach(k => {
+        if (data.assignments[k].employeeId === id) delete data.assignments[k];
+      });
+      render();
+    }
+
+    let editingSiteId = null;
+
+    async function saveSite() {
+      if (!canEdit) return;
+      const name = document.getElementById("siteName").value.trim();
+      if (!name) return;
+      const postalCode = document.getElementById("sitePostalCode").value.trim();
+      if (!postalCode) { alert("A ZIP / postal code is required for every site."); return; }
+      let location;
+      try {
+        location = await lookupPostal(postalCode);
+      } catch (error) {
+        alert(error.message || "Enter a valid site ZIP code.");
+        return;
+      }
+      const values = {
+        name,
+        city: document.getElementById("siteCity").value.trim() || location.city,
+        state: document.getElementById("siteState").value.trim().toUpperCase() || location.state,
+        postalCode: location.postalCode || postalCode,
+        country: location.country,
+        latitude: location.latitude,
+        longitude: location.longitude
+      };
+      if (editingSiteId) {
+        const site = data.sites.find(item => item.id === editingSiteId);
+        if (!site) return;
+        Object.assign(site, values);
+      } else {
+        data.sites.push({ id: uid("site"), ...values });
+      }
+      cancelSiteEdit(false);
+      render();
+    }
+
+    function modifySite(id) {
+      if (!canEdit) return;
+      const site = data.sites.find(s => s.id === id);
+      if (!site) return;
+      editingSiteId = id;
+      document.getElementById("siteName").value = site.name;
+      document.getElementById("siteCity").value = site.city || "";
+      document.getElementById("siteState").value = site.state || "";
+      document.getElementById("sitePostalCode").value = site.postalCode || "";
+      document.getElementById("siteSaveButton").textContent = "Save Site";
+      document.getElementById("siteCancelButton").classList.remove("hidden");
+      document.getElementById("siteName").focus();
+    }
+
+    function cancelSiteEdit(shouldRender = true) {
+      editingSiteId = null;
+      document.getElementById("siteName").value = "";
+      document.getElementById("siteCity").value = "";
+      document.getElementById("siteState").value = "";
+      document.getElementById("sitePostalCode").value = "";
+      document.getElementById("siteSaveButton").textContent = "Add Site";
+      document.getElementById("siteCancelButton").classList.add("hidden");
+      if (shouldRender) render();
+    }
+
+    function removeSite(id) {
+      if (!canEdit) return;
+      data.sites = data.sites.filter(s => s.id !== id);
+      Object.values(data.assignments).forEach(a => { if (a.siteId === id) a.siteId = ""; });
+      render();
+    }
+
+    function changeWeek(days) {
+      currentMonday = addDays(currentMonday, days);
+      document.getElementById("quickStart").value = fmt(currentMonday);
+      document.getElementById("quickEnd").value = fmt(addDays(currentMonday, 6));
+      render();
+    }
+
+    function setWeekFromInput() {
+      currentMonday = getMonday(new Date(document.getElementById("weekStart").value));
+      document.getElementById("quickStart").value = fmt(currentMonday);
+      document.getElementById("quickEnd").value = fmt(addDays(currentMonday, 6));
+      render();
+    }
+
+    async function exportExcel(button) {
+      if (!canEdit) return;
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = "Building Excel…";
+      try {
+        const response = await fetch("/api/employee-scheduler/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeaders() },
+          body: JSON.stringify({ data, weekStart: fmt(currentMonday) })
+        });
+        if (response.status === 401) throw new Error("Sign in as the owner to export the schedule.");
+        if (!response.ok) throw new Error("Could not create the Excel schedule.");
+        const blob = await response.blob();
+        const disposition = response.headers.get("Content-Disposition") || "";
+        const filename = disposition.match(/filename="([^"]+)"/)?.[1] || `xnrgy-technician-schedule-${fmt(currentMonday)}.xlsx`;
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      } catch (error) {
+        alert(error.message || "Could not export the schedule.");
+      } finally {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      }
+    }
+
+    function dispatchAddress(site) {
+      return [site.address, [site.city, site.state].filter(Boolean).join(", "), site.zip_code]
+        .filter(Boolean).join(", ") || "Address not available in the workspace";
+    }
+
+    function dispatchPrintHtml(entries, weekLabel) {
+      const cards = entries.map(entry => {
+        const unitLines = entry.siteRecord?.units?.filter(unit => unit.serial_number).map(unit =>
+          `<li><strong>${escapeHtml(unit.serial_number)}</strong>${unit.model ? ` · ${escapeHtml(unit.model)}` : ""}${unit.unit_type ? ` · ${escapeHtml(unit.unit_type)}` : ""}</li>`
+        ).join("") || "<li>No unit serials recorded for this site.</li>";
+        const technicianAssignments = new Map();
+        entry.assignments.forEach(assignment => {
+          const assigned = technicianAssignments.get(assignment.employee.id) || { employee: assignment.employee, dates: [] };
+          assigned.dates.push(assignment.date);
+          technicianAssignments.set(assignment.employee.id, assigned);
+        });
+        const technicianLines = [...technicianAssignments.values()].map(({ employee, dates }) =>
+          `<li><strong>${escapeHtml(employee.name)}</strong> — ${escapeHtml(technicianLabel(employee))}<br><span class="assignment-days">${dates.sort().map(displayDate).join(" · ")}</span></li>`
+        ).join("");
+        const scopes = [...new Set(entry.assignments.map(assignment => assignment.scope || assignment.notes).filter(Boolean))];
+        const scheduledDates = [...new Set(entry.assignments.map(assignment => assignment.date))].sort().map(displayDate);
+        const displayName = entry.siteRecord?.project_name || entry.siteRecord?.name || entry.site.name;
+        return `<article class="dispatch-card">
+          <div class="date">Weekly site dispatch</div>
+          <h2>${escapeHtml(displayName)}</h2>
+          ${entry.siteRecord?.project_number ? `<div class="project">Project ${escapeHtml(entry.siteRecord.project_number)}</div>` : ""}
+          <section><h3>Site address</h3><p>${escapeHtml(entry.siteRecord ? dispatchAddress(entry.siteRecord) : "No matching workspace site found — check the scheduler site name.")}</p></section>
+          <section><h3>Scheduled days</h3><p>${scheduledDates.join(" · ")}</p></section>
+          <section><h3>Scope of work</h3><p>${scopes.length ? scopes.map(escapeHtml).join("<br>") : "Not specified"}</p></section>
+          <section><h3>Assigned technician${technicianAssignments.size === 1 ? "" : "s"}</h3><ul>${technicianLines}</ul></section>
+          <section><h3>Unit serial numbers</h3><ul>${unitLines}</ul></section>
+        </article>`;
+      }).join("");
+      return `<!doctype html><html><head><title>Dispatch — ${escapeHtml(weekLabel)}</title><style>
+        *{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#17202a;margin:36px;background:#fff}header{border-bottom:3px solid #00a6c7;padding-bottom:14px;margin-bottom:22px}h1{margin:0;font-size:25px}header p{margin:5px 0 0;color:#53606b}.dispatch-card{break-inside:avoid;border:1px solid #ccd4da;border-left:5px solid #00a6c7;border-radius:6px;padding:18px;margin:0 0 16px}.date{color:#007c98;font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em}h2{font-size:20px;margin:5px 0}.project{color:#53606b;font-size:13px;margin-bottom:16px}section{margin-top:13px}h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 4px;color:#53606b}p,li{font-size:13px;line-height:1.45;margin:0}ul{padding-left:18px;margin:0}.assignment-days{color:#53606b;font-size:12px}@media print{body{margin:18px}.dispatch-card{page-break-inside:avoid}}</style></head><body><header><h1>Technician Dispatch</h1><p>${escapeHtml(weekLabel)}</p></header>${cards}</body></html>`;
+    }
+
+    async function generateDispatch() {
+      const weekDates = days.map((_, i) => fmt(addDays(currentMonday, i)));
+      const groups = new Map();
+      Object.values(data.assignments).forEach(assignment => {
+        if (!weekDates.includes(assignment.date) || !assignment.siteId || assignmentStatus(assignment) !== "Working") return;
+        const employee = data.employees.find(item => item.id === assignment.employeeId);
+        const site = data.sites.find(item => item.id === assignment.siteId);
+        if (!employee || !site) return;
+        const key = site.id;
+        if (!groups.has(key)) groups.set(key, { site, assignments: [] });
+        groups.get(key).assignments.push({ ...assignment, employee });
+      });
+      const entries = [...groups.values()].sort((a, b) => a.site.name.localeCompare(b.site.name));
+      if (!entries.length) { alert("No working assignments with a site are scheduled for this week."); return; }
+      const popup = window.open("", "_blank");
+      if (!popup) { alert("Allow pop-ups to generate the dispatch."); return; }
+      popup.document.write("<p style='font-family:Arial;padding:24px'>Preparing dispatch…</p>");
+      try {
+        const params = new URLSearchParams();
+        [...new Set(entries.map(entry => entry.site.name))].forEach(name => params.append("site", name));
+        const response = await fetch(`/api/employee-scheduler/dispatch?${params}`, { headers: authHeaders() });
+        if (response.status === 401) throw new Error("Sign in to the workspace before generating a dispatch.");
+        if (!response.ok) throw new Error("Could not load site dispatch details.");
+        const siteRecords = await response.json();
+        entries.forEach(entry => {
+          entry.siteRecord = siteRecords.find(site => site.name.toLowerCase() === entry.site.name.toLowerCase() || (site.project_name || "").toLowerCase() === entry.site.name.toLowerCase());
+        });
+        const weekLabel = `Week of ${fmt(currentMonday)}`;
+        popup.document.open();
+        popup.document.write(dispatchPrintHtml(entries, weekLabel));
+        popup.document.close();
+        popup.focus();
+      } catch (error) {
+        popup.close();
+        alert(error.message || "Could not generate dispatch.");
+      }
+    }
+
+    async function importData(event) {
+      if (!canEdit) return;
+      const file = event.target.files[0];
+      if (!file) return;
+      const form = new FormData();
+      form.append("file", file);
+      form.append("data", JSON.stringify(data));
+      setSaveStatus("Importing Excel schedule…");
+      try {
+        const response = await fetch("/api/employee-scheduler/import", {
+          method: "POST",
+          headers: authHeaders(),
+          body: form
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          const details = Array.isArray(result.details) ? `\n\n${result.details.join("\n")}` : "";
+          throw new Error((result.error || "Could not import the Excel schedule.") + details);
+        }
+        data = result.data;
+        upgradeRoster();
+        await hydratePostalCoordinates();
+        currentMonday = getMonday(new Date(`${result.weekStart}T12:00:00`));
+        render();
+        const ptoMessage = result.preservedPto ? ` ${result.preservedPto} existing PTO day${result.preservedPto === 1 ? " was" : "s were"} preserved.` : "";
+        alert(`Imported ${result.importedAssignments} schedule cells.${ptoMessage}`);
+      } catch (error) {
+        setSaveStatus("Excel import was not applied.");
+        alert(error.message || "Could not import the Excel schedule.");
+      } finally {
+        event.target.value = "";
+      }
+    }
+
+    function resetDemo() {
+      if (!canEdit) return;
+      if (!confirm("Reset all demo data and local saved changes?")) return;
+      data = structuredClone(demoData);
+      localStorage.removeItem("employeeSchedulerData");
+      render();
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, m => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+      }[m]));
+    }
+
+    render();
+    loadData();
+  </script>
+</body>
+</html>

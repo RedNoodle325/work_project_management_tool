@@ -11,9 +11,15 @@ export async function POST(req: NextRequest) {
   }
 
   const rows = await sql`
-    SELECT id, email, password_hash, display_name
-    FROM public.users
-    WHERE email = ${email.toLowerCase()}
+    SELECT
+      account.id,
+      account.email,
+      account.password_hash,
+      account.display_name,
+      account.access_role
+    FROM public.users account
+    WHERE account.email = ${email.trim().toLowerCase()}
+    LIMIT 1
   `
 
   const user = rows[0]
@@ -28,7 +34,8 @@ export async function POST(req: NextRequest) {
 
   await sql`UPDATE public.users SET last_login = NOW() WHERE id = ${user.id}`
 
-  const token = await signToken({ sub: user.id, email: user.email, name: user.display_name })
+  const access_role = user.access_role
+  const token = await signToken({ sub: user.id, email: user.email, name: user.display_name, role: access_role })
 
-  return NextResponse.json({ token, email: user.email, display_name: user.display_name })
+  return NextResponse.json({ token, email: user.email, display_name: user.display_name, access_role })
 }

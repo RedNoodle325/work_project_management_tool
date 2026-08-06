@@ -1,6 +1,6 @@
 import { AuthGuard } from '@/components/AuthGuard'
-import { Issues } from '@/pages-impl/Issues'
+import { XnrgyIssues } from '@/pages-impl/XnrgyIssues'
 
 export default function Page() {
-  return <AuthGuard><Issues /></AuthGuard>
+  return <AuthGuard><XnrgyIssues /></AuthGuard>
 }
