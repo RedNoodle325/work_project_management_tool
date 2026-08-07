@@ -19,7 +19,7 @@ function ensureSchedulerTable() {
 }
 
 export async function GET(request: NextRequest) {
-  const { error, claims } = await requireAuth(request, { allowScheduler: true })
+  const { error, claims } = await requireAuth(request)
   if (error) return error
 
   await ensureSchedulerTable()

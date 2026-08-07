@@ -17,7 +17,7 @@ function LoginPageContent() {
   const schedulerLogin = searchParams.get('mode') === 'scheduler'
 
   useEffect(() => {
-    if (!loading && isAuthenticated) router.replace(user?.role === 'scheduler' ? '/employee-scheduler' : '/sites')
+    if (!loading && isAuthenticated) router.replace(user?.role === 'scheduler' ? '/scheduler' : '/dashboard')
   }, [isAuthenticated, loading, router, user?.role])
 
   return <Login schedulerLogin={schedulerLogin} />

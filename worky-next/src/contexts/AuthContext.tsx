@@ -1,3 +1,5 @@
+'use client'
+
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import { API, getToken, setToken, clearToken } from '../api'
 import type { AuthUser } from '../types'
@@ -19,6 +21,19 @@ const AuthContext = createContext<AuthContextValue>({
   logout: () => {},
   isAuthenticated: false,
 })
+
+type AuthMeResponse = {
+  email: string
+  display_name?: string
+  access_role?: AuthUser['role']
+}
+
+async function restoreUserFromToken(token: string): Promise<AuthUser> {
+  const response = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+  if (!response.ok) throw new Error('Session expired')
+  const restored = await response.json() as AuthMeResponse
+  return { id: '', email: restored.email, name: restored.display_name, role: restored.access_role }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Authentication is restored in the effect so the initial client markup
@@ -44,10 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }, 0)
 
-    API.auth.me()
-      .then(u => {
-        const response = u as { email: string; display_name?: string; access_role?: AuthUser['role'] }
-        const authUser: AuthUser = { id: '', email: response.email, name: response.display_name, role: response.access_role }
+    restoreUserFromToken(getToken() as string)
+      .then(authUser => {
         setUser(authUser)
         localStorage.setItem('auth_user', JSON.stringify(authUser))
       })

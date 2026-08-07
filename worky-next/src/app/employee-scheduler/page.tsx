@@ -1,11 +1,5 @@
-import { AuthGuard } from '@/components/AuthGuard'
+import { redirect } from 'next/navigation'
 
 export default function EmployeeSchedulerPage() {
-  return (
-    <AuthGuard>
-      <main className="x-page x-scheduler-page">
-        <iframe className="x-scheduler-frame" title="Employee Scheduler" src="/employee-scheduler.html" />
-      </main>
-    </AuthGuard>
-  )
+  redirect('/scheduler')
 }
