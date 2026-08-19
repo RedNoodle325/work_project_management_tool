@@ -119,6 +119,8 @@ export interface LeanIssueV2 {
   description?: string
   equipment_name?: string
   serial_number?: string
+  status?: string
+  priority?: string
   source_url?: string
   source?: string
   internal_notes?: string

@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { ExternalLink, FileSpreadsheet, Plus, Search, StickyNote, Upload, X } from 'lucide-react'
+import { ExternalLink, FileSpreadsheet, Pencil, Plus, Search, StickyNote, Upload, X } from 'lucide-react'
 import { V2 } from '@/api/v2'
 import type { LeanIssueV2, SiteSummaryV2 } from '@/types/v2'
 
@@ -12,6 +12,7 @@ export function XnrgyIssues() {
   const [search, setSearch] = useState('')
   const [showImport, setShowImport] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
+  const [editIssue, setEditIssue] = useState<LeanIssueV2 | null>(null)
   const [noteIssue, setNoteIssue] = useState<LeanIssueV2 | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -58,7 +59,7 @@ export function XnrgyIssues() {
     {!error && !loading && <div className="x-lean-issues">
       <div className="x-lean-issue-head"><span>Issue Number</span><span>Description</span><span>Equipment Name / Asset Tag</span><span>Serial #</span></div>
       {filtered.map(issue => <div className="x-lean-issue-row" key={issue.id}>
-        <span><div className="x-issue-number-actions"><strong>{issue.issue_number}</strong>{issue.source_url && <a className="x-issue-icon-action" href={issue.source_url} target="_blank" rel="noreferrer" title="Open in CxAlloy" aria-label={`Open ${issue.issue_number} in CxAlloy`}><ExternalLink size={14} /></a>}<button type="button" className={`x-issue-icon-action ${issue.internal_notes ? 'has-note' : ''}`} onClick={() => setNoteIssue(issue)} title={issue.internal_notes ? 'Edit internal note' : 'Add internal note'} aria-label={`Add an internal note to ${issue.issue_number}`}><StickyNote size={14} /></button></div><small>{issue.site_name}</small></span>
+        <span><div className="x-issue-number-actions"><strong>{issue.issue_number}</strong>{issue.source_url && <a className="x-issue-icon-action" href={issue.source_url} target="_blank" rel="noreferrer" title="Open in CxAlloy" aria-label={`Open ${issue.issue_number} in CxAlloy`}><ExternalLink size={14} /></a>}<button type="button" className="x-issue-icon-action" onClick={() => setEditIssue(issue)} title="Edit issue" aria-label={`Edit ${issue.issue_number}`}><Pencil size={14} /></button><button type="button" className={`x-issue-icon-action ${issue.internal_notes ? 'has-note' : ''}`} onClick={() => setNoteIssue(issue)} title={issue.internal_notes ? 'Edit internal note' : 'Add internal note'} aria-label={`Add an internal note to ${issue.issue_number}`}><StickyNote size={14} /></button></div><small>{issue.site_name}{issue.status ? ` · ${issue.status.replace('_', ' ')}` : ''}{issue.priority ? ` · ${issue.priority}` : ''}</small></span>
         <p>{issue.description || '—'}</p>
         <code>{issue.equipment_name || '—'}</code>
         <code className={!issue.serial_number ? 'is-empty' : ''}>{issue.serial_number || '—'}</code>
@@ -68,6 +69,7 @@ export function XnrgyIssues() {
 
     {showImport && <ImportIssues sites={sites} initialSiteId={siteId} close={() => setShowImport(false)} imported={(selectedSiteId) => { setShowImport(false); changeSite(selectedSiteId) }} />}
     {showCreate && <CreateIssue sites={sites} initialSiteId={siteId} close={() => setShowCreate(false)} saved={(selectedSiteId) => { setShowCreate(false); changeSite(selectedSiteId) }} />}
+    {editIssue && <EditIssue issue={editIssue} sites={sites} close={() => setEditIssue(null)} saved={(updated) => { setIssues(current => siteId && updated.site_id !== siteId ? current.filter(issue => issue.id !== updated.id) : current.map(issue => issue.id === updated.id ? updated : issue)); setEditIssue(null) }} />}
     {noteIssue && <IssueNotes issue={noteIssue} close={() => setNoteIssue(null)} saved={(notes) => { setIssues(current => current.map(issue => issue.id === noteIssue.id ? { ...issue, internal_notes: notes || undefined } : issue)); setNoteIssue(null) }} />}
   </div>
 }
@@ -90,6 +92,39 @@ function IssueNotes({ issue, close, saved }: { issue: LeanIssueV2; close: () => 
   </form></div>
 }
 
+function EditIssue({ issue, sites, close, saved }: { issue: LeanIssueV2; sites: SiteSummaryV2[]; close: () => void; saved: (issue: LeanIssueV2) => void }) {
+  const [form, setForm] = useState({
+    site_id: issue.site_id,
+    issue_number: issue.issue_number || '',
+    description: issue.description || '',
+    equipment_name: issue.equipment_name || '',
+    serial_number: issue.serial_number || '',
+    status: issue.status || 'open',
+    priority: issue.priority || 'normal',
+    source_url: issue.source_url || '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const set = (field: keyof typeof form) => (value: string) => setForm(current => ({ ...current, [field]: value }))
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setSaving(true); setError('')
+    try { saved(await V2.issues.update(issue.id, form)) }
+    catch (error) { setError((error as Error).message) }
+    finally { setSaving(false) }
+  }
+  return <div className="x-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}><form className="x-modal" onSubmit={submit}>
+    <header><div><span className="x-kicker">Issue tracker</span><h2>Edit issue</h2></div><button type="button" onClick={close}><X size={18} /></button></header>
+    <p className="x-import-intro">Update the issue record. Clear the issue number to assign the next number for the selected site.</p>
+    <label className="x-field"><span>Site</span><select value={form.site_id} onChange={event => set('site_id')(event.target.value)} required><option value="">Choose a site</option>{sites.map(site => <option value={site.id} key={site.id}>{site.name}</option>)}</select></label>
+    <label className="x-field"><span>Issue number</span><input value={form.issue_number} onChange={event => set('issue_number')(event.target.value)} placeholder="Auto-assigned from site" /></label>
+    <label className="x-field"><span>Description</span><textarea value={form.description} onChange={event => set('description')(event.target.value)} rows={3} placeholder="Describe the issue" /></label>
+    <div className="x-form-row"><label className="x-field"><span>Equipment / asset tag</span><input value={form.equipment_name} onChange={event => set('equipment_name')(event.target.value)} /></label><label className="x-field"><span>Serial #</span><input value={form.serial_number} onChange={event => set('serial_number')(event.target.value)} /></label></div>
+    <div className="x-form-row"><label className="x-field"><span>Status</span><select value={form.status} onChange={event => set('status')(event.target.value)}><option value="open">Open</option><option value="in_progress">In progress</option><option value="scheduled">Scheduled</option><option value="waiting_parts">Waiting parts</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select></label><label className="x-field"><span>Priority</span><select value={form.priority} onChange={event => set('priority')(event.target.value)}><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="critical">Critical</option></select></label></div>
+    <label className="x-field"><span>CxAlloy link (optional)</span><input type="url" value={form.source_url} onChange={event => set('source_url')(event.target.value)} placeholder="https://tq.cxalloy.com/..." /></label>
+    {error && <p className="x-error">{error}</p>}<footer><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Saving...' : 'Save issue'}</button></footer>
+  </form></div>
+}
+
 function CreateIssue({ sites, initialSiteId, close, saved }: { sites: SiteSummaryV2[]; initialSiteId: string; close: () => void; saved: (siteId: string) => void }) {
   const [form, setForm] = useState({ site_id: initialSiteId, issue_number: '', description: '', equipment_name: '', serial_number: '', status: 'open', priority: 'normal', source_url: '' })
   const [saving, setSaving] = useState(false)
@@ -103,9 +138,9 @@ function CreateIssue({ sites, initialSiteId, close, saved }: { sites: SiteSummar
   }
   return <div className="x-modal-backdrop" onMouseDown={event => event.target === event.currentTarget && close()}><form className="x-modal" onSubmit={submit}>
     <header><div><span className="x-kicker">Manual entry</span><h2>New issue</h2></div><button type="button" onClick={close}><X size={18} /></button></header>
-    <p className="x-import-intro">Add an issue immediately. If the issue number already exists for this site, its fields are updated instead of creating a duplicate.</p>
+    <p className="x-import-intro">Add an issue immediately. Leave the issue number blank to assign the next number for the selected site.</p>
     <label className="x-field"><span>Site</span><select value={form.site_id} onChange={event => set('site_id')(event.target.value)} required><option value="">Choose a site</option>{sites.map(site => <option value={site.id} key={site.id}>{site.name}</option>)}</select></label>
-    <label className="x-field"><span>Issue number</span><input value={form.issue_number} onChange={event => set('issue_number')(event.target.value)} required placeholder="e.g. 614-001" /></label>
+    <label className="x-field"><span>Issue number</span><input value={form.issue_number} onChange={event => set('issue_number')(event.target.value)} placeholder="Auto-assigned from site" /></label>
     <label className="x-field"><span>Description</span><textarea value={form.description} onChange={event => set('description')(event.target.value)} rows={3} placeholder="Describe the issue" /></label>
     <div className="x-form-row"><label className="x-field"><span>Equipment / asset tag</span><input value={form.equipment_name} onChange={event => set('equipment_name')(event.target.value)} /></label><label className="x-field"><span>Serial #</span><input value={form.serial_number} onChange={event => set('serial_number')(event.target.value)} /></label></div>
     <div className="x-form-row"><label className="x-field"><span>Status</span><select value={form.status} onChange={event => set('status')(event.target.value)}><option value="open">Open</option><option value="in_progress">In progress</option><option value="scheduled">Scheduled</option><option value="waiting_parts">Waiting parts</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select></label><label className="x-field"><span>Priority</span><select value={form.priority} onChange={event => set('priority')(event.target.value)}><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="critical">Critical</option></select></label></div>

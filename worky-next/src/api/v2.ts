@@ -29,6 +29,7 @@ export const V2 = {
   issues: {
     list: (siteId?: string) => request<LeanIssueV2[]>(`/issues${siteId ? `?site_id=${encodeURIComponent(siteId)}` : ''}`),
     create: (data: Record<string, unknown>) => request('/issues', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: Record<string, unknown>) => request<LeanIssueV2>(`/issues/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     updateNotes: (id: string, internal_notes: string) => request(`/issues/${id}`, { method: 'PATCH', body: JSON.stringify({ internal_notes }) }),
     importCxAlloy: async (siteId: string, file: File) => {
       const token = getToken()
