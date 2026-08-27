@@ -698,3 +698,10 @@ button.primary, .x-library-tools button { color: #fff; border-color: var(--ameth
 .x-stage-caption { display: flex; align-items: center; gap: 8px; }
 .x-stage-caption small { color: var(--shadow); font-size: 10px; font-weight: 700; }
 .x-stage-caption em { color: var(--muted); font-size: 10px; font-style: normal; }
+.x-warranty-row { display: flex; align-items: center; gap: 10px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.x-warranty-row label { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.x-warranty-row input[type="date"] { padding: 4px 6px; border: 1px solid var(--galvanize); border-radius: 5px; background: #fff; font-size: 10px; }
+.x-warranty-row > small { color: var(--shadow); font-size: 10px; }
+.x-warranty-phase { margin-left: auto; padding: 3px 7px; border-radius: 5px; background: #eef0f1; color: var(--shadow); font: 700 9px/1 var(--font); font-style: normal; text-transform: uppercase; white-space: nowrap; }
+.x-warranty-phase.is-in_warranty { color: #35751d; background: #e9f3e3; }
+.x-warranty-phase.is-out_of_warranty { color: #9b3040; background: #f8e8eb; }

@@ -19,8 +19,20 @@ const STAGES = [
 
 const STAGE_LABELS: Record<string, string> = Object.fromEntries(STAGES.map(s => [s.key, s.label]))
 
-interface UnitRow { id: string; tag: string; unit_type?: string; status: string; build_stage?: string; ship_to?: string | null }
-interface UnitChange { build_stage: string; ship_to: string | null }
+interface UnitRow {
+  id: string; tag: string; unit_type?: string; status: string
+  build_stage?: string; ship_to?: string | null
+  warranty_start_date?: string | null; warranty_end_date?: string | null
+}
+interface UnitChange {
+  build_stage: string; ship_to: string | null
+  warranty_start_date: string | null; warranty_end_date: string | null
+}
+
+function warrantyPhase(unit: { warranty_end_date?: string | null }): 'unset' | 'in_warranty' | 'out_of_warranty' {
+  if (!unit.warranty_end_date) return 'unset'
+  return unit.warranty_end_date >= new Date().toISOString().slice(0, 10) ? 'in_warranty' : 'out_of_warranty'
+}
 
 function isPreCommissioning(site: SiteSummaryV2) {
   if (site.lifecycle_phase === 'commissioning') return true
@@ -98,15 +110,28 @@ function SiteChecklist({ site, canEdit }: { site: SiteSummaryV2; canEdit: boolea
       .finally(() => setLoading(false))
   }, [site.id])
 
+  function baseline(unit: UnitRow): UnitChange {
+    return changes[unit.id] ?? {
+      build_stage: unit.build_stage ?? 'production',
+      ship_to: unit.ship_to ?? null,
+      warranty_start_date: unit.warranty_start_date ?? null,
+      warranty_end_date: unit.warranty_end_date ?? null,
+    }
+  }
+
   function setStage(unit: UnitRow, buildStage: string) {
-    const current = changes[unit.id] ?? { build_stage: unit.build_stage ?? 'production', ship_to: unit.ship_to ?? null }
-    setChanges(prev => ({ ...prev, [unit.id]: { build_stage: buildStage, ship_to: buildStage === 'shipped' ? current.ship_to : null } }))
+    const current = baseline(unit)
+    setChanges(prev => ({ ...prev, [unit.id]: { ...current, build_stage: buildStage, ship_to: buildStage === 'shipped' ? current.ship_to : null } }))
     setSaved(false)
   }
 
   function setShipTo(unit: UnitRow, shipTo: string) {
-    const current = changes[unit.id] ?? { build_stage: unit.build_stage ?? 'production', ship_to: unit.ship_to ?? null }
-    setChanges(prev => ({ ...prev, [unit.id]: { ...current, ship_to: shipTo } }))
+    setChanges(prev => ({ ...prev, [unit.id]: { ...baseline(unit), ship_to: shipTo } }))
+    setSaved(false)
+  }
+
+  function setWarrantyDate(unit: UnitRow, field: 'warranty_start_date' | 'warranty_end_date', value: string) {
+    setChanges(prev => ({ ...prev, [unit.id]: { ...baseline(unit), [field]: value || null } }))
     setSaved(false)
   }
 
@@ -116,7 +141,7 @@ function SiteChecklist({ site, canEdit }: { site: SiteSummaryV2; canEdit: boolea
     setSaving(true); setError('')
     try {
       await Ops.units.updateBuildStage(site.id, updates)
-      setUnits(current => current.map(u => changes[u.id] ? { ...u, build_stage: changes[u.id].build_stage, ship_to: changes[u.id].ship_to } : u))
+      setUnits(current => current.map(u => changes[u.id] ? { ...u, ...changes[u.id] } : u))
       setChanges({})
       setSaved(true)
     } catch (err) { setError((err as Error).message) } finally { setSaving(false) }
@@ -139,7 +164,10 @@ function SiteChecklist({ site, canEdit }: { site: SiteSummaryV2; canEdit: boolea
         const change = changes[unit.id]
         const stage = change?.build_stage ?? unit.build_stage ?? 'production'
         const shipTo = change ? change.ship_to : unit.ship_to ?? null
+        const warrantyStart = change ? change.warranty_start_date : unit.warranty_start_date ?? null
+        const warrantyEnd = change ? change.warranty_end_date : unit.warranty_end_date ?? null
         const stageIndex = STAGES.findIndex(s => s.key === stage)
+        const phase = warrantyPhase({ warranty_end_date: warrantyEnd })
         return <div className="x-commissioning-unit-row" key={unit.id}>
           <span><strong>{unit.tag}</strong></span>
           <span>{unit.unit_type || '—'}</span>
@@ -156,6 +184,13 @@ function SiteChecklist({ site, canEdit }: { site: SiteSummaryV2; canEdit: boolea
                 ? <select value={shipTo || ''} onChange={e => setShipTo(unit, e.target.value)}><option value="">Ship to…</option><option value="customer">Customer</option><option value="warehouse">Warehouse</option></select>
                 : shipTo && <em>· {shipTo}</em>)}
             </div>
+            {stage === 'commissioned' && <div className="x-warranty-row">
+              {canEdit ? <>
+                <label>Start <input type="date" value={warrantyStart || ''} onChange={e => setWarrantyDate(unit, 'warranty_start_date', e.target.value)} /></label>
+                <label>End <input type="date" value={warrantyEnd || ''} onChange={e => setWarrantyDate(unit, 'warranty_end_date', e.target.value)} /></label>
+              </> : <small>{warrantyStart ? `${warrantyStart} – ${warrantyEnd || '—'}` : 'No warranty dates set'}</small>}
+              <em className={`x-warranty-phase is-${phase}`}>{phase === 'in_warranty' ? 'In warranty' : phase === 'out_of_warranty' ? 'Out of warranty' : 'No dates set'}</em>
+            </div>}
           </span>
         </div>
       })}

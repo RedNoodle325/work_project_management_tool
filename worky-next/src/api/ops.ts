@@ -52,7 +52,10 @@ export const Ops = {
     delete: (id: string) => request<void>(`/api/parts-orders/${id}`, { method: 'DELETE' }),
   },
   units: {
-    updateBuildStage: (siteId: string, updates: Array<{ unit_id: string; build_stage: string; ship_to?: string | null }>) =>
+    updateBuildStage: (siteId: string, updates: Array<{
+      unit_id: string; build_stage: string; ship_to?: string | null
+      warranty_start_date?: string | null; warranty_end_date?: string | null
+    }>) =>
       request<{ updated: number }>(`/api/sites/${siteId}/units/commission-bulk`, { method: 'PUT', body: JSON.stringify({ updates }) }),
   },
 }
