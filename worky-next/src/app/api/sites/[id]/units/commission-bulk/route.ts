@@ -11,7 +11,7 @@ export async function PUT(
 
   const { id } = await params
   const body = await req.json()
-  const updates: Array<{ unit_id: string; commission_level: string }> = body.updates ?? []
+  const updates: Array<{ unit_id: string; build_stage: string; ship_to?: string | null }> = body.updates ?? []
 
   if (!Array.isArray(updates) || updates.length === 0) {
     return NextResponse.json({ error: 'updates array required' }, { status: 400 })
@@ -19,11 +19,11 @@ export async function PUT(
 
   let updated = 0
 
-  for (const { unit_id, commission_level } of updates) {
-    if (!unit_id || !commission_level) continue
+  for (const { unit_id, build_stage, ship_to } of updates) {
+    if (!unit_id || !build_stage) continue
     await sql`
       UPDATE public.units
-      SET commission_level = ${commission_level}, updated_at = now()
+      SET build_stage = ${build_stage}, ship_to = ${ship_to ?? null}, updated_at = now()
       WHERE id = ${unit_id} AND site_id = ${id}
     `
     updated++

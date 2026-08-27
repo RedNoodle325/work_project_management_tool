@@ -618,7 +618,7 @@ button.primary, .x-library-tools button { color: #fff; border-color: var(--ameth
   .x-users-form { grid-template-columns: 1fr; }.x-users-form button { width: 100%; }
   .x-users-overview { grid-template-columns: 1fr; }.x-users-overview article { justify-content: flex-start; }.x-users-overview article > span { display: grid; }
   .x-sched-grid { overflow-x: auto; }
-  .x-sched-grid, .x-work-order-head, .x-work-order-row, .x-parts-order-head, .x-parts-order-row, .x-commissioning-unit-head, .x-commissioning-unit-row { min-width: 720px; }
+  .x-sched-grid, .x-work-order-head, .x-work-order-row, .x-parts-order-head, .x-parts-order-row { min-width: 720px; }
 }
 
 /* Scheduler, work orders, part orders, commissioning */
@@ -684,7 +684,17 @@ button.primary, .x-library-tools button { color: #fff; border-color: var(--ameth
 .x-commissioning-card-top strong { font: 650 16px/1.2 var(--font); }
 .x-commissioning-card-top span { color: var(--muted); font-size: 10px; }
 .x-commissioning-card-bottom { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; color: var(--muted); font-size: 10px; }
-.x-commissioning-unit-head, .x-commissioning-unit-row { display: grid; grid-template-columns: 1.4fr 1fr .8fr 1fr; gap: 16px; align-items: center; }
+.x-commissioning-units { overflow-x: auto; }
+.x-commissioning-unit-head, .x-commissioning-unit-row { display: grid; grid-template-columns: 1fr .8fr .6fr 3fr; gap: 16px; align-items: center; min-width: 620px; }
 .x-commissioning-unit-head { padding: 11px 15px; color: var(--muted); background: #f5f6f6; font: 800 9px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; }
 .x-commissioning-unit-row { padding: 13px 15px; border-top: 1px solid #eef0f1; font-size: 12px; }
-.x-commissioning-unit-row select { padding: 7px 10px; border: 1px solid var(--galvanize); border-radius: 6px; background: #fff; }
+.x-commissioning-unit-row select { padding: 5px 8px; border: 1px solid var(--galvanize); border-radius: 6px; background: #fff; font-size: 11px; }
+.x-stage-cell { display: flex; flex-direction: column; gap: 6px; }
+.x-stage-track { display: flex; gap: 3px; }
+.x-stage-dot { flex: 1; min-width: 22px; height: 22px; display: grid; place-items: center; padding: 0; color: var(--muted); border: 1px solid var(--galvanize); border-radius: 5px; background: #fff; cursor: pointer; font: 700 9px/1 var(--font); }
+.x-stage-dot:disabled { cursor: default; }
+.x-stage-dot.is-done { color: #fff; border-color: var(--terra); background: var(--terra); }
+.x-stage-dot.is-current { color: #fff; border-color: var(--amethyst); background: var(--amethyst); box-shadow: 0 0 0 3px rgba(98,44,144,.16); }
+.x-stage-caption { display: flex; align-items: center; gap: 8px; }
+.x-stage-caption small { color: var(--shadow); font-size: 10px; font-weight: 700; }
+.x-stage-caption em { color: var(--muted); font-size: 10px; font-style: normal; }
