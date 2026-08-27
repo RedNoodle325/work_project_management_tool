@@ -19,21 +19,29 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const {
     name,
+    phone,
+    email,
     location_city,
     location_state,
     latitude,
     longitude,
+    color,
     is_active,
     notes,
   } = body
 
+  if (!name || !String(name).trim()) {
+    return NextResponse.json({ error: 'name is required' }, { status: 400 })
+  }
+
   const rows = await sql`
     INSERT INTO public.technicians
-      (name, location_city, location_state, latitude, longitude, is_active, notes)
+      (name, phone, email, location_city, location_state, latitude, longitude, color, is_active, notes)
     VALUES
-      (${name}, ${location_city ?? null}, ${location_state ?? null},
+      (${name}, ${phone ?? null}, ${email ?? null},
+       ${location_city ?? null}, ${location_state ?? null},
        ${latitude ?? null}, ${longitude ?? null},
-       ${is_active ?? null}, ${notes ?? null})
+       ${color ?? null}, ${is_active ?? true}, ${notes ?? null})
     RETURNING *
   `
   return NextResponse.json(rows[0], { status: 201 })

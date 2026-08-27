@@ -8,21 +8,35 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const weekStart = searchParams.get('week_start') ?? null
+  const siteId = searchParams.get('site_id') ?? null
+  const technicianId = searchParams.get('technician_id') ?? null
 
-  let jobs
-  if (weekStart) {
-    jobs = await sql`
-      SELECT * FROM public.job_schedule
-      WHERE (start_date IS NULL OR start_date <= ${weekStart}::DATE + INTERVAL '6 days')
-        AND (end_date IS NULL OR end_date >= ${weekStart}::DATE)
-      ORDER BY start_date ASC NULLS LAST, job_name ASC
-    `
-  } else {
-    jobs = await sql`
-      SELECT * FROM public.job_schedule
-      ORDER BY start_date ASC NULLS LAST, job_name ASC
-    `
-  }
+  const jobs = await sql`
+    SELECT
+      j.*,
+      s.name AS site_name,
+      s.city AS site_city,
+      s.state AS site_state,
+      COALESCE(
+        (SELECT json_agg(json_build_object('id', t.id, 'name', t.name, 'color', t.color) ORDER BY t.name)
+         FROM public.job_schedule_techs jt
+         JOIN public.technicians t ON t.id = jt.technician_id
+         WHERE jt.job_id = j.id),
+        '[]'
+      ) AS technicians
+    FROM public.job_schedule j
+    JOIN public.sites s ON s.id = j.site_id
+    WHERE (${weekStart}::date IS NULL OR (
+            (j.start_date IS NULL OR j.start_date <= ${weekStart}::date + INTERVAL '6 days')
+            AND (j.end_date IS NULL OR j.end_date >= ${weekStart}::date)
+          ))
+      AND (${siteId}::uuid IS NULL OR j.site_id = ${siteId}::uuid)
+      AND (${technicianId}::uuid IS NULL OR EXISTS (
+            SELECT 1 FROM public.job_schedule_techs jt
+            WHERE jt.job_id = j.id AND jt.technician_id = ${technicianId}::uuid
+          ))
+    ORDER BY j.start_date ASC NULLS LAST, j.job_name ASC
+  `
 
   return NextResponse.json(jobs)
 }
@@ -32,8 +46,13 @@ export async function POST(request: NextRequest) {
   if (error) return error
 
   const body = await request.json()
+  const technicianIds: string[] = Array.isArray(body.technician_ids) ? body.technician_ids : []
 
-  const rows = await sql`
+  if (!body.site_id || !body.job_name || !String(body.job_name).trim()) {
+    return NextResponse.json({ error: 'site_id and job_name are required' }, { status: 400 })
+  }
+
+  const [job] = await sql`
     INSERT INTO public.job_schedule
       (site_id, pm_id, job_name, job_type, contract_number, priority,
        start_date, end_date, status, notes, scope, techs_needed)
@@ -48,5 +67,16 @@ export async function POST(request: NextRequest) {
        COALESCE(${body.techs_needed ?? null}, 1))
     RETURNING *
   `
-  return NextResponse.json(rows[0], { status: 201 })
+
+  if (technicianIds.length > 0) {
+    for (const technicianId of technicianIds) {
+      await sql`
+        INSERT INTO public.job_schedule_techs (job_id, technician_id)
+        VALUES (${job.id}, ${technicianId})
+        ON CONFLICT (job_id, technician_id) DO NOTHING
+      `
+    }
+  }
+
+  return NextResponse.json(job, { status: 201 })
 }

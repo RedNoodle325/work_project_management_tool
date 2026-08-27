@@ -25,7 +25,6 @@ export function permissionForRequest(pathname: string, method: string): Permissi
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return 'workspace:read'
   if (pathname.startsWith('/api/users') || pathname.startsWith('/api/auth/scheduler-user')) return 'users:manage'
   if (
-    pathname.startsWith('/api/employee-scheduler') ||
     pathname.startsWith('/api/job-schedule') ||
     pathname.startsWith('/api/dispatch') ||
     pathname.startsWith('/api/technicians')

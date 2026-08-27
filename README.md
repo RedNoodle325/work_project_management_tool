@@ -17,15 +17,19 @@ A field service and commissioning management app for tracking HVAC/cooling syste
 - Issue-to-service-line linking
 
 **Operations**
-- Job scheduling and technician dispatch
+- Technician scheduler: weekly calendar assigning each technician to a site, plus a full work order list (site, job type, priority, dates, scope, status)
 - Contractor and site contact management
 - Site documents, forms, and job number tracking
 - Notes (with email PDF import), todos, and campaigns
 
 **Supply Chain & Reporting**
+- Part order tracker: parts from "needed" through ordered/shipped/received/installed, per site and per work order
 - Bill of Materials (BOM) with component search
 - Master Scope of Work (MSOW) draft management
 - Reports view
+
+**Commissioning**
+- Pre-commissioning site tracker rolling up each unit's L1-L5 commissioning level
 
 ## Tech Stack
 

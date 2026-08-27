@@ -12,10 +12,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const rows = await sql`
     UPDATE public.technicians SET
       name           = COALESCE(${body.name ?? null}, name),
+      phone          = COALESCE(${body.phone ?? null}, phone),
+      email          = COALESCE(${body.email ?? null}, email),
       location_city  = COALESCE(${body.location_city ?? null}, location_city),
       location_state = COALESCE(${body.location_state ?? null}, location_state),
       latitude       = COALESCE(${body.latitude ?? null}, latitude),
       longitude      = COALESCE(${body.longitude ?? null}, longitude),
+      color          = COALESCE(${body.color ?? null}, color),
       is_active      = COALESCE(${body.is_active ?? null}, is_active),
       notes          = COALESCE(${body.notes ?? null}, notes),
       updated_at     = NOW()
