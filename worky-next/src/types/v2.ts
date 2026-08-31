@@ -54,6 +54,7 @@ export interface SiteSummaryV2 {
   warranty_expired_unit_count?: number
   warranty_missing_unit_count?: number
   unit_status_counts?: Record<string, number>
+  build_stage_counts?: Record<string, number>
 }
 
 export interface HierarchyCustomerV2 extends CustomerV2 {

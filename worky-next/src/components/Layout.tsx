@@ -4,13 +4,15 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useState, type ReactNode } from 'react'
-import { BookOpen, Building2, CalendarDays, LayoutDashboard, ListChecks, LogOut, Menu, Search, Settings, X } from 'lucide-react'
+import { BookOpen, Building2, CalendarDays, ClipboardCheck, LayoutDashboard, ListChecks, LogOut, Menu, Package, Search, Settings, X } from 'lucide-react'
 
 const nav = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/sites', label: 'Sites', icon: Building2 },
   { href: '/issues', label: 'Issues', icon: ListChecks },
   { href: '/scheduler', label: 'Scheduler', icon: CalendarDays },
+  { href: '/parts-orders', label: 'Part Orders', icon: Package },
+  { href: '/commissioning', label: 'Commissioning', icon: ClipboardCheck },
   { href: '/resources', label: 'Resources', icon: BookOpen },
 ]
 

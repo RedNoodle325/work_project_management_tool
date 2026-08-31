@@ -30,6 +30,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (rows.length === 0) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
+
+  if (Array.isArray(body.technician_ids)) {
+    const technicianIds: string[] = body.technician_ids
+    await sql`DELETE FROM public.job_schedule_techs WHERE job_id = ${id}`
+    for (const technicianId of technicianIds) {
+      await sql`
+        INSERT INTO public.job_schedule_techs (job_id, technician_id)
+        VALUES (${id}, ${technicianId})
+        ON CONFLICT (job_id, technician_id) DO NOTHING
+      `
+    }
+  }
+
   return NextResponse.json(rows[0])
 }
 
