@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { AlertTriangle, ArrowRight, CalendarRange, CheckCircle2, ClipboardList, FileText, Printer, ShieldCheck } from 'lucide-react'
 import { API } from '../api'
 import type { Site, Issue, Note, User } from '../types'
 import { useToastFn } from '@/app/providers'
@@ -35,12 +36,12 @@ function renderNoteText(raw?: string): string {
   if (!raw) return '—'
   try {
     const obj = JSON.parse(raw)
-    if (obj._type === 'email_chain') return `📧 <em>${esc(obj.subject || 'Email Chain')}</em> · ${Array.isArray(obj.emails) ? obj.emails.length : '?'} messages`
+    if (obj._type === 'email_chain') return `<em>${esc(obj.subject || 'Email Chain')}</em> · ${Array.isArray(obj.emails) ? obj.emails.length : '?'} messages`
     if (obj.date && obj.attendees) {
       const actions = (obj.actions || obj.agenda || '').slice(0, 100)
-      return `📋 <strong>Meeting</strong> · ${esc(obj.attendees.slice(0, 60))}${obj.attendees.length > 60 ? '…' : ''}${actions ? ` — ${esc(actions)}` : ''}`
+      return `<strong>Meeting</strong> · ${esc(obj.attendees.slice(0, 60))}${obj.attendees.length > 60 ? '…' : ''}${actions ? ` — ${esc(actions)}` : ''}`
     }
-    if (obj.to_from && obj.notes) return `📞 <strong>${esc(obj.to_from)}</strong>: ${esc(String(obj.notes).slice(0, 120))}${String(obj.notes).length > 120 ? '…' : ''}`
+    if (obj.to_from && obj.notes) return `<strong>${esc(obj.to_from)}</strong>: ${esc(String(obj.notes).slice(0, 120))}${String(obj.notes).length > 120 ? '…' : ''}`
     const text = Object.values(obj).filter(v => typeof v === 'string').join(' · ').slice(0, 150)
     return esc(text) || esc(raw.slice(0, 120))
   } catch {
@@ -59,13 +60,16 @@ interface ReportData {
 }
 
 const SITE_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-  normal:       { label: 'Normal',        color: '#16a34a', bg: '#dcfce7' },
-  open_issues:  { label: 'Open Issues',   color: '#d97706', bg: '#fef9c3' },
-  techs_onsite: { label: 'Techs on Site', color: '#2563eb', bg: '#dbeafe' },
-  emergency:    { label: 'Emergency',     color: '#dc2626', bg: '#fee2e2' },
+  planning:  { label: 'Planning',  color: '#80868b', bg: '#f3f5f5' },
+  active:    { label: 'Active',    color: '#61a63a', bg: '#edf6e7' },
+  attention: { label: 'Attention', color: '#c77b16', bg: '#fff5df' },
+  critical:  { label: 'Critical',  color: '#ec1177', bg: '#fff0f6' },
+  offline:   { label: 'Offline',   color: '#52575b', bg: '#edf0f1' },
+  complete:  { label: 'Complete',  color: '#009a66', bg: '#e8f8f2' },
+  inactive:  { label: 'Inactive',  color: '#80868b', bg: '#f3f5f5' },
 }
 
-const PM_COLORS = ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#db2777', '#0891b2']
+const PM_COLORS = ['#61a63a', '#009a66', '#28b6ea', '#622c90', '#ec1177', '#fcb215']
 
 function buildReportHtml(data: ReportData, weeklyNotes: string): string {
   const { sites, issues, notes, users } = data
@@ -75,6 +79,13 @@ function buildReportHtml(data: ReportData, weeklyNotes: string): string {
   const recentNotes = notes.filter(n => n.created_at && new Date(n.created_at) >= noteCutoff)
 
   const totalOpen = issues.filter(i => i.status !== 'closed').length
+  const materialIssues = issues
+    .filter(i => i.status !== 'closed' && ['critical', 'high'].includes(String(i.priority || '').toLowerCase()))
+    .slice(0, 8)
+  const siteNameById = Object.fromEntries(sites.map(site => [site.id, site.name]))
+  const materialIssuesHtml = materialIssues.length
+    ? materialIssues.map(issue => `<tr><td style="padding:5px 8px;font-size:9px;color:#52575b">${esc(issue.site_id ? siteNameById[issue.site_id] : 'Unknown site')}</td><td style="padding:5px 8px;font-size:10px">${esc(issue.unit_tag || 'Site-wide')}</td><td style="padding:5px 8px;font-size:10px">${esc(issue.title || issue.description || '—')}</td><td style="padding:5px 8px;font-size:9px;color:#ec1177;font-weight:800;text-transform:uppercase">${esc(issue.priority)}</td></tr>`).join('')
+    : '<tr><td colspan="4" style="padding:10px;color:#80868b;font-size:10px;text-align:center">No high-priority exceptions reported.</td></tr>'
 
   // PM tracker
   const pmMap: Record<string, Site[]> = {}
@@ -96,7 +107,7 @@ function buildReportHtml(data: ReportData, weeklyNotes: string): string {
         <td style="font-family:monospace;font-size:9px;color:#6b7280;padding:3px 8px;white-space:nowrap">${esc(i.unit_tag || '—')}</td>
         <td style="padding:3px 8px;font-size:10px">${esc(i.title || i.description || '—')}</td>
         <td style="padding:3px 8px;white-space:nowrap"><span style="color:${pc};font-size:9px;font-weight:700">${(i.priority || '').toUpperCase() || '—'}</span></td>
-        <td style="padding:3px 8px;white-space:nowrap"><span style="background:${sc}18;color:${sc};border:1px solid ${sc}44;border-radius:99px;padding:1px 6px;font-size:9px;font-weight:600">${sl}</span></td>
+        <td style="padding:3px 8px;white-space:nowrap"><span style="background:${sc}18;color:${sc};border-left:3px solid ${sc};padding:2px 6px;font-size:9px;font-weight:700">${sl}</span></td>
       </tr>`
     }).join('')
     const moreRow = overflow > 0 ? `<tr><td colspan="4" style="padding:4px 8px;font-size:9px;color:#6b7280;font-style:italic;text-align:center;border-top:1px solid #e5e7eb">+ ${overflow} more</td></tr>` : ''
@@ -127,7 +138,7 @@ function buildReportHtml(data: ReportData, weeklyNotes: string): string {
       const color = PM_COLORS[idx % PM_COLORS.length]
 
       const rows = pmSites.map(site => {
-        const statusCfg = SITE_STATUS[(site as Site & { site_status?: string }).site_status || 'normal'] || SITE_STATUS.normal
+        const statusCfg = SITE_STATUS[site.status || site.site_status || 'planning'] || SITE_STATUS.planning
         const openCount = issues.filter(i => i.site_id === site.id && i.status === 'open').length
         const inProgCount = issues.filter(i => i.site_id === site.id && i.status === 'in_progress').length
         const latestNote = recentNotes.filter(n => n.site_id === site.id).sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())[0]
@@ -139,7 +150,7 @@ function buildReportHtml(data: ReportData, weeklyNotes: string): string {
         return `<tr style="border-bottom:1px solid #f3f4f6">
           <td style="padding:4px 8px;font-weight:700;font-size:10px;white-space:nowrap">${esc(site.name || '—')}</td>
           <td style="padding:4px 8px;font-size:9px;color:#6b7280;white-space:nowrap">${esc(location)}</td>
-          <td style="padding:4px 8px;white-space:nowrap"><span style="background:${statusCfg.color}18;color:${statusCfg.color};border:1px solid ${statusCfg.color}44;border-radius:99px;padding:1px 6px;font-size:9px;font-weight:600">${statusCfg.label}</span></td>
+          <td style="padding:4px 8px;white-space:nowrap"><span style="background:${statusCfg.bg};color:${statusCfg.color};border-left:3px solid ${statusCfg.color};padding:2px 6px;font-size:9px;font-weight:700">${statusCfg.label}</span></td>
           <td style="padding:4px 8px;font-size:9px;white-space:nowrap">${issueStr}</td>
           <td style="padding:4px 8px;font-size:10px;max-width:260px">${updateText}</td>
         </tr>`
@@ -147,11 +158,11 @@ function buildReportHtml(data: ReportData, weeklyNotes: string): string {
 
       return `<div style="margin-bottom:14px;border-left:3px solid ${color};padding-left:10px">
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
-          <div style="width:20px;height:20px;border-radius:50%;background:${color};color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials}</div>
+          <div style="width:22px;height:22px;background:${color};color:#000;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials}</div>
           <span style="font-size:11px;font-weight:700;color:#111827">${esc(pmName)}</span>
           <span style="font-size:9px;color:#6b7280">${pmSites.length} site${pmSites.length !== 1 ? 's' : ''}</span>
         </div>
-        <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;font-size:10px">
+        <table style="width:100%;border-collapse:collapse;border:1px solid #d5dadd;overflow:hidden;font-size:10px">
           <thead><tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb">
             ${['Site', 'Location', 'Status', 'Issues', "This Week's Update"].map(h =>
               `<th style="padding:4px 8px;font-size:8px;text-transform:uppercase;color:#9ca3af;font-weight:700;text-align:left">${h}</th>`
@@ -166,7 +177,7 @@ function buildReportHtml(data: ReportData, weeklyNotes: string): string {
   const detailSectionsHtml = sites.map(site => {
     const openIssues = issues.filter(i => i.site_id === site.id && i.status !== 'closed')
     const siteNotes = recentNotes.filter(n => n.site_id === site.id)
-    const statusCfg = SITE_STATUS[(site as Site & { site_status?: string }).site_status || 'normal'] || SITE_STATUS.normal
+    const statusCfg = SITE_STATUS[site.status || site.site_status || 'planning'] || SITE_STATUS.planning
 
     return `<div style="page-break-before:always;margin:0 24px 32px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e5e7eb">
@@ -174,7 +185,7 @@ function buildReportHtml(data: ReportData, weeklyNotes: string): string {
           <div style="font-size:14px;font-weight:800;color:#111827">${esc(site.name)}</div>
           ${[site.city, site.state].filter(Boolean).length ? `<div style="font-size:10px;color:#6b7280;margin-top:2px">${esc([site.city, site.state].filter(Boolean).join(', '))}</div>` : ''}
         </div>
-        <span style="background:${statusCfg.color}18;color:${statusCfg.color};border:1px solid ${statusCfg.color}44;border-radius:99px;padding:2px 10px;font-size:10px;font-weight:600">${statusCfg.label}</span>
+        <span style="background:${statusCfg.bg};color:${statusCfg.color};border-left:3px solid ${statusCfg.color};padding:3px 9px;font-size:10px;font-weight:700">${statusCfg.label}</span>
       </div>
 
       <!-- Issues -->
@@ -209,32 +220,39 @@ function buildReportHtml(data: ReportData, weeklyNotes: string): string {
 <html>
 <head>
 <meta charset="utf-8">
-<title>All Sites Status Report — ${today}</title>
+<title>XNRGY Weekly Program Status — ${today}</title>
 <style>
-  body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #fff; color: #111827; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Arial Narrow','Roboto Condensed',Arial,sans-serif; margin: 0; background: #fff; color: #0b0b0c; }
+  .report-accent { height: 4px; background: linear-gradient(90deg,#61a63a,#009a66,#28b6ea,#2c3891,#622c90,#ec1177,#fcb215); }
+  .report-label { color:#52575b;font-size:8px;font-weight:700;letter-spacing:.18em;text-transform:uppercase; }
+  table { break-inside: avoid; }
   @media print {
     .no-print { display: none !important; }
     body { font-size: 10px; }
+    @page { size: Letter portrait; margin: .45in; }
+    .report-accent { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   }
-  #weekly-notes-box:empty:before { content: attr(data-placeholder); color: #9ca3af; }
 </style>
 </head>
 <body>
+  <div class="report-accent"></div>
   <!-- HEADER -->
-  <div style="background:#1e3a5f;color:#fff;padding:12px 24px;display:flex;align-items:center;gap:14px;border-bottom:3px solid #2563eb">
-    <div style="width:32px;height:32px;background:#6366f1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;flex-shrink:0">Z</div>
+  <div style="background:#000;color:#fff;padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #2a2c2e">
+    <img src="/brand/xnrgy-mark.svg" alt="XNRGY" style="width:34px;height:34px;object-fit:contain">
     <div>
-      <div style="font-size:15px;font-weight:800;letter-spacing:.04em">ALL SITES STATUS REPORT</div>
-      <div style="font-size:10px;color:#a5b4fc;margin-top:2px">Zak's Office · ${today}</div>
+      <div style="font-size:16px;font-weight:800;letter-spacing:.08em">WEEKLY PROGRAM STATUS</div>
+      <div style="font-size:9px;color:#cad0d3;margin-top:3px;letter-spacing:.14em;text-transform:uppercase">XNRGY Site Intelligence · ${today}</div>
     </div>
     <div style="flex:1"></div>
-    <div style="text-align:right;font-size:10px;color:#93c5fd">Week of: <strong style="color:#fff">${fmtShort(noteCutoff)} – ${fmtShort(now)}</strong></div>
+    <div style="text-align:right"><div class="report-label" style="color:#a8aeb3">Reporting period</div><strong style="display:block;margin-top:4px;font-size:11px;color:#fff">${fmtShort(noteCutoff)} – ${fmtShort(now)}</strong></div>
   </div>
 
   <!-- STATS BAR -->
-  <div style="display:flex;gap:20px;margin:12px 24px;padding:8px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;align-items:center">
+  <div style="margin:18px 24px 8px"><div class="report-label">Executive summary</div></div>
+  <div style="display:flex;gap:22px;margin:8px 24px 16px;padding:12px 14px;background:#f5f6f6;border-block:1px solid #d5dadd;align-items:center">
     ${Object.entries(SITE_STATUS).map(([key, cfg]) => {
-      const count = sites.filter(s => ((s as Site & { site_status?: string }).site_status || 'normal') === key).length
+      const count = sites.filter(s => (s.status || s.site_status || 'planning') === key).length
       if (!count) return ''
       return `<div style="text-align:center"><div style="font-size:18px;font-weight:800;color:${cfg.color}">${count}</div><div style="font-size:8px;text-transform:uppercase;color:#6b7280">${cfg.label}</div></div>`
     }).join('')}
@@ -243,20 +261,25 @@ function buildReportHtml(data: ReportData, weeklyNotes: string): string {
     <div style="text-align:center"><div style="font-size:18px;font-weight:800;color:#111827">${sites.length}</div><div style="font-size:8px;text-transform:uppercase;color:#6b7280">Total Sites</div></div>
   </div>
 
+  <!-- MATERIAL EXCEPTIONS -->
+  <div style="margin:0 24px 16px">
+    <div class="report-label" style="margin-bottom:6px">Material risks / exceptions</div>
+    <table style="width:100%;border-collapse:collapse;border:1px solid #d5dadd">
+      <thead><tr style="background:#f5f6f6">${['Site','Equipment','Exception','Priority'].map(label => `<th style="padding:5px 8px;color:#52575b;font-size:8px;text-align:left;letter-spacing:.12em;text-transform:uppercase">${label}</th>`).join('')}</tr></thead>
+      <tbody>${materialIssuesHtml}</tbody>
+    </table>
+  </div>
+
   <!-- PM PROJECT TRACKER -->
   <div style="margin:12px 24px 0">
-    <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#6b7280;margin-bottom:8px;letter-spacing:.06em">PM Project Tracker — Week of ${fmtShort(noteCutoff)} – ${fmtShort(now)}</div>
+    <div class="report-label" style="margin-bottom:8px">Program ownership &amp; weekly status</div>
     ${pmTrackerHtml}
   </div>
 
   <!-- WEEKLY NOTES -->
   <div style="margin:14px 24px 0">
-    <div style="font-size:9px;font-weight:700;text-transform:uppercase;color:#6b7280;margin-bottom:4px;letter-spacing:.06em">Weekly Notes</div>
-    <div class="no-print" style="font-size:9px;color:#9ca3af;margin-bottom:4px">Type your notes below — they will appear when printed.</div>
-    <div id="weekly-notes-box"
-         contenteditable="true"
-         style="min-height:100px;border:1px solid #d1d5db;border-radius:6px;padding:10px 12px;font-size:11px;line-height:1.6;color:#111827;outline:none;font-family:'Segoe UI',system-ui,sans-serif"
-         data-placeholder="Click here to type your weekly notes…">${esc(weeklyNotes)}</div>
+    <div class="report-label" style="margin-bottom:5px">Executive notes / decisions required</div>
+    <div style="min-height:72px;border:1px solid #d5dadd;padding:11px 12px;font-size:11px;line-height:1.6;color:#0b0b0c;white-space:pre-wrap">${esc(weeklyNotes) || '<span style="color:#80868b;font-style:italic">No executive notes entered for this reporting period.</span>'}</div>
   </div>
 
   <!-- SITE DETAIL PAGES -->
@@ -276,11 +299,11 @@ type ActivityEvent =
 function buildActivityLogHtml(events: ActivityEvent[], label: string): string {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
-  const EVENT_CFG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-    issue_opened:  { label: 'Issue Opened',  color: '#dc2626', bg: '#fee2e2', icon: '🔴' },
-    issue_closed:  { label: 'Issue Closed',  color: '#16a34a', bg: '#dcfce7', icon: '✅' },
-    issue_updated: { label: 'Issue Updated', color: '#d97706', bg: '#fef9c3', icon: '✏️' },
-    note:          { label: 'Contact Logged',color: '#2563eb', bg: '#dbeafe', icon: '📋' },
+  const EVENT_CFG: Record<string, { label: string; color: string; bg: string }> = {
+    issue_opened:  { label: 'Issue Opened',  color: '#ec1177', bg: '#fff0f6' },
+    issue_closed:  { label: 'Issue Closed',  color: '#009a66', bg: '#e8f8f2' },
+    issue_updated: { label: 'Issue Updated', color: '#c77b16', bg: '#fff5df' },
+    note:          { label: 'Contact Logged',color: '#28b6ea', bg: '#eaf8fd' },
   }
 
   // Group by date
@@ -313,7 +336,7 @@ function buildActivityLogHtml(events: ActivityEvent[], label: string): string {
       return `<tr style="border-bottom:1px solid #f3f4f6">
         <td style="padding:5px 8px;white-space:nowrap;font-size:9px;color:#6b7280;vertical-align:top">${time}</td>
         <td style="padding:5px 8px;white-space:nowrap;vertical-align:top">
-          <span style="background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.color}44;border-radius:99px;padding:1px 7px;font-size:9px;font-weight:700">${cfg.icon} ${cfg.label}</span>
+          <span style="background:${cfg.bg};color:${cfg.color};border-left:3px solid ${cfg.color};padding:2px 7px;font-size:9px;font-weight:700">${cfg.label}</span>
         </td>
         <td style="padding:5px 8px;white-space:nowrap;font-size:10px;font-weight:600;vertical-align:top;color:#374151">${esc(ev.siteName)}</td>
         <td style="padding:5px 8px;font-size:10px;line-height:1.5;vertical-align:top">${detail}</td>
@@ -321,8 +344,8 @@ function buildActivityLogHtml(events: ActivityEvent[], label: string): string {
     }).join('')
 
     return `<div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:700;color:#374151;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px 6px 0 0;padding:5px 10px;border-bottom:none">${day}</div>
-      <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:0 0 6px 6px;overflow:hidden">
+      <div style="font-size:11px;font-weight:700;color:#0b0b0c;background:#f5f6f6;border:1px solid #d5dadd;padding:5px 10px;border-bottom:none">${day}</div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #d5dadd;overflow:hidden">
         <thead><tr style="background:#f9fafb;border-bottom:1px solid #e5e7eb">
           ${['Time','Event','Site','Details'].map(h => `<th style="padding:4px 8px;font-size:8px;text-transform:uppercase;color:#9ca3af;font-weight:700;text-align:left">${h}</th>`).join('')}
         </tr></thead>
@@ -344,28 +367,31 @@ function buildActivityLogHtml(events: ActivityEvent[], label: string): string {
 <meta charset="utf-8">
 <title>Activity Log — ${today}</title>
 <style>
-  body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: #fff; color: #111827; }
-  @media print { .no-print { display: none !important; } body { font-size: 10px; } }
+  * { box-sizing:border-box; }
+  body { font-family:'Arial Narrow','Roboto Condensed',Arial,sans-serif; margin:0; background:#fff; color:#0b0b0c; }
+  .report-accent { height:4px;background:linear-gradient(90deg,#61a63a,#009a66,#28b6ea,#2c3891,#622c90,#ec1177,#fcb215); }
+  @media print { .no-print { display:none !important; } body { font-size:10px; } @page { size:Letter portrait; margin:.45in; } }
 </style>
 </head>
 <body>
-  <div style="background:#1e3a5f;color:#fff;padding:12px 24px;display:flex;align-items:center;gap:14px;border-bottom:3px solid #2563eb">
-    <div style="width:32px;height:32px;background:#6366f1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;flex-shrink:0">📋</div>
+  <div class="report-accent"></div>
+  <div style="background:#000;color:#fff;padding:16px 24px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #2a2c2e">
+    <img src="/brand/xnrgy-mark.svg" alt="XNRGY" style="width:34px;height:34px;object-fit:contain">
     <div>
-      <div style="font-size:15px;font-weight:800;letter-spacing:.04em">ACTIVITY LOG</div>
-      <div style="font-size:10px;color:#a5b4fc;margin-top:2px">${label} · Printed ${today}</div>
+      <div style="font-size:16px;font-weight:800;letter-spacing:.08em">PROGRAM ACTIVITY LOG</div>
+      <div style="font-size:9px;color:#cad0d3;margin-top:3px;letter-spacing:.12em;text-transform:uppercase">XNRGY Site Intelligence · ${label} · ${today}</div>
     </div>
   </div>
-  <div style="display:flex;gap:20px;margin:12px 24px;padding:8px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;align-items:center">
+  <div style="display:flex;gap:20px;margin:18px 24px;padding:10px 14px;background:#f5f6f6;border-block:1px solid #d5dadd;align-items:center">
     <div style="text-align:center"><div style="font-size:20px;font-weight:800;color:#dc2626">${counts.opened}</div><div style="font-size:8px;text-transform:uppercase;color:#6b7280">Opened</div></div>
     <div style="text-align:center"><div style="font-size:20px;font-weight:800;color:#16a34a">${counts.closed}</div><div style="font-size:8px;text-transform:uppercase;color:#6b7280">Closed</div></div>
     <div style="text-align:center"><div style="font-size:20px;font-weight:800;color:#d97706">${counts.updated}</div><div style="font-size:8px;text-transform:uppercase;color:#6b7280">Updated</div></div>
-    <div style="text-align:center"><div style="font-size:20px;font-weight:800;color:#2563eb">${counts.notes}</div><div style="font-size:8px;text-transform:uppercase;color:#6b7280">Contacts</div></div>
+    <div style="text-align:center"><div style="font-size:20px;font-weight:800;color:#28b6ea">${counts.notes}</div><div style="font-size:8px;text-transform:uppercase;color:#6b7280">Contacts</div></div>
     <div style="text-align:center"><div style="font-size:20px;font-weight:800;color:#111827">${events.length}</div><div style="font-size:8px;text-transform:uppercase;color:#6b7280">Total Events</div></div>
   </div>
   <div style="margin:0 24px 24px">
     ${events.length === 0
-      ? `<div style="text-align:center;color:#9ca3af;padding:40px;border:1px dashed #e5e7eb;border-radius:8px;font-size:13px">No activity in this period</div>`
+      ? `<div style="text-align:center;color:#80868b;padding:40px;border:1px dashed #d5dadd;font-size:13px">No activity in this period</div>`
       : rowsHtml}
   </div>
 </body>
@@ -495,107 +521,53 @@ export function Report() {
   const { noteCutoff, now } = getWeekBounds()
 
   return (
-    <div>
-      <div className="page-header" style={{ marginBottom: 20 }}>
+    <div className="x-page x-report-page">
+      <header className="x-directory-head x-report-head">
         <div>
-          <h1 style={{ margin: 0 }}>Report</h1>
-          <div className="page-subtitle">
-            Weekly / project status report · Week of {fmtShort(noteCutoff)} – {fmtShort(now)}
-          </div>
+          <span className="x-kicker">Program communications</span>
+          <h1>Reports</h1>
+          <p>Prepare consistent XNRGY weekly status and activity reports from live site data.</p>
         </div>
-        <button className="btn btn-primary" onClick={buildReport} disabled={loading}>
-          {loading ? 'Building…' : '📄 Generate Report'}
+        <button className="x-report-primary" onClick={buildReport} disabled={loading}>
+          <FileText size={15} /> {loading ? 'Building…' : 'Generate weekly report'}
         </button>
+      </header>
+
+      <div className="x-report-studio">
+        <section className="x-report-compose">
+          <div className="x-report-section-head"><div><span>Weekly status</span><h2>Executive briefing</h2></div><CalendarRange size={20} /></div>
+          <div className="x-report-period"><small>Reporting period</small><strong>{fmtShort(noteCutoff)} – {fmtShort(now)}</strong></div>
+          <label className="x-report-notes"><span>Executive notes / decisions required</span><textarea rows={9} value={weeklyNotes} onChange={e => setWeeklyNotes(e.target.value)} placeholder="Summarize decisions, customer commitments, material risks, and help needed from leadership." /></label>
+          <div className="x-report-actions"><button onClick={() => setWeeklyNotes('')}>Clear notes</button><button className="primary" onClick={buildReport} disabled={loading}><FileText size={14} /> {loading ? 'Building…' : 'Generate weekly report'}<ArrowRight size={14} /></button></div>
+        </section>
+
+        <aside className="x-report-standard">
+          <div className="x-report-section-head"><div><span>Output standard</span><h2>Report requirements</h2></div><ShieldCheck size={20} /></div>
+          <ul>
+            <li><CheckCircle2 size={15} /><span><strong>XNRGY identity</strong><small>Approved typography, brand spectrum, and black report masthead.</small></span></li>
+            <li><CheckCircle2 size={15} /><span><strong>Executive first</strong><small>Reporting period, portfolio totals, risks, and decisions before detail.</small></span></li>
+            <li><AlertTriangle size={15} /><span><strong>Exceptions explicit</strong><small>Site, equipment, priority, status, owner, and latest update remain explicit.</small></span></li>
+            <li><Printer size={15} /><span><strong>Print ready</strong><small>Letter-size pagination with stable tables and no editable fields in output.</small></span></li>
+          </ul>
+        </aside>
       </div>
 
-      <div className="card" style={{ maxWidth: 700 }}>
-        <div className="card-title" style={{ marginBottom: 12 }}>Weekly Notes</div>
-        <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 0, marginBottom: 10 }}>
-          These notes will appear in the generated report under "Weekly Notes".
-        </p>
-        <textarea
-          rows={8}
-          value={weeklyNotes}
-          onChange={e => setWeeklyNotes(e.target.value)}
-          placeholder="Type your weekly notes here…"
-          style={{ width: '100%', fontSize: 13, lineHeight: 1.6, fontFamily: 'inherit', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', color: 'var(--text)', resize: 'vertical', boxSizing: 'border-box' }}
-        />
-        <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button className="btn btn-secondary" onClick={() => setWeeklyNotes('')}>Clear</button>
-          <button className="btn btn-primary" onClick={buildReport} disabled={loading}>
-            {loading ? 'Building…' : '📄 Generate Report'}
-          </button>
-        </div>
-      </div>
-
-      <div className="card" style={{ marginTop: 16, maxWidth: 700 }}>
-        <div className="card-title" style={{ marginBottom: 10 }}>What's Included</div>
-        <ul style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.8, margin: 0, paddingLeft: 20 }}>
-          <li>All sites status overview with PM tracker</li>
-          <li>Open issue counts per site</li>
-          <li>Weekly notes (last 2 weeks)</li>
-          <li>Per-site breakdowns: open issues, recent activity</li>
-          <li>Printable via browser print dialog (Ctrl/Cmd+P)</li>
-        </ul>
-      </div>
-
-      {/* ── Activity Log ── */}
-      <div className="card" style={{ marginTop: 24, maxWidth: 700 }}>
-        <div className="card-title" style={{ marginBottom: 4 }}>Activity Log Report</div>
-        <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 0, marginBottom: 14 }}>
-          Print a timeline of all activity — issues opened, closed, or updated, and contacts logged — for any date range.
-        </p>
-
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>Date Range</label>
-            <select
-              value={activityRange}
-              onChange={e => setActivityRange(e.target.value)}
-              style={{ minWidth: 160 }}
-            >
+      <section className="x-report-activity">
+        <div className="x-report-section-head"><div><span>Audit trail</span><h2>Program activity log</h2><p>Issues opened, closed, or updated and contacts logged within a selected period.</p></div><ClipboardList size={21} /></div>
+        <div className="x-report-activity-form">
+          <label><span>Date range</span><select value={activityRange} onChange={e => setActivityRange(e.target.value)}>
               <option value="7">Last 7 days</option>
               <option value="14">Last 14 days</option>
               <option value="30">Last 30 days</option>
               <option value="90">Last 90 days</option>
               <option value="365">Last 12 months</option>
               <option value="custom">Custom range…</option>
-            </select>
-          </div>
-
-          {activityRange === 'custom' && (
-            <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <label style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>From</label>
-                <input type="date" value={activityFrom} onChange={e => setActivityFrom(e.target.value)} style={{ minWidth: 140 }} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <label style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>To</label>
-                <input type="date" value={activityTo} onChange={e => setActivityTo(e.target.value)} style={{ minWidth: 140 }} />
-              </div>
-            </>
-          )}
-
-          <button
-            className="btn btn-primary"
-            onClick={buildActivityLog}
-            disabled={activityLoading}
-            style={{ alignSelf: 'flex-end' }}
-          >
-            {activityLoading ? 'Building…' : '📋 Generate Activity Log'}
-          </button>
+          </select></label>
+          {activityRange === 'custom' && <><label><span>From</span><input type="date" value={activityFrom} onChange={e => setActivityFrom(e.target.value)} /></label><label><span>To</span><input type="date" value={activityTo} onChange={e => setActivityTo(e.target.value)} /></label></>}
+          <button className="x-report-primary" onClick={buildActivityLog} disabled={activityLoading}><ClipboardList size={14} /> {activityLoading ? 'Building…' : 'Generate activity log'}</button>
         </div>
-
-        <div style={{ marginTop: 14, padding: '10px 12px', background: 'var(--bg)', borderRadius: 6, border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Includes</div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, color: 'var(--text2)' }}>
-            <span>🔴 Issues opened</span>
-            <span>✅ Issues closed</span>
-            <span>✏️ Issues updated</span>
-            <span>📋 Contacts &amp; notes logged</span>
-          </div>
-        </div>
-      </div>
+        <div className="x-report-includes"><span><i className="is-open" />Issues opened</span><span><i className="is-closed" />Issues closed</span><span><i className="is-updated" />Issues updated</span><span><i className="is-contact" />Contacts and notes</span></div>
+      </section>
     </div>
   )
 }
