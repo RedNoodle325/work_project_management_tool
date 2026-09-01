@@ -4,12 +4,12 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, ListChecks, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
 import { V2 } from '@/api/v2'
 import { Ops } from '@/api/ops'
-import type { JobSchedule, JobStatus, Technician, TechnicianCalendarEvent, TechnicianEventType } from '@/types/ops'
+import type { JobAssignmentLine, JobSchedule, JobStatus, Technician, TechnicianCalendarEvent, TechnicianEventType } from '@/types/ops'
 import type { SiteSummaryV2 } from '@/types/v2'
 
-const JOB_TYPES = ['Warranty', 'Service', 'Install', 'Commissioning', 'PM', 'Emergency', 'Other']
-const STATUSES: JobStatus[] = ['scheduled', 'in_progress', 'on_hold', 'complete', 'cancelled']
-const STATUS_LABELS: Record<JobStatus, string> = { scheduled: 'Scheduled', in_progress: 'In progress', on_hold: 'On hold', complete: 'Complete', cancelled: 'Cancelled' }
+const JOB_TYPES = ['Warranty', 'Billable service', 'Billable startup', 'Other']
+const STATUSES: JobStatus[] = ['scheduled', 'in_progress', 'on_hold', 'closed', 'cancelled']
+const STATUS_LABELS: Record<JobStatus, string> = { scheduled: 'Scheduled', in_progress: 'In progress', on_hold: 'On hold', closed: 'Closed', cancelled: 'Cancelled' }
 const TECH_COLORS = ['#622c90', '#009a66', '#28b6ea', '#c77b16', '#b93b4d', '#2d8caa', '#4d9b69', '#8a4fb0']
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const EVENT_LABELS: Record<TechnicianEventType, string> = { day_off: 'Day off', travel: 'Travel', holiday: 'Holiday', pto: 'PTO' }
@@ -17,12 +17,9 @@ const EVENT_LABELS: Record<TechnicianEventType, string> = { day_off: 'Day off', 
 function toISODate(date: Date) { return date.toISOString().slice(0, 10) }
 function addDays(date: Date, n: number) { const d = new Date(date); d.setDate(d.getDate() + n); return d }
 function startOfWeek(date: Date) { const d = new Date(date); const day = (d.getDay() + 6) % 7; return addDays(d, -day) }
-function jobActiveOn(job: JobSchedule, date: Date) {
+function lineActiveOn(line: JobAssignmentLine, date: Date) {
   const iso = toISODate(date)
-  if (job.start_date && iso < job.start_date) return false
-  if (job.end_date && iso > job.end_date) return false
-  if (!job.start_date && !job.end_date) return false
-  return true
+  return iso >= line.start_date && iso <= line.end_date
 }
 function eventActiveOn(event: TechnicianCalendarEvent, date: Date) {
   const iso = toISODate(date)
@@ -74,8 +71,8 @@ export function Scheduler() {
 
   const activeTechs = useMemo(() => technicians.filter(t => t.is_active), [technicians])
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
-  const weekJobs = useMemo(() => jobs.filter(job => weekDays.some(day => jobActiveOn(job, day))), [jobs, weekDays])
-  const unassigned = useMemo(() => weekJobs.filter(job => job.technicians.length < job.techs_needed), [weekJobs])
+  const weekAssignments = useMemo(() => jobs.flatMap(job => job.assignment_lines.map(line => ({ job, line }))).filter(({ line }) => weekDays.some(day => lineActiveOn(line, day))), [jobs, weekDays])
+  const unassigned = useMemo(() => weekAssignments.filter(({ line }) => line.technicians.length < line.techs_needed), [weekAssignments])
 
   const filteredOrders = useMemo(() => jobs.filter(job =>
     (!orderFilter.siteId || job.site_id === orderFilter.siteId) &&
@@ -116,12 +113,12 @@ export function Scheduler() {
         {activeTechs.map(tech => <div className="x-sched-row" key={tech.id}>
           <div className="x-sched-tech"><i style={{ background: techColor(tech, technicians) }} />{technicianName(tech)}<small>{tech.home_zip ? `Home ZIP ${tech.home_zip}` : [tech.location_city, tech.location_state].filter(Boolean).join(', ') || 'No home ZIP set'}</small></div>
           {weekDays.map(day => {
-            const dayJobs = weekJobs.filter(job => job.technicians.some(t => t.id === tech.id) && jobActiveOn(job, day))
+            const dayAssignments = weekAssignments.filter(({ line }) => line.technicians.some(t => t.id === tech.id) && lineActiveOn(line, day))
             const dayEvents = events.filter(event => (!event.technician_id || event.technician_id === tech.id) && eventActiveOn(event, day))
             return <div className="x-sched-cell" key={toISODate(day)}>
               {dayEvents.map(event => <button key={event.id} className={`x-sched-event is-${event.event_type}`} onClick={() => setEditEvent(event)} title={`${EVENT_LABELS[event.event_type]}${event.title ? `: ${event.title}` : ''}`}><strong>{event.title || EVENT_LABELS[event.event_type]}</strong></button>)}
-              {dayJobs.map(job => <button key={job.id} className="x-sched-chip" style={{ borderLeftColor: techColor(tech, technicians) }} onClick={() => canEdit && setEditJob(job)} title={job.job_name}>
-                <strong>{job.site_name}</strong><small>{job.job_type}</small>
+              {dayAssignments.map(({ job, line }) => <button key={line.id} className="x-sched-chip" style={{ borderLeftColor: techColor(tech, technicians) }} onClick={() => canEdit && setEditJob(job)} title={`${job.work_order_number} · Line ${line.line_number} · ${job.job_name}`}>
+                <strong>{job.site_name}</strong><small>{job.work_order_number} · L{line.line_number}</small>
               </button>)}
             </div>
           })}
@@ -130,9 +127,9 @@ export function Scheduler() {
 
       {unassigned.length > 0 && <div className="x-sched-unassigned">
         <h2>Needs a technician this week</h2>
-        {unassigned.map(job => <button key={job.id} className="x-sched-unassigned-row" onClick={() => canEdit && setEditJob(job)}>
-          <strong>{job.job_name}</strong><span>{job.site_name} · {job.job_type}</span>
-          <em>{job.technicians.length}/{job.techs_needed} assigned</em>
+        {unassigned.map(({ job, line }) => <button key={line.id} className="x-sched-unassigned-row" onClick={() => canEdit && setEditJob(job)}>
+          <strong>{job.work_order_number} · Line {line.line_number}</strong><span>{job.site_name} · {job.job_name}</span>
+          <em>{line.technicians.length}/{line.techs_needed} assigned</em>
         </button>)}
       </div>}
     </div>}
@@ -146,9 +143,9 @@ export function Scheduler() {
       <div className="x-lean-issues x-work-orders">
         <div className="x-work-order-head"><span>Work order</span><span>Site</span><span>Dates</span><span>Techs</span><span>Status</span><span /></div>
         {filteredOrders.map(job => <div className="x-work-order-row" key={job.id}>
-          <span><strong>{job.job_name}</strong><small>{job.job_type}{job.contract_number ? ` · ${job.contract_number}` : ''}</small></span>
+          <span><strong>{job.work_order_number}</strong><small>{job.job_name} · {job.job_type}{job.contract_number ? ` · ${job.contract_number}` : ''}</small></span>
           <span>{job.site_name}<small>{[job.site_city, job.site_state].filter(Boolean).join(', ')}</small></span>
-          <span>{job.start_date ? new Date(job.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}{job.end_date ? ` – ${new Date(job.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}</span>
+          <span>{job.start_date ? new Date(`${job.start_date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No visits yet'}{job.end_date ? ` – ${new Date(`${job.end_date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}<small>{job.assignment_lines.length} assignment {job.assignment_lines.length === 1 ? 'line' : 'lines'}</small></span>
           <span className="x-work-order-techs">{job.technicians.length ? job.technicians.map(t => <b key={t.id} style={{ background: techColor(t, technicians) }} title={t.name}>{t.name.split(' ').map(p => p[0]).join('').slice(0, 2)}</b>) : <em>Unassigned</em>}</span>
           <span><em className={`x-wo-status is-${job.status}`}>{STATUS_LABELS[job.status]}</em></span>
           <span>{canEdit && <button className="x-issue-icon-action" onClick={() => setEditJob(job)} title="Edit"><Pencil size={14} /></button>}</span>
@@ -158,7 +155,7 @@ export function Scheduler() {
     </div>}
 
     {showTechs && <TechniciansModal technicians={technicians} close={() => setShowTechs(false)} changed={load} />}
-    {editJob && <JobModal job={editJob === 'new' ? null : editJob} sites={sites} technicians={activeTechs} events={events} close={() => setEditJob(null)} saved={() => { setEditJob(null); load() }} />}
+    {editJob && <JobModal job={editJob === 'new' ? null : editJob} sites={sites} technicians={activeTechs} events={events} close={() => { setEditJob(null); load() }} changed={load} />}
     {editEvent && <TechnicianEventModal event={editEvent === 'new' ? null : editEvent} technicians={activeTechs} close={() => setEditEvent(null)} saved={() => { setEditEvent(null); load() }} />}
   </div>
 }
@@ -228,7 +225,7 @@ function TechnicianForm({ technician, cancel, saved }: { technician: Technician 
   </form>
 }
 
-function JobModal({ job, sites, technicians, events, close, saved }: { job: JobSchedule | null; sites: SiteSummaryV2[]; technicians: Technician[]; events: TechnicianCalendarEvent[]; close: () => void; saved: () => void }) {
+function LegacyJobModal({ job, sites, technicians, events, close, saved }: { job: JobSchedule | null; sites: SiteSummaryV2[]; technicians: Technician[]; events: TechnicianCalendarEvent[]; close: () => void; saved: () => void }) {
   const [siteOptions, setSiteOptions] = useState(sites)
   const [form, setForm] = useState({
     site_id: job?.site_id || '', job_name: job?.job_name || '', job_type: job?.job_type || 'Warranty',
@@ -346,6 +343,96 @@ function JobModal({ job, sites, technicians, events, close, saved }: { job: JobS
       </footer>
     </form>
   </div>
+}
+
+void LegacyJobModal
+
+function JobModal({ job, sites, technicians, events, close, changed }: { job: JobSchedule | null; sites: SiteSummaryV2[]; technicians: Technician[]; events: TechnicianCalendarEvent[]; close: () => void; changed: () => void }) {
+  const [currentJob, setCurrentJob] = useState<JobSchedule | null>(job)
+  const [siteOptions, setSiteOptions] = useState(sites)
+  const [form, setForm] = useState({
+    site_id: job?.site_id || '', job_name: job?.job_name || '', job_type: job?.job_type || 'Warranty',
+    contract_number: job?.contract_number || '', priority: job?.priority ?? 3,
+    status: job?.status || 'scheduled' as JobStatus, notes: job?.notes || '',
+  })
+  const [editLine, setEditLine] = useState<JobAssignmentLine | 'new' | null>(null)
+  const [showSiteCreator, setShowSiteCreator] = useState(false)
+  const [projectNumber, setProjectNumber] = useState('')
+  const [siteZip, setSiteZip] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const set = <K extends keyof typeof form>(field: K) => (value: typeof form[K]) => setForm(current => ({ ...current, [field]: value }))
+
+  async function createSite(attach: boolean) {
+    if (!projectNumber.trim()) return setError('Project number is required to make a job site.')
+    setSaving(true); setError('')
+    try {
+      const result = await Ops.jobSites.create(projectNumber.trim(), attach ? form.site_id : undefined, siteZip.trim())
+      setSiteOptions(current => current.some(site => site.id === result.site.id) ? current : [...current, result.site].sort((a, b) => a.name.localeCompare(b.name)))
+      set('site_id')(result.site.id); setShowSiteCreator(false); setProjectNumber(''); setSiteZip('')
+    } catch (err) { setError((err as Error).message) } finally { setSaving(false) }
+  }
+  async function submit(e: FormEvent) {
+    e.preventDefault(); setSaving(true); setError('')
+    try {
+      const result = currentJob ? await Ops.jobSchedule.update(currentJob.id, form) : await Ops.jobSchedule.create(form)
+      setCurrentJob(result); changed()
+    } catch (err) { setError((err as Error).message) } finally { setSaving(false) }
+  }
+  async function refresh() {
+    if (!currentJob) return
+    try { setCurrentJob(await Ops.jobSchedule.get(currentJob.id)); setEditLine(null); changed() }
+    catch (err) { setError((err as Error).message) }
+  }
+  async function remove() {
+    if (!currentJob || !confirm('Delete this work order? This cannot be undone.')) return
+    setSaving(true)
+    try { await Ops.jobSchedule.delete(currentJob.id); close() }
+    catch (err) { setError((err as Error).message); setSaving(false) }
+  }
+  const isClosed = currentJob?.status === 'closed' || currentJob?.status === 'cancelled'
+
+  return <><div className="x-modal-backdrop" onMouseDown={e => e.target === e.currentTarget && close()}><div className="x-modal x-modal-wide x-work-order-modal">
+    <form onSubmit={submit}>
+      <header><div><span className="x-kicker">{currentJob?.work_order_number || 'New work order'}</span><h2>{currentJob?.job_name || 'Create work order'}</h2></div><button type="button" onClick={close}><X size={18} /></button></header>
+      <div className="x-job-site-field"><label className="x-field"><span>Job site</span><select value={form.site_id} onChange={e => set('site_id')(e.target.value)} required disabled={!!currentJob}><option value="">Choose a site</option>{siteOptions.map(site => <option value={site.id} key={site.id}>{site.name}{site.project_number ? ` · Project ${site.project_number}` : ''}</option>)}</select></label>{!currentJob && <button type="button" className="x-inline-create" onClick={() => setShowSiteCreator(value => !value)}><Plus size={14} /> {showSiteCreator ? 'Cancel' : 'Create job site'}</button>}</div>
+      {showSiteCreator && <div className="x-job-site-create"><div className="x-form-row"><label className="x-field"><span>Project number</span><input value={projectNumber} onChange={e => setProjectNumber(e.target.value)} required /></label><label className="x-field"><span>Site ZIP (optional)</span><input value={siteZip} onChange={e => setSiteZip(e.target.value)} /></label></div><p>Only the project number is required. The ZIP enables technician mileage.</p><div>{form.site_id && <button type="button" onClick={() => void createSite(true)}>Add number to selected site</button>}<button type="button" className="primary" onClick={() => void createSite(false)}>Create and use site</button></div></div>}
+      <label className="x-field"><span>Job name</span><input value={form.job_name} onChange={e => set('job_name')(e.target.value)} required placeholder="e.g. RTU-4 warranty repair" /></label>
+      <div className="x-form-row"><label className="x-field"><span>Type</span><select value={form.job_type} onChange={e => set('job_type')(e.target.value)} disabled={!!currentJob}>{JOB_TYPES.map(type => <option key={type}>{type}</option>)}</select></label><label className="x-field"><span>Priority (1 highest–5 lowest)</span><input type="number" min={1} max={5} value={form.priority} onChange={e => set('priority')(Number(e.target.value))} /></label></div>
+      <div className="x-form-row"><label className="x-field"><span>Status</span><select value={form.status} onChange={e => set('status')(e.target.value as JobStatus)}>{STATUSES.map(status => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label><label className="x-field"><span>Contract / PO number</span><input value={form.contract_number} onChange={e => set('contract_number')(e.target.value)} /></label></div>
+      <label className="x-field"><span>Work-order notes</span><textarea rows={2} value={form.notes} onChange={e => set('notes')(e.target.value)} /></label>
+      {error && <p className="x-error">{error}</p>}
+      <footer>{currentJob && <button type="button" onClick={remove} className="x-danger-text"><Trash2 size={13} /> Delete</button>}<span style={{ flex: 1 }} /><button type="button" onClick={close}>{currentJob ? 'Done' : 'Cancel'}</button><button className="primary" disabled={saving}>{saving ? 'Saving…' : currentJob ? 'Save work order' : 'Create work order'}</button></footer>
+    </form>
+    {currentJob ? <section className="x-assignment-lines"><div className="x-assignment-lines-head"><div><span className="x-kicker">Scheduled visits</span><h3>Assignment lines</h3></div>{!isClosed && <button type="button" className="primary" onClick={() => setEditLine('new')}><Plus size={14} /> Add assignment</button>}</div>
+      {isClosed && <p className="x-assignment-locked">Reopen this work order to add or change technician assignments.</p>}
+      {currentJob.assignment_lines.map(line => <button type="button" className="x-assignment-line" key={line.id} disabled={isClosed} onClick={() => setEditLine(line)}><b>Line {line.line_number}</b><span>{new Date(`${line.start_date}T12:00:00`).toLocaleDateString()} – {new Date(`${line.end_date}T12:00:00`).toLocaleDateString()}</span><span>{line.technicians.length ? line.technicians.map(tech => tech.name).join(', ') : 'Unassigned'}</span><em>{line.technicians.length}/{line.techs_needed} techs</em></button>)}
+      {!currentJob.assignment_lines.length && <div className="x-assignment-empty"><strong>No visits scheduled yet</strong><p>Add an assignment line to choose dates and technicians.</p></div>}
+    </section> : <p className="x-work-order-next">Create the work order first. Then add one or more dated technician assignment lines.</p>}
+  </div></div>
+  {currentJob && editLine && <AssignmentLineModal job={currentJob} line={editLine === 'new' ? null : editLine} technicians={technicians} events={events} close={() => setEditLine(null)} saved={refresh} />}</>
+}
+
+function AssignmentLineModal({ job, line, technicians, events, close, saved }: { job: JobSchedule; line: JobAssignmentLine | null; technicians: Technician[]; events: TechnicianCalendarEvent[]; close: () => void; saved: () => void }) {
+  const [form, setForm] = useState({ start_date: line?.start_date || toISODate(new Date()), end_date: line?.end_date || toISODate(new Date()), techs_needed: line?.techs_needed || 1, scope: line?.scope || '', notes: line?.notes || '' })
+  const [technicianIds, setTechnicianIds] = useState(line?.technicians.map(tech => tech.id) || [])
+  const [siteTechs, setSiteTechs] = useState<Technician[]>(technicians)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const set = <K extends keyof typeof form>(field: K) => (value: typeof form[K]) => setForm(current => ({ ...current, [field]: value }))
+  useEffect(() => { Ops.technicians.forSite(job.site_id).then(setSiteTechs).catch(() => undefined) }, [job.site_id])
+  const toggle = (id: string) => setTechnicianIds(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id])
+  const conflictFor = (id: string) => events.find(event => (!event.technician_id || event.technician_id === id) && event.start_date <= form.end_date && event.end_date >= form.start_date)
+  async function submit(e: FormEvent) { e.preventDefault(); setSaving(true); setError(''); try { const payload = { ...form, technician_ids: technicianIds }; if (line) await Ops.jobSchedule.updateLine(job.id, line.id, payload); else await Ops.jobSchedule.createLine(job.id, payload); saved() } catch (err) { setError((err as Error).message); setSaving(false) } }
+  async function remove() { if (!line || !confirm(`Delete assignment line ${line.line_number}?`)) return; setSaving(true); try { await Ops.jobSchedule.deleteLine(job.id, line.id); saved() } catch (err) { setError((err as Error).message); setSaving(false) } }
+  return <div className="x-modal-backdrop x-modal-backdrop-front" onMouseDown={e => e.target === e.currentTarget && close()}><form className="x-modal" onSubmit={submit}>
+    <header><div><span className="x-kicker">{job.work_order_number}</span><h2>{line ? `Edit line ${line.line_number}` : 'Add assignment'}</h2></div><button type="button" onClick={close}><X size={18} /></button></header>
+    <div className="x-form-row"><label className="x-field"><span>Start date</span><input type="date" value={form.start_date} onChange={e => set('start_date')(e.target.value)} required /></label><label className="x-field"><span>End date</span><input type="date" min={form.start_date} value={form.end_date} onChange={e => set('end_date')(e.target.value)} required /></label></div>
+    <label className="x-field"><span>Technicians needed</span><input type="number" min={1} value={form.techs_needed} onChange={e => set('techs_needed')(Number(e.target.value))} /></label><label className="x-field"><span>Scope for this visit</span><textarea rows={3} value={form.scope} onChange={e => set('scope')(e.target.value)} /></label>
+    <label className="x-field"><span>Assign technicians</span><div className="x-tech-picker">{siteTechs.map(tech => { const conflict = conflictFor(tech.id); return <label key={tech.id} className={`${technicianIds.includes(tech.id) ? 'is-picked' : ''} ${conflict ? 'has-conflict' : ''}`}><input type="checkbox" checked={technicianIds.includes(tech.id)} onChange={() => toggle(tech.id)} /><span>{technicianName(tech)}<small>{conflict ? `${EVENT_LABELS[conflict.event_type]} during these dates` : tech.distance_miles == null ? (tech.home_zip ? 'Site ZIP needed for mileage' : 'Home ZIP needed') : `${tech.distance_kind === 'driving' ? 'Approx.' : 'Est.'} ${Math.round(Number(tech.distance_miles))} mi from site`}</small></span></label>})}</div></label>
+    <label className="x-field"><span>Assignment notes</span><textarea rows={2} value={form.notes} onChange={e => set('notes')(e.target.value)} /></label>{error && <p className="x-error">{error}</p>}
+    <footer>{line && <button type="button" onClick={remove} className="x-danger-text"><Trash2 size={13} /> Delete line</button>}<span style={{ flex: 1 }} /><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Saving…' : line ? 'Save assignment' : 'Add assignment'}</button></footer>
+  </form></div>
 }
 
 function TechnicianEventModal({ event, technicians, close, saved }: { event: TechnicianCalendarEvent | null; technicians: Technician[]; close: () => void; saved: () => void }) {

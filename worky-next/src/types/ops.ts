@@ -34,7 +34,21 @@ export interface TechnicianCalendarEvent {
   updated_at: string
 }
 
-export type JobStatus = 'scheduled' | 'in_progress' | 'on_hold' | 'complete' | 'cancelled'
+export type JobStatus = 'scheduled' | 'in_progress' | 'on_hold' | 'closed' | 'cancelled'
+
+export interface JobAssignmentLine {
+  id: string
+  job_id: string
+  line_number: number
+  start_date: string
+  end_date: string
+  techs_needed: number
+  scope?: string
+  notes?: string
+  technicians: Array<{ id: string; name: string; color?: string }>
+  created_at: string
+  updated_at: string
+}
 
 export interface JobSchedule {
   id: string
@@ -43,6 +57,7 @@ export interface JobSchedule {
   site_city?: string
   site_state?: string
   pm_id?: string
+  work_order_number: string
   job_name: string
   job_type: string
   contract_number?: string
@@ -54,6 +69,7 @@ export interface JobSchedule {
   scope?: string
   techs_needed: number
   technicians: Array<{ id: string; name: string; color?: string }>
+  assignment_lines: JobAssignmentLine[]
   created_at: string
   updated_at: string
 }

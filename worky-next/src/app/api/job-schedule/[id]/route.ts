@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/requireAuth'
 import sql from '@/lib/db'
+import { ensureOpsSchema } from '@/lib/ensureOpsSchema'
+import { getJobSchedule } from '@/lib/jobSchedule'
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { error } = await requireAuth(request); if (error) return error
+  await ensureOpsSchema()
+  const { id } = await params
+  const job = await getJobSchedule(id)
+  return job ? NextResponse.json(job) : NextResponse.json({ error: 'Not found' }, { status: 404 })
+}
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { error } = await requireAuth(request)
   if (error) return error
 
   const { id } = await params
+  await ensureOpsSchema()
   const body = await request.json()
 
   const rows = await sql`
@@ -17,12 +28,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       job_type        = COALESCE(${body.job_type ?? null}, job_type),
       contract_number = COALESCE(${body.contract_number ?? null}, contract_number),
       priority        = COALESCE(${body.priority ?? null}, priority),
-      start_date      = COALESCE(${body.start_date ?? null}, start_date),
-      end_date        = COALESCE(${body.end_date ?? null}, end_date),
       status          = COALESCE(${body.status ?? null}, status),
       notes           = COALESCE(${body.notes ?? null}, notes),
-      scope           = COALESCE(${body.scope ?? null}, scope),
-      techs_needed    = COALESCE(${body.techs_needed ?? null}, techs_needed),
       updated_at      = NOW()
     WHERE id = ${id}
     RETURNING *
@@ -31,19 +38,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  if (Array.isArray(body.technician_ids)) {
-    const technicianIds: string[] = body.technician_ids
-    await sql`DELETE FROM public.job_schedule_techs WHERE job_id = ${id}`
-    for (const technicianId of technicianIds) {
-      await sql`
-        INSERT INTO public.job_schedule_techs (job_id, technician_id)
-        VALUES (${id}, ${technicianId})
-        ON CONFLICT (job_id, technician_id) DO NOTHING
-      `
-    }
-  }
-
-  return NextResponse.json(rows[0])
+  return NextResponse.json(await getJobSchedule(id))
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

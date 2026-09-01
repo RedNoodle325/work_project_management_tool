@@ -1,5 +1,5 @@
 import { getToken } from './index'
-import type { JobSchedule, PartsOrder, Technician, TechnicianCalendarEvent } from '@/types/ops'
+import type { JobAssignmentLine, JobSchedule, PartsOrder, Technician, TechnicianCalendarEvent } from '@/types/ops'
 import type { SiteSummaryV2 } from '@/types/v2'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -50,8 +50,12 @@ export const Ops = {
       return request<JobSchedule[]>(`/api/job-schedule${qs ? `?${qs}` : ''}`)
     },
     create: (data: Record<string, unknown>) => request<JobSchedule>('/api/job-schedule', { method: 'POST', body: JSON.stringify(data) }),
+    get: (id: string) => request<JobSchedule>(`/api/job-schedule/${id}`),
     update: (id: string, data: Record<string, unknown>) => request<JobSchedule>(`/api/job-schedule/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => request<void>(`/api/job-schedule/${id}`, { method: 'DELETE' }),
+    createLine: (id: string, data: Record<string, unknown>) => request<JobAssignmentLine>(`/api/job-schedule/${id}/lines`, { method: 'POST', body: JSON.stringify(data) }),
+    updateLine: (id: string, lineId: string, data: Record<string, unknown>) => request<JobAssignmentLine>(`/api/job-schedule/${id}/lines/${lineId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteLine: (id: string, lineId: string) => request<void>(`/api/job-schedule/${id}/lines/${lineId}`, { method: 'DELETE' }),
   },
   partsOrders: {
     list: (params?: { siteId?: string; status?: string }) => {

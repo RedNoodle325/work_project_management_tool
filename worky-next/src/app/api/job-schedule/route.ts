@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/requireAuth'
 import sql from '@/lib/db'
 import { ensureOpsSchema } from '@/lib/ensureOpsSchema'
+import { getJobSchedule, listJobSchedule } from '@/lib/jobSchedule'
 
 export async function GET(request: NextRequest) {
   const { error } = await requireAuth(request)
@@ -14,33 +15,14 @@ export async function GET(request: NextRequest) {
   const siteId = searchParams.get('site_id') ?? null
   const technicianId = searchParams.get('technician_id') ?? null
 
-  const jobs = await sql`
-    SELECT
-      j.*,
-      s.name AS site_name,
-      s.city AS site_city,
-      s.state AS site_state,
-      COALESCE(
-        (SELECT json_agg(json_build_object('id', t.id, 'name', t.name, 'color', t.color) ORDER BY t.name)
-         FROM public.job_schedule_techs jt
-         JOIN public.technicians t ON t.id = jt.technician_id
-         WHERE jt.job_id = j.id),
-        '[]'
-      ) AS technicians
-    FROM public.job_schedule j
-    JOIN public.sites s ON s.id = j.site_id
-    WHERE (${weekStart}::date IS NULL OR (
-            (j.start_date IS NULL OR j.start_date <= ${weekStart}::date + INTERVAL '6 days')
-            AND (j.end_date IS NULL OR j.end_date >= ${weekStart}::date)
-          ))
-      AND (${siteId}::uuid IS NULL OR j.site_id = ${siteId}::uuid)
-      AND (${technicianId}::uuid IS NULL OR EXISTS (
-            SELECT 1 FROM public.job_schedule_techs jt
-            WHERE jt.job_id = j.id AND jt.technician_id = ${technicianId}::uuid
-          ))
-    ORDER BY j.start_date ASC NULLS LAST, j.job_name ASC
-  `
-
+  let jobs = await listJobSchedule()
+  if (weekStart) {
+    const end = new Date(`${weekStart}T12:00:00`); end.setDate(end.getDate() + 6)
+    const weekEnd = end.toISOString().slice(0, 10)
+    jobs = jobs.filter(job => job.assignment_lines.some(line => line.start_date <= weekEnd && line.end_date >= weekStart))
+  }
+  if (siteId) jobs = jobs.filter(job => job.site_id === siteId)
+  if (technicianId) jobs = jobs.filter(job => job.assignment_lines.some(line => line.technicians.some(tech => tech.id === technicianId)))
   return NextResponse.json(jobs)
 }
 
@@ -51,37 +33,24 @@ export async function POST(request: NextRequest) {
   catch { return NextResponse.json({ error: 'Operational database setup failed. Apply database migration 012.' }, { status: 503 }) }
 
   const body = await request.json()
-  const technicianIds: string[] = Array.isArray(body.technician_ids) ? body.technician_ids : []
-
   if (!body.site_id || !body.job_name || !String(body.job_name).trim()) {
     return NextResponse.json({ error: 'site_id and job_name are required' }, { status: 400 })
   }
 
-  const [job] = await sql`
-    INSERT INTO public.job_schedule
-      (site_id, pm_id, job_name, job_type, contract_number, priority,
-       start_date, end_date, status, notes, scope, techs_needed)
-    VALUES
-      (${body.site_id}, ${body.pm_id ?? null}, ${body.job_name},
-       COALESCE(${body.job_type ?? null}, 'Warranty'),
-       ${body.contract_number ?? null},
-       COALESCE(${body.priority ?? null}, 3),
-       ${body.start_date ?? null}, ${body.end_date ?? null},
-       COALESCE(${body.status ?? null}, 'scheduled'),
-       ${body.notes ?? null}, ${body.scope ?? null},
-       COALESCE(${body.techs_needed ?? null}, 1))
-    RETURNING *
-  `
-
-  if (technicianIds.length > 0) {
-    for (const technicianId of technicianIds) {
-      await sql`
-        INSERT INTO public.job_schedule_techs (job_id, technician_id)
-        VALUES (${job.id}, ${technicianId})
-        ON CONFLICT (job_id, technician_id) DO NOTHING
-      `
-    }
-  }
-
-  return NextResponse.json(job, { status: 201 })
+  const jobType = String(body.job_type || 'Warranty')
+  const prefix = jobType === 'Warranty' ? 'WAR' : jobType === 'Billable service' ? 'BSV' : jobType === 'Billable startup' ? 'BSU' : 'OTH'
+  const job = await sql.begin(async tx => {
+    const [stamp] = await tx`select to_char(now() at time zone 'America/New_York', 'YYYYMMDD') as day`
+    const lockKey = `work-order:${stamp.day}:${prefix}`
+    await tx`select pg_advisory_xact_lock(hashtext(${lockKey}))`
+    const [sequence] = await tx`select coalesce(max(right(work_order_number, 3)::int), 0) + 1 as value from public.job_schedule where work_order_number like ${`WO-${stamp.day}-${prefix}-%`}`
+    const number = `WO-${stamp.day}-${prefix}-${String(Number(sequence.value)).padStart(3, '0')}`
+    const [created] = await tx`
+      INSERT INTO public.job_schedule (site_id, pm_id, work_order_number, job_name, job_type, contract_number, priority, status, notes)
+      VALUES (${body.site_id}, ${body.pm_id ?? null}, ${number}, ${body.job_name}, ${jobType}, ${body.contract_number ?? null},
+        COALESCE(${body.priority ?? null}, 3), COALESCE(${body.status ?? null}, 'scheduled'), ${body.notes ?? null}) RETURNING *
+    `
+    return created
+  })
+  return NextResponse.json(await getJobSchedule(job.id), { status: 201 })
 }

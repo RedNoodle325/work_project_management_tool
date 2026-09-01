@@ -33,6 +33,33 @@ async function initialize() {
       updated_at timestamptz not null default now()
     )
   `
+  await sql`alter table public.job_schedule add column if not exists work_order_number text`
+  await sql`update public.job_schedule set status = 'closed' where status = 'complete'`
+  await sql`
+    with numbered as (
+      select id,
+        'WO-' || to_char(created_at at time zone 'America/New_York', 'YYYYMMDD') || '-' ||
+        case lower(job_type)
+          when 'warranty' then 'WAR'
+          when 'billable service' then 'BSV'
+          when 'service' then 'BSV'
+          when 'billable startup' then 'BSU'
+          when 'commissioning' then 'BSU'
+          else 'OTH'
+        end || '-' ||
+        lpad(row_number() over (
+          partition by (created_at at time zone 'America/New_York')::date,
+          case lower(job_type)
+            when 'warranty' then 'WAR' when 'billable service' then 'BSV' when 'service' then 'BSV'
+            when 'billable startup' then 'BSU' when 'commissioning' then 'BSU' else 'OTH' end
+          order by created_at, id
+        )::text, 3, '0') as number
+      from public.job_schedule where work_order_number is null
+    )
+    update public.job_schedule j set work_order_number = numbered.number
+    from numbered where j.id = numbered.id
+  `
+  await sql`create unique index if not exists job_schedule_work_order_number_uidx on public.job_schedule(work_order_number)`
   await sql`
     create table if not exists public.technician_calendar_events (
       id uuid primary key default gen_random_uuid(),
@@ -51,6 +78,37 @@ async function initialize() {
     )
   `
   await sql`
+    create table if not exists public.job_schedule_lines (
+      id uuid primary key default gen_random_uuid(),
+      job_id uuid not null references public.job_schedule(id) on delete cascade,
+      line_number integer not null, start_date date not null, end_date date not null,
+      techs_needed integer not null default 1, scope text, notes text,
+      created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+      unique(job_id, line_number), check (end_date >= start_date), check (techs_needed > 0)
+    )
+  `
+  await sql`
+    create table if not exists public.job_schedule_line_techs (
+      line_id uuid not null references public.job_schedule_lines(id) on delete cascade,
+      technician_id uuid not null references public.technicians(id) on delete cascade,
+      created_at timestamptz not null default now(), primary key (line_id, technician_id)
+    )
+  `
+  await sql`
+    insert into public.job_schedule_lines (job_id, line_number, start_date, end_date, techs_needed, scope, notes)
+    select j.id, 1, coalesce(j.start_date, j.created_at::date),
+      coalesce(j.end_date, j.start_date, j.created_at::date), j.techs_needed, j.scope, j.notes
+    from public.job_schedule j
+    where not exists (select 1 from public.job_schedule_lines l where l.job_id = j.id)
+      and (j.start_date is not null or exists (select 1 from public.job_schedule_techs jt where jt.job_id = j.id))
+  `
+  await sql`
+    insert into public.job_schedule_line_techs (line_id, technician_id)
+    select l.id, jt.technician_id
+    from public.job_schedule_lines l join public.job_schedule_techs jt on jt.job_id = l.job_id
+    where l.line_number = 1 on conflict do nothing
+  `
+  await sql`
     create table if not exists public.parts_orders (
       id uuid primary key default gen_random_uuid(), site_id uuid not null references public.sites(id) on delete cascade,
       job_id uuid references public.job_schedule(id) on delete set null, part_number text, description text not null,
@@ -65,6 +123,8 @@ async function initialize() {
   await sql`create index if not exists technician_calendar_events_tech_idx on public.technician_calendar_events(technician_id) where technician_id is not null`
   await sql`create index if not exists job_schedule_dates_idx on public.job_schedule(start_date, end_date)`
   await sql`create index if not exists job_schedule_techs_tech_idx on public.job_schedule_techs(technician_id)`
+  await sql`create index if not exists job_schedule_lines_job_dates_idx on public.job_schedule_lines(job_id, start_date, end_date)`
+  await sql`create index if not exists job_schedule_line_techs_tech_idx on public.job_schedule_line_techs(technician_id)`
   await sql`create index if not exists parts_orders_site_status_idx on public.parts_orders(site_id, status)`
   await sql`
     insert into public.parts_orders
