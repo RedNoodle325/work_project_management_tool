@@ -19,6 +19,21 @@ export interface Technician {
   updated_at: string
 }
 
+export type TechnicianEventType = 'day_off' | 'travel' | 'holiday' | 'pto'
+
+export interface TechnicianCalendarEvent {
+  id: string
+  technician_id?: string | null
+  technician_name?: string
+  event_type: TechnicianEventType
+  title?: string
+  start_date: string
+  end_date: string
+  notes?: string
+  created_at: string
+  updated_at: string
+}
+
 export type JobStatus = 'scheduled' | 'in_progress' | 'on_hold' | 'complete' | 'cancelled'
 
 export interface JobSchedule {

@@ -1,10 +1,10 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, ListChecks, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
+import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, ListChecks, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
 import { V2 } from '@/api/v2'
 import { Ops } from '@/api/ops'
-import type { JobSchedule, JobStatus, Technician } from '@/types/ops'
+import type { JobSchedule, JobStatus, Technician, TechnicianCalendarEvent, TechnicianEventType } from '@/types/ops'
 import type { SiteSummaryV2 } from '@/types/v2'
 
 const JOB_TYPES = ['Warranty', 'Service', 'Install', 'Commissioning', 'PM', 'Emergency', 'Other']
@@ -12,6 +12,7 @@ const STATUSES: JobStatus[] = ['scheduled', 'in_progress', 'on_hold', 'complete'
 const STATUS_LABELS: Record<JobStatus, string> = { scheduled: 'Scheduled', in_progress: 'In progress', on_hold: 'On hold', complete: 'Complete', cancelled: 'Cancelled' }
 const TECH_COLORS = ['#622c90', '#009a66', '#28b6ea', '#c77b16', '#b93b4d', '#2d8caa', '#4d9b69', '#8a4fb0']
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const EVENT_LABELS: Record<TechnicianEventType, string> = { day_off: 'Day off', travel: 'Travel', holiday: 'Holiday', pto: 'PTO' }
 
 function toISODate(date: Date) { return date.toISOString().slice(0, 10) }
 function addDays(date: Date, n: number) { const d = new Date(date); d.setDate(d.getDate() + n); return d }
@@ -22,6 +23,10 @@ function jobActiveOn(job: JobSchedule, date: Date) {
   if (job.end_date && iso > job.end_date) return false
   if (!job.start_date && !job.end_date) return false
   return true
+}
+function eventActiveOn(event: TechnicianCalendarEvent, date: Date) {
+  const iso = toISODate(date)
+  return iso >= event.start_date && iso <= event.end_date
 }
 function techColor(tech: { id: string; color?: string } | undefined, technicians: Technician[]) {
   if (tech?.color) return tech.color
@@ -36,6 +41,7 @@ export function Scheduler() {
   const canEdit = true
   const [technicians, setTechnicians] = useState<Technician[]>([])
   const [jobs, setJobs] = useState<JobSchedule[]>([])
+  const [events, setEvents] = useState<TechnicianCalendarEvent[]>([])
   const [sites, setSites] = useState<SiteSummaryV2[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -43,13 +49,15 @@ export function Scheduler() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
   const [showTechs, setShowTechs] = useState(false)
   const [editJob, setEditJob] = useState<JobSchedule | 'new' | null>(null)
+  const [editEvent, setEditEvent] = useState<TechnicianCalendarEvent | 'new' | null>(null)
   const [orderFilter, setOrderFilter] = useState<{ status: string; siteId: string }>({ status: '', siteId: '' })
 
   function load() {
-    Promise.all([Ops.technicians.list(), Ops.jobSchedule.list(), V2.hierarchy.list()])
-      .then(([techRows, jobRows, hierarchy]) => {
+    Promise.all([Ops.technicians.list(), Ops.jobSchedule.list(), Ops.technicianEvents.list(), V2.hierarchy.list()])
+      .then(([techRows, jobRows, eventRows, hierarchy]) => {
         setTechnicians(techRows)
         setJobs(jobRows)
+        setEvents(eventRows)
         const byId = new Map<string, SiteSummaryV2>()
         hierarchy.forEach(customer => {
           customer.sites?.forEach(site => byId.set(site.id, site))
@@ -79,6 +87,7 @@ export function Scheduler() {
       <div><span className="x-kicker">Scheduler &amp; work orders</span><h1>Scheduler</h1><p>Assign technicians to sites by week, and manage every work order in one place.</p></div>
       {canEdit && <div className="x-issue-actions">
         <button onClick={() => setShowTechs(true)}><Users size={16} /> Technicians</button>
+        <button onClick={() => setEditEvent('new')}><CalendarPlus size={16} /> Time off / travel</button>
         <button className="primary" onClick={() => setEditJob('new')}><Plus size={16} /> New work order</button>
       </div>}
     </header>
@@ -108,7 +117,9 @@ export function Scheduler() {
           <div className="x-sched-tech"><i style={{ background: techColor(tech, technicians) }} />{technicianName(tech)}<small>{tech.home_zip ? `Home ZIP ${tech.home_zip}` : [tech.location_city, tech.location_state].filter(Boolean).join(', ') || 'No home ZIP set'}</small></div>
           {weekDays.map(day => {
             const dayJobs = weekJobs.filter(job => job.technicians.some(t => t.id === tech.id) && jobActiveOn(job, day))
+            const dayEvents = events.filter(event => (!event.technician_id || event.technician_id === tech.id) && eventActiveOn(event, day))
             return <div className="x-sched-cell" key={toISODate(day)}>
+              {dayEvents.map(event => <button key={event.id} className={`x-sched-event is-${event.event_type}`} onClick={() => setEditEvent(event)} title={`${EVENT_LABELS[event.event_type]}${event.title ? `: ${event.title}` : ''}`}><strong>{event.title || EVENT_LABELS[event.event_type]}</strong></button>)}
               {dayJobs.map(job => <button key={job.id} className="x-sched-chip" style={{ borderLeftColor: techColor(tech, technicians) }} onClick={() => canEdit && setEditJob(job)} title={job.job_name}>
                 <strong>{job.site_name}</strong><small>{job.job_type}</small>
               </button>)}
@@ -147,7 +158,8 @@ export function Scheduler() {
     </div>}
 
     {showTechs && <TechniciansModal technicians={technicians} close={() => setShowTechs(false)} changed={load} />}
-    {editJob && <JobModal job={editJob === 'new' ? null : editJob} sites={sites} technicians={activeTechs} close={() => setEditJob(null)} saved={() => { setEditJob(null); load() }} />}
+    {editJob && <JobModal job={editJob === 'new' ? null : editJob} sites={sites} technicians={activeTechs} events={events} close={() => setEditJob(null)} saved={() => { setEditJob(null); load() }} />}
+    {editEvent && <TechnicianEventModal event={editEvent === 'new' ? null : editEvent} technicians={activeTechs} close={() => setEditEvent(null)} saved={() => { setEditEvent(null); load() }} />}
   </div>
 }
 
@@ -216,7 +228,7 @@ function TechnicianForm({ technician, cancel, saved }: { technician: Technician 
   </form>
 }
 
-function JobModal({ job, sites, technicians, close, saved }: { job: JobSchedule | null; sites: SiteSummaryV2[]; technicians: Technician[]; close: () => void; saved: () => void }) {
+function JobModal({ job, sites, technicians, events, close, saved }: { job: JobSchedule | null; sites: SiteSummaryV2[]; technicians: Technician[]; events: TechnicianCalendarEvent[]; close: () => void; saved: () => void }) {
   const [siteOptions, setSiteOptions] = useState(sites)
   const [form, setForm] = useState({
     site_id: job?.site_id || '', job_name: job?.job_name || '', job_type: job?.job_type || 'Warranty',
@@ -243,6 +255,12 @@ function JobModal({ job, sites, technicians, close, saved }: { job: JobSchedule 
   }, [form.site_id])
 
   const assignmentTechs = siteTechnicians?.siteId === form.site_id ? siteTechnicians.rows : technicians
+
+  function conflictFor(technicianId: string) {
+    if (!form.start_date) return null
+    const end = form.end_date || form.start_date
+    return events.find(event => (!event.technician_id || event.technician_id === technicianId) && event.start_date <= end && event.end_date >= form.start_date)
+  }
 
   function toggleTech(id: string) {
     setTechnicianIds(current => current.includes(id) ? current.filter(t => t !== id) : [...current, id])
@@ -315,9 +333,9 @@ function JobModal({ job, sites, technicians, close, saved }: { job: JobSchedule 
       <label className="x-field"><span>Scope of work</span><textarea rows={3} value={form.scope} onChange={e => set('scope')(e.target.value)} /></label>
       <label className="x-field"><span>Notes</span><textarea rows={2} value={form.notes} onChange={e => set('notes')(e.target.value)} /></label>
       <label className="x-field"><span>Assign technicians</span>
-        <div className="x-tech-picker">{assignmentTechs.map(tech => <label key={tech.id} className={technicianIds.includes(tech.id) ? 'is-picked' : ''}>
-          <input type="checkbox" checked={technicianIds.includes(tech.id)} onChange={() => toggleTech(tech.id)} /><span>{technicianName(tech)}<small>{tech.distance_miles == null ? (tech.home_zip ? 'Site ZIP needed for mileage' : 'Home ZIP needed') : `${tech.distance_kind === 'driving' ? 'Approx.' : 'Est.'} ${Math.round(Number(tech.distance_miles))} mi from site`}</small></span>
-        </label>)}{!assignmentTechs.length && <small>No active technicians yet.</small>}</div>
+        <div className="x-tech-picker">{assignmentTechs.map(tech => { const conflict = conflictFor(tech.id); return <label key={tech.id} className={`${technicianIds.includes(tech.id) ? 'is-picked' : ''} ${conflict ? 'has-conflict' : ''}`}>
+          <input type="checkbox" checked={technicianIds.includes(tech.id)} onChange={() => toggleTech(tech.id)} /><span>{technicianName(tech)}<small>{conflict ? `${EVENT_LABELS[conflict.event_type]} ${conflict.start_date}${conflict.end_date !== conflict.start_date ? `–${conflict.end_date}` : ''}` : tech.distance_miles == null ? (tech.home_zip ? 'Site ZIP needed for mileage' : 'Home ZIP needed') : `${tech.distance_kind === 'driving' ? 'Approx.' : 'Est.'} ${Math.round(Number(tech.distance_miles))} mi from site`}</small></span>
+        </label>})}{!assignmentTechs.length && <small>No active technicians yet.</small>}</div>
       </label>
       {error && <p className="x-error">{error}</p>}
       <footer>
@@ -326,6 +344,47 @@ function JobModal({ job, sites, technicians, close, saved }: { job: JobSchedule 
         <button type="button" onClick={close}>Cancel</button>
         <button className="primary" disabled={saving}>{saving ? 'Saving…' : job ? 'Save changes' : 'Create work order'}</button>
       </footer>
+    </form>
+  </div>
+}
+
+function TechnicianEventModal({ event, technicians, close, saved }: { event: TechnicianCalendarEvent | null; technicians: Technician[]; close: () => void; saved: () => void }) {
+  const [form, setForm] = useState({
+    event_type: event?.event_type || 'pto' as TechnicianEventType,
+    technician_id: event?.technician_id || '', title: event?.title || '',
+    start_date: event?.start_date || toISODate(new Date()), end_date: event?.end_date || toISODate(new Date()), notes: event?.notes || '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const set = <K extends keyof typeof form>(field: K) => (value: typeof form[K]) => setForm(current => ({ ...current, [field]: value }))
+
+  async function submit(e: FormEvent) {
+    e.preventDefault(); setSaving(true); setError('')
+    try {
+      const payload = { ...form, technician_id: form.event_type === 'holiday' ? null : form.technician_id }
+      if (event) await Ops.technicianEvents.update(event.id, payload)
+      else await Ops.technicianEvents.create(payload)
+      saved()
+    } catch (err) { setError((err as Error).message) } finally { setSaving(false) }
+  }
+
+  async function remove() {
+    if (!event || !confirm('Delete this calendar event?')) return
+    setSaving(true)
+    try { await Ops.technicianEvents.delete(event.id); saved() }
+    catch (err) { setError((err as Error).message); setSaving(false) }
+  }
+
+  return <div className="x-modal-backdrop" onMouseDown={e => e.target === e.currentTarget && close()}>
+    <form className="x-modal" onSubmit={submit}>
+      <header><div><span className="x-kicker">Availability</span><h2>{event ? 'Edit calendar event' : 'Add calendar event'}</h2></div><button type="button" onClick={close}><X size={18} /></button></header>
+      <label className="x-field"><span>Type</span><select value={form.event_type} onChange={e => set('event_type')(e.target.value as TechnicianEventType)}>{Object.entries(EVENT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+      {form.event_type === 'holiday' ? <p className="x-import-intro">Holidays apply to every active technician.</p> : <label className="x-field"><span>Technician</span><select value={form.technician_id} onChange={e => set('technician_id')(e.target.value)} required><option value="">Choose a technician</option>{technicians.map(tech => <option value={tech.id} key={tech.id}>{technicianName(tech)}</option>)}</select></label>}
+      <label className="x-field"><span>Label (optional)</span><input value={form.title} onChange={e => set('title')(e.target.value)} placeholder={EVENT_LABELS[form.event_type]} /></label>
+      <div className="x-form-row"><label className="x-field"><span>Start</span><input type="date" value={form.start_date} onChange={e => set('start_date')(e.target.value)} required /></label><label className="x-field"><span>End</span><input type="date" min={form.start_date} value={form.end_date} onChange={e => set('end_date')(e.target.value)} required /></label></div>
+      <label className="x-field"><span>Notes</span><textarea rows={3} value={form.notes} onChange={e => set('notes')(e.target.value)} /></label>
+      {error && <p className="x-error">{error}</p>}
+      <footer>{event && <button type="button" className="x-danger-text" onClick={remove}><Trash2 size={13} /> Delete</button>}<span style={{ flex: 1 }} /><button type="button" onClick={close}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Saving…' : event ? 'Save event' : 'Add to calendar'}</button></footer>
     </form>
   </div>
 }

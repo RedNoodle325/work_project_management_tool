@@ -871,6 +871,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .x-tech-picker label > span { display: grid; gap: 2px; }
 .x-tech-picker label > span small { color: var(--text-secondary); font-size: 10px; font-weight: 500; }
 .x-tech-picker label.is-picked > span small { color: inherit; opacity: .72; }
+.x-tech-picker label.has-conflict { border-color: rgba(255,176,0,.62); background: rgba(255,176,0,.08); }
+.x-tech-picker label.has-conflict > span small { color: var(--amber); font-weight: 750; }
+.x-sched-event { width: 100%; display: block; margin-bottom: 4px; padding: 6px 7px; overflow: hidden; color: var(--text-primary); border: 1px solid var(--border-default); border-left: 3px solid var(--text-tertiary); background: var(--surface-raised); text-align: left; cursor: pointer; }
+.x-sched-event strong { display: block; overflow: hidden; font-size: 9px; font-weight: 800; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.x-sched-event.is-pto { border-left-color: #a26ad2; background: rgba(98,44,144,.15); }
+.x-sched-event.is-day_off { border-left-color: #ec1177; background: rgba(236,17,119,.10); }
+.x-sched-event.is-travel { border-left-color: #28b6ea; background: rgba(40,182,234,.11); }
+.x-sched-event.is-holiday { border-left-color: var(--amber); background: rgba(255,176,0,.11); }
 
 @media (max-width: 680px) {
   .x-job-site-field { grid-template-columns: 1fr; }
