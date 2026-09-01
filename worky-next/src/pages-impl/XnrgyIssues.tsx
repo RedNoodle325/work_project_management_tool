@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { ExternalLink, FileSpreadsheet, Pencil, Plus, Search, StickyNote, Upload, X } from 'lucide-react'
+import { ExternalLink, FileSpreadsheet, Pencil, Plus, Search, StickyNote, Trash2, Upload, X } from 'lucide-react'
 import { V2 } from '@/api/v2'
 import type { LeanIssueV2, SiteSummaryV2 } from '@/types/v2'
 
@@ -42,6 +42,16 @@ export function XnrgyIssues() {
     V2.issues.list(value || undefined).then(setIssues).catch(error => setError(error.message)).finally(() => setLoading(false))
   }
 
+  async function deleteIssue(issue: LeanIssueV2) {
+    if (!window.confirm(`Delete issue ${issue.issue_number}? This cannot be undone.`)) return
+    try {
+      await V2.issues.delete(issue.id)
+      setIssues(current => current.filter(row => row.id !== issue.id))
+    } catch (error) {
+      setError((error as Error).message)
+    }
+  }
+
   return <div className="x-page x-issues-page">
     <header className="x-directory-head">
       <div><span className="x-kicker">Issue tracker</span><h1>Issues</h1><p>Issue number, description, equipment, and serial number—nothing extra.</p></div>
@@ -59,7 +69,7 @@ export function XnrgyIssues() {
     {!error && !loading && <div className="x-lean-issues">
       <div className="x-lean-issue-head"><span>Issue Number</span><span>Description</span><span>Equipment Name / Asset Tag</span><span>Serial #</span></div>
       {filtered.map(issue => <div className="x-lean-issue-row" key={issue.id}>
-        <span><div className="x-issue-number-actions"><strong>{issue.issue_number}</strong>{issue.source_url && <a className="x-issue-icon-action" href={issue.source_url} target="_blank" rel="noreferrer" title="Open in CxAlloy" aria-label={`Open ${issue.issue_number} in CxAlloy`}><ExternalLink size={14} /></a>}<button type="button" className="x-issue-icon-action" onClick={() => setEditIssue(issue)} title="Edit issue" aria-label={`Edit ${issue.issue_number}`}><Pencil size={14} /></button><button type="button" className={`x-issue-icon-action ${issue.internal_notes ? 'has-note' : ''}`} onClick={() => setNoteIssue(issue)} title={issue.internal_notes ? 'Edit internal note' : 'Add internal note'} aria-label={`Add an internal note to ${issue.issue_number}`}><StickyNote size={14} /></button></div><small>{issue.site_name}{issue.status ? ` · ${issue.status.replace('_', ' ')}` : ''}{issue.priority ? ` · ${issue.priority}` : ''}</small></span>
+        <span><div className="x-issue-number-actions"><strong>{issue.issue_number}</strong>{issue.source_url && <a className="x-issue-icon-action" href={issue.source_url} target="_blank" rel="noreferrer" title="Open in CxAlloy" aria-label={`Open ${issue.issue_number} in CxAlloy`}><ExternalLink size={14} /></a>}<button type="button" className="x-issue-icon-action" onClick={() => setEditIssue(issue)} title="Edit issue" aria-label={`Edit ${issue.issue_number}`}><Pencil size={14} /></button><button type="button" className={`x-issue-icon-action ${issue.internal_notes ? 'has-note' : ''}`} onClick={() => setNoteIssue(issue)} title={issue.internal_notes ? 'Edit internal note' : 'Add internal note'} aria-label={`Add an internal note to ${issue.issue_number}`}><StickyNote size={14} /></button><button type="button" className="x-issue-icon-action is-delete" onClick={() => void deleteIssue(issue)} title="Delete issue" aria-label={`Delete ${issue.issue_number}`}><Trash2 size={14} /></button></div><small>{issue.site_name}{issue.status ? ` · ${issue.status.replace('_', ' ')}` : ''}{issue.priority ? ` · ${issue.priority}` : ''}</small></span>
         <p>{issue.description || '—'}</p>
         <code>{issue.equipment_name || '—'}</code>
         <code className={!issue.serial_number ? 'is-empty' : ''}>{issue.serial_number || '—'}</code>

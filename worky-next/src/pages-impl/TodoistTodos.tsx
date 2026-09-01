@@ -3,7 +3,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { CalendarClock, CheckCircle2, Circle, FolderKanban, Inbox, ListTodo, Plus, RefreshCw, Tag, TriangleAlert } from 'lucide-react'
 import { useToastFn } from '@/app/providers'
-import { clearToken, getToken } from '@/api'
 
 interface TodoistTask {
   id: string
@@ -28,20 +27,10 @@ interface ProjectGroup {
 }
 
 async function todoistRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken()
-  if (!token) {
-    window.location.assign('/login')
-    throw new Error('Please sign in to view your personal to-do list')
-  }
   const response = await fetch(`/api/todoist${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers },
+    headers: { 'Content-Type': 'application/json', ...options.headers },
   })
-  if (response.status === 401) {
-    clearToken()
-    window.location.assign('/login')
-    throw new Error('Your session expired. Please sign in again.')
-  }
   if (!response.ok) {
     const data = await response.json().catch(() => null)
     throw new Error(data?.error || 'Unable to reach Todoist')
@@ -131,9 +120,9 @@ export function TodoistTodos() {
   return <main className="x-page x-todos-page">
     <header className="x-todos-hero">
       <div>
-        <span className="x-kicker">Personal workspace</span>
-        <h1>My To-Do List</h1>
-        <p>Private tasks synced with Todoist and organized by project.</p>
+        <span className="x-kicker">Program priorities</span>
+        <h1>My to-do list</h1>
+        <p>Open tasks synced with Todoist and organized by project.</p>
       </div>
       <button className="x-todo-refresh" onClick={load} disabled={loading}><RefreshCw size={15} className={loading ? 'is-loading' : ''} /> Refresh tasks</button>
     </header>

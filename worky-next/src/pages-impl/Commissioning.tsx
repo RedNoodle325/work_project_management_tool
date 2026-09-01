@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ClipboardCheck, Save } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
 import { V2 } from '@/api/v2'
 import { Ops } from '@/api/ops'
 import type { SiteSummaryV2 } from '@/types/v2'
@@ -40,7 +39,6 @@ function isPreCommissioning(site: SiteSummaryV2) {
 }
 
 export function Commissioning() {
-  const { user } = useAuth()
   const [sites, setSites] = useState<SiteSummaryV2[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -65,7 +63,7 @@ export function Commissioning() {
   if (selectedSite) {
     return <div className="x-page x-site-page">
       <button className="x-back" onClick={() => setSelectedSiteId(null)}><ArrowLeft size={14} /> All pre-commissioning sites</button>
-      <SiteChecklist site={selectedSite} canEdit={!!user} />
+      <SiteChecklist key={selectedSite.id} site={selectedSite} canEdit />
     </div>
   }
 
@@ -103,7 +101,6 @@ function SiteChecklist({ site, canEdit }: { site: SiteSummaryV2; canEdit: boolea
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    setLoading(true); setError('')
     V2.sites.get(site.id)
       .then(workspace => setUnits((workspace.units as unknown as UnitRow[]) || []))
       .catch(err => setError(err.message))

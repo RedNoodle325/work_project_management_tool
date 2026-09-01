@@ -73,3 +73,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const [issue] = await issueRowsById(saved.id)
   return NextResponse.json(issue)
 }
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { error } = await requireAuth(request)
+  if (error) return error
+  const { id } = await params
+  const [deleted] = await sql`delete from public.issues where id = ${id} returning id`
+  if (!deleted) return NextResponse.json({ error: 'Issue not found.' }, { status: 404 })
+  return new NextResponse(null, { status: 204 })
+}

@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Package, Pencil, Plus, Trash2, X } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
 import { V2 } from '@/api/v2'
 import { Ops } from '@/api/ops'
 import type { PartsOrder, PartsOrderStatus } from '@/types/ops'
@@ -12,7 +11,6 @@ const STATUSES: PartsOrderStatus[] = ['needed', 'ordered', 'shipped', 'received'
 const STATUS_LABELS: Record<PartsOrderStatus, string> = { needed: 'Needed', ordered: 'Ordered', shipped: 'Shipped', received: 'Received', installed: 'Installed', cancelled: 'Cancelled' }
 
 export function PartsOrders() {
-  const { user } = useAuth()
   const [orders, setOrders] = useState<PartsOrder[]>([])
   const [sites, setSites] = useState<SiteSummaryV2[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,10 +42,10 @@ export function PartsOrders() {
 
   const openCount = orders.filter(o => o.status !== 'installed' && o.status !== 'cancelled').length
 
-  return <div className="x-page x-issues-page">
+  return <div className="x-page x-issues-page x-parts-orders-page">
     <header className="x-directory-head">
       <div><span className="x-kicker">Supply chain</span><h1>Part orders</h1><p>Track every part from &quot;needed&quot; through installed, across all sites.</p></div>
-      {user && <div className="x-issue-actions"><button className="primary" onClick={() => setEditOrder('new')}><Plus size={16} /> New part order</button></div>}
+      <div className="x-issue-actions"><button className="primary" onClick={() => setEditOrder('new')}><Plus size={16} /> New part order</button></div>
     </header>
 
     <div className="x-stat-row" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
@@ -72,9 +70,9 @@ export function PartsOrders() {
         <span>{order.quantity}</span>
         <span>{order.supplier || '—'}<small>{order.order_number || 'No order #'}</small></span>
         <span><em className={`x-wo-status is-${order.status}`}>{STATUS_LABELS[order.status]}</em></span>
-        <span>{user && <button className="x-issue-icon-action" onClick={() => setEditOrder(order)} title="Edit"><Pencil size={14} /></button>}</span>
+        <span><button className="x-issue-icon-action" onClick={() => setEditOrder(order)} title="Edit"><Pencil size={14} /></button></span>
       </div>)}
-      {!filtered.length && <div className="x-resource-empty"><Package size={30} /><strong>No part orders found</strong><p>Add a part order to start tracking it.</p>{user && <button onClick={() => setEditOrder('new')}><Plus size={15} /> New part order</button>}</div>}
+      {!filtered.length && <div className="x-resource-empty"><Package size={30} /><strong>No part orders found</strong><p>Add a part order to start tracking it.</p><button onClick={() => setEditOrder('new')}><Plus size={15} /> New part order</button></div>}
     </div>}
 
     {editOrder && <PartsOrderModal order={editOrder === 'new' ? null : editOrder} sites={sites} close={() => setEditOrder(null)} saved={() => { setEditOrder(null); load() }} />}

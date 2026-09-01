@@ -1,9 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import { CalendarDays, ChevronLeft, ChevronRight, LayoutDashboard, ListChecks, LockKeyhole, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
+import { CalendarDays, ChevronLeft, ChevronRight, ListChecks, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
 import { V2 } from '@/api/v2'
 import { Ops } from '@/api/ops'
 import type { JobSchedule, JobStatus, Technician } from '@/types/ops'
@@ -32,8 +30,7 @@ function techColor(tech: { id: string; color?: string } | undefined, technicians
 }
 
 export function Scheduler() {
-  const { user } = useAuth()
-  const canEdit = !!user
+  const canEdit = true
   const [technicians, setTechnicians] = useState<Technician[]>([])
   const [jobs, setJobs] = useState<JobSchedule[]>([])
   const [sites, setSites] = useState<SiteSummaryV2[]>([])
@@ -75,12 +72,6 @@ export function Scheduler() {
   ), [jobs, orderFilter])
 
   return <div className="x-page x-scheduler-ops-page">
-    <div className="x-scheduler-standalone-bar">
-      <img src="/brand/xnrgy-mark.svg" alt="XNRGY" />
-      {user
-        ? <Link href="/dashboard"><LayoutDashboard size={14} /> Back to dashboard</Link>
-        : <Link href="/login?next=/scheduler"><LockKeyhole size={14} /> Login to manage everything</Link>}
-    </div>
     <header className="x-directory-head">
       <div><span className="x-kicker">Scheduler &amp; work orders</span><h1>Scheduler</h1><p>Assign technicians to sites by week, and manage every work order in one place.</p></div>
       {canEdit && <div className="x-issue-actions">

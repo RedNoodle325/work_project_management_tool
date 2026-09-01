@@ -76,6 +76,46 @@ create index if not exists job_schedule_techs_tech_idx on public.job_schedule_te
 create index if not exists parts_orders_site_status_idx on public.parts_orders(site_id, status);
 create index if not exists parts_orders_job_idx on public.parts_orders(job_id) where job_id is not null;
 
+-- Carry forward parts orders entered through the original ASR workflow. Each
+-- item becomes a tracker row; header-only orders remain visible as one row.
+insert into public.parts_orders
+  (id, site_id, part_number, description, quantity, status, supplier, order_number,
+   ordered_at, expected_at, received_at, notes, created_at, updated_at)
+select
+  item.id, request.site_id, item.part_number, item.description, item.quantity,
+  case order_row.status
+    when 'quoted' then 'needed'
+    when 'partially_received' then 'received'
+    else order_row.status
+  end,
+  order_row.supplier, order_row.order_number, order_row.ordered_at, order_row.expected_at,
+  order_row.received_at, order_row.notes, order_row.created_at, order_row.updated_at
+from public.part_order_items item
+join public.part_orders order_row on order_row.id = item.part_order_id
+join public.asrs request on request.id = order_row.asr_id
+on conflict (id) do nothing;
+
+insert into public.parts_orders
+  (id, site_id, description, quantity, status, supplier, order_number,
+   ordered_at, expected_at, received_at, notes, created_at, updated_at)
+select
+  order_row.id, request.site_id,
+  coalesce(nullif(order_row.order_number, ''), nullif(order_row.supplier, ''), 'Parts order'),
+  1,
+  case order_row.status
+    when 'quoted' then 'needed'
+    when 'partially_received' then 'received'
+    else order_row.status
+  end,
+  order_row.supplier, order_row.order_number, order_row.ordered_at, order_row.expected_at,
+  order_row.received_at, order_row.notes, order_row.created_at, order_row.updated_at
+from public.part_orders order_row
+join public.asrs request on request.id = order_row.asr_id
+where not exists (
+  select 1 from public.part_order_items item where item.part_order_id = order_row.id
+)
+on conflict (id) do nothing;
+
 do $$
 declare table_name text;
 begin

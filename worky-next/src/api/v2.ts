@@ -31,6 +31,7 @@ export const V2 = {
     create: (data: Record<string, unknown>) => request('/issues', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, unknown>) => request<LeanIssueV2>(`/issues/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     updateNotes: (id: string, internal_notes: string) => request(`/issues/${id}`, { method: 'PATCH', body: JSON.stringify({ internal_notes }) }),
+    delete: (id: string) => request<void>(`/issues/${id}`, { method: 'DELETE' }),
     importCxAlloy: async (siteId: string, file: File) => {
       const token = getToken()
       const form = new FormData()

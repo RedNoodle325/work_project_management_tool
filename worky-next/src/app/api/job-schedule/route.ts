@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/requireAuth'
 import sql from '@/lib/db'
+import { ensureOpsSchema } from '@/lib/ensureOpsSchema'
 
 export async function GET(request: NextRequest) {
   const { error } = await requireAuth(request)
   if (error) return error
+  try { await ensureOpsSchema() }
+  catch { return NextResponse.json({ error: 'Operational database setup failed. Apply database migration 012.' }, { status: 503 }) }
 
   const { searchParams } = new URL(request.url)
   const weekStart = searchParams.get('week_start') ?? null
@@ -44,6 +47,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const { error } = await requireAuth(request)
   if (error) return error
+  try { await ensureOpsSchema() }
+  catch { return NextResponse.json({ error: 'Operational database setup failed. Apply database migration 012.' }, { status: 503 }) }
 
   const body = await request.json()
   const technicianIds: string[] = Array.isArray(body.technician_ids) ? body.technician_ids : []

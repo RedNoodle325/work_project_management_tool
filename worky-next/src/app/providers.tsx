@@ -2,7 +2,6 @@
 
 import { createContext, useContext, type ReactNode } from 'react'
 import { ThemeProvider } from '@/contexts/ThemeContext'
-import { AuthProvider } from '@/contexts/AuthContext'
 import { EditModeProvider } from '@/contexts/EditModeContext'
 import { useToast } from '@/hooks/useToast'
 import { ToastContainer } from '@/components/Toast'
@@ -28,11 +27,9 @@ function InnerProviders({ children }: { children: ReactNode }) {
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <EditModeProvider>
-          <InnerProviders>{children}</InnerProviders>
-        </EditModeProvider>
-      </AuthProvider>
+      <EditModeProvider>
+        <InnerProviders>{children}</InnerProviders>
+      </EditModeProvider>
     </ThemeProvider>
   )
 }
