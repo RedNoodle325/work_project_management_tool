@@ -411,6 +411,7 @@ export function Report() {
 
   async function buildActivityLog() {
     setActivityLoading(true)
+    let reportWindow: Window | null = null
     try {
       let cutoff: Date
       let endDate = new Date()
@@ -428,6 +429,11 @@ export function Report() {
         cutoff.setHours(0, 0, 0, 0)
         label = `Last ${days} days`
       }
+
+      reportWindow = window.open('', '_blank')
+      if (!reportWindow) { toast('Popup blocked — allow pop-ups and try again', 'error'); return }
+      reportWindow.document.write('<title>Building activity log</title><body style="font-family:Arial,sans-serif;padding:32px">Preparing activity log…</body>')
+      reportWindow.document.close()
 
       const [sites, issues, notes] = await Promise.all([
         API.sites.list(),
@@ -474,11 +480,11 @@ export function Report() {
       events.sort((a, b) => b.date.getTime() - a.date.getTime())
 
       const html = buildActivityLogHtml(events, label)
-      const win = window.open('', '_blank')
-      if (!win) { toast('Popup blocked — allow pop-ups and try again', 'error'); return }
-      win.document.write(html)
-      win.document.close()
+      reportWindow.document.open()
+      reportWindow.document.write(html)
+      reportWindow.document.close()
     } catch (err: unknown) {
+      reportWindow?.close()
       toast('Error: ' + (err as Error).message, 'error')
     } finally {
       setActivityLoading(false)
@@ -488,6 +494,10 @@ export function Report() {
   async function buildReport() {
     setLoading(true)
     toast('Building report…')
+    const reportWindow = window.open('', '_blank')
+    if (!reportWindow) { toast('Popup blocked — allow pop-ups and try again', 'error'); setLoading(false); return }
+    reportWindow.document.write('<title>Building weekly report</title><body style="font-family:Arial,sans-serif;padding:32px">Preparing weekly report…</body>')
+    reportWindow.document.close()
     try {
       const [sites, issues, notes, users] = await Promise.all([
         API.sites.list(),
@@ -507,11 +517,11 @@ export function Report() {
       }))
 
       const html = buildReportHtml({ sites, issues, notes, users, siteDetails }, weeklyNotes)
-      const win = window.open('', '_blank')
-      if (!win) { toast('Popup blocked — allow pop-ups and try again', 'error'); return }
-      win.document.write(html)
-      win.document.close()
+      reportWindow.document.open()
+      reportWindow.document.write(html)
+      reportWindow.document.close()
     } catch (err: unknown) {
+      reportWindow.close()
       toast('Failed to load report data: ' + (err as Error).message, 'error')
     } finally {
       setLoading(false)
