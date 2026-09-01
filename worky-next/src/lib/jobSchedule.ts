@@ -26,6 +26,10 @@ export async function listJobSchedule(): Promise<JobSchedule[]> {
         ) ORDER BY l.line_number)
         FROM public.job_schedule_lines l WHERE l.job_id = j.id
       ), '[]') AS assignment_lines
+      ,COALESCE((
+        SELECT json_agg(json_build_object('id', u.id, 'tag', u.tag, 'unit_type', u.unit_type, 'serial_number', u.serial_number) ORDER BY u.tag)
+        FROM public.job_schedule_units ju JOIN public.units u ON u.id = ju.unit_id WHERE ju.job_id = j.id
+      ), '[]') AS units
     FROM public.job_schedule j JOIN public.sites s ON s.id = j.site_id
     ORDER BY COALESCE((SELECT min(l.start_date) FROM public.job_schedule_lines l WHERE l.job_id = j.id), j.start_date) ASC NULLS LAST,
       j.created_at DESC

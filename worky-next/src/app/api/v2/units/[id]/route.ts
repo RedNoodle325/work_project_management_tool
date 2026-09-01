@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/requireAuth'
 import sql from '@/lib/db'
+import { ensureOpsSchema } from '@/lib/ensureOpsSchema'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { error } = await requireAuth(request)
   if (error) return error
   const { id } = await params
+  await ensureOpsSchema()
 
   const [units, issues, work, parts] = await Promise.all([
     sql`
@@ -30,6 +32,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { error } = await requireAuth(request)
   if (error) return error
   const { id } = await params
+  await ensureOpsSchema()
   const body = await request.json()
   if (!String(body.tag || '').trim()) return NextResponse.json({ error: 'Unit tag is required' }, { status: 400 })
   const [current] = await sql`select status from public.units where id = ${id}`
@@ -43,6 +46,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       unit_type = ${body.unit_type || null},
       location_in_site = ${body.location_in_site || null},
       status = ${body.status || current.status},
+      commissioning_status = COALESCE(${body.commissioning_status ?? null}, commissioning_status),
       notes = ${body.notes || null}
     where id = ${id}
     returning *

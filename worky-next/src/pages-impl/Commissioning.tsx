@@ -17,14 +17,27 @@ const STAGES = [
 ] as const
 
 const STAGE_LABELS: Record<string, string> = Object.fromEntries(STAGES.map(s => [s.key, s.label]))
+const COMMISSIONING_STATUSES = [
+  { key: 'not_required', label: 'Not required' },
+  { key: 'pre_startup_testing', label: 'Pre-startup testing' },
+  { key: 'ready_for_startup', label: 'Ready for startup' },
+  { key: 'startup', label: 'Startup in progress' },
+  { key: 'ready_for_commissioning', label: 'Ready for commissioning' },
+  { key: 'commissioning', label: 'Commissioning in progress' },
+  { key: 'commissioned', label: 'Commissioned' },
+  { key: 'recommissioning_required', label: 'Recommissioning required' },
+  { key: 'recommissioning', label: 'Recommissioning in progress' },
+] as const
 
 interface UnitRow {
   id: string; tag: string; unit_type?: string; status: string
   build_stage?: string; ship_to?: string | null
+  commissioning_status?: string
   warranty_start_date?: string | null; warranty_end_date?: string | null
 }
 interface UnitChange {
   build_stage: string; ship_to: string | null
+  commissioning_status: string
   warranty_start_date: string | null; warranty_end_date: string | null
 }
 
@@ -34,8 +47,7 @@ function warrantyPhase(unit: { warranty_end_date?: string | null }): 'unset' | '
 }
 
 function isPreCommissioning(site: SiteSummaryV2) {
-  if (site.lifecycle_phase === 'commissioning') return true
-  return (site.unit_count ?? 0) > 0 && (site.commissioning_percent ?? 0) < 100
+  return (site.unit_count ?? 0) > 0
 }
 
 export function Commissioning() {
@@ -62,19 +74,19 @@ export function Commissioning() {
 
   if (selectedSite) {
     return <div className="x-page x-site-page">
-      <button className="x-back" onClick={() => setSelectedSiteId(null)}><ArrowLeft size={14} /> All pre-commissioning sites</button>
+      <button className="x-back" onClick={() => setSelectedSiteId(null)}><ArrowLeft size={14} /> All commissioning sites</button>
       <SiteChecklist key={selectedSite.id} site={selectedSite} canEdit />
     </div>
   }
 
   return <div className="x-page x-issues-page">
     <header className="x-directory-head">
-      <div><span className="x-kicker">Commissioning</span><h1>Pre-commissioning sites</h1><p>Every site still moving units through production → shipping → installation → energization → startup → functional testing → commissioning.</p></div>
+      <div><span className="x-kicker">Commissioning</span><h1>Commissioning &amp; recommissioning</h1><p>Track the physical build stage separately from pre-startup testing, startup, commissioning, and maintenance-triggered recommissioning.</p></div>
     </header>
 
     {error && <div className="x-load-panel"><strong>Couldn&apos;t load sites</strong><p>{error}</p></div>}
     {!error && loading && <div className="x-state"><h1>Loading sites</h1><p>Gathering commissioning progress…</p></div>}
-    {!error && !loading && !sites.length && <div className="x-resource-empty"><ClipboardCheck size={30} /><strong>No sites are pre-commissioning</strong><p>Sites show up here until every one of their units reaches the commissioned stage.</p></div>}
+    {!error && !loading && !sites.length && <div className="x-resource-empty"><ClipboardCheck size={30} /><strong>No units to commission yet</strong><p>Sites appear here once equipment has been added.</p></div>}
 
     {!error && !loading && sites.length > 0 && <div className="x-commissioning-grid">
       {sites.map(site => <button key={site.id} className="x-commissioning-card" onClick={() => setSelectedSiteId(site.id)}>
@@ -113,6 +125,7 @@ function SiteChecklist({ site, canEdit }: { site: SiteSummaryV2; canEdit: boolea
       ship_to: unit.ship_to ?? null,
       warranty_start_date: unit.warranty_start_date ?? null,
       warranty_end_date: unit.warranty_end_date ?? null,
+      commissioning_status: unit.commissioning_status ?? (unit.build_stage === 'commissioned' ? 'commissioned' : 'not_required'),
     }
   }
 
@@ -129,6 +142,11 @@ function SiteChecklist({ site, canEdit }: { site: SiteSummaryV2; canEdit: boolea
 
   function setWarrantyDate(unit: UnitRow, field: 'warranty_start_date' | 'warranty_end_date', value: string) {
     setChanges(prev => ({ ...prev, [unit.id]: { ...baseline(unit), [field]: value || null } }))
+    setSaved(false)
+  }
+
+  function setCommissioningStatus(unit: UnitRow, value: string) {
+    setChanges(prev => ({ ...prev, [unit.id]: { ...baseline(unit), commissioning_status: value } }))
     setSaved(false)
   }
 
@@ -156,7 +174,7 @@ function SiteChecklist({ site, canEdit }: { site: SiteSummaryV2; canEdit: boolea
     {loading && <div className="x-state"><h1>Loading units</h1></div>}
 
     {!loading && <div className="x-lean-issues x-commissioning-units">
-      <div className="x-commissioning-unit-head"><span>Unit</span><span>Type</span><span>Status</span><span>Production stage</span></div>
+      <div className="x-commissioning-unit-head"><span>Unit</span><span>Type</span><span>Operational</span><span>Commissioning status</span><span>Production stage</span></div>
       {units.map(unit => {
         const change = changes[unit.id]
         const stage = change?.build_stage ?? unit.build_stage ?? 'production'
@@ -165,10 +183,12 @@ function SiteChecklist({ site, canEdit }: { site: SiteSummaryV2; canEdit: boolea
         const warrantyEnd = change ? change.warranty_end_date : unit.warranty_end_date ?? null
         const stageIndex = STAGES.findIndex(s => s.key === stage)
         const phase = warrantyPhase({ warranty_end_date: warrantyEnd })
+        const commissioningStatus = change?.commissioning_status ?? unit.commissioning_status ?? (stage === 'commissioned' ? 'commissioned' : 'not_required')
         return <div className="x-commissioning-unit-row" key={unit.id}>
           <span><strong>{unit.tag}</strong></span>
           <span>{unit.unit_type || '—'}</span>
           <span>{unit.status}</span>
+          <span><select className={`x-commissioning-status is-${commissioningStatus}`} value={commissioningStatus} disabled={!canEdit} onChange={e => setCommissioningStatus(unit, e.target.value)}>{COMMISSIONING_STATUSES.map(status => <option key={status.key} value={status.key}>{status.label}</option>)}</select></span>
           <span className="x-stage-cell">
             <div className="x-stage-track">
               {STAGES.map((s, i) => <button key={s.key} type="button" title={s.label} disabled={!canEdit}

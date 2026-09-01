@@ -58,6 +58,7 @@ export interface JobSchedule {
   site_state?: string
   pm_id?: string
   work_order_number: string
+  unit_scope_mode: 'site_wide' | 'selected_units' | 'all_units' | 'all_fans'
   job_name: string
   job_type: string
   contract_number?: string
@@ -70,6 +71,7 @@ export interface JobSchedule {
   techs_needed: number
   technicians: Array<{ id: string; name: string; color?: string }>
   assignment_lines: JobAssignmentLine[]
+  units: Array<{ id: string; tag: string; unit_type?: string; serial_number?: string }>
   created_at: string
   updated_at: string
 }

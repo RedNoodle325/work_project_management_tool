@@ -85,6 +85,8 @@ export interface UnitV2 {
   unit_type?: string
   location_in_site?: string
   status: string
+  build_stage?: string
+  commissioning_status?: string
 }
 
 export interface AsrV2 {

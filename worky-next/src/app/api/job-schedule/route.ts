@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/requireAuth'
 import sql from '@/lib/db'
 import { ensureOpsSchema } from '@/lib/ensureOpsSchema'
 import { getJobSchedule, listJobSchedule } from '@/lib/jobSchedule'
+import { resolveWorkOrderUnitIds, type UnitScopeMode } from '@/lib/workOrderUnitScope'
 
 export async function GET(request: NextRequest) {
   const { error } = await requireAuth(request)
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
   }
 
   const jobType = String(body.job_type || 'Warranty')
+  const scopeMode: UnitScopeMode = ['selected_units', 'all_units', 'all_fans'].includes(body.unit_scope_mode) ? body.unit_scope_mode : 'site_wide'
   const prefix = jobType === 'Warranty' ? 'WAR' : jobType === 'Billable service' ? 'BSV' : jobType === 'Billable startup' ? 'BSU' : 'OTH'
   const job = await sql.begin(async tx => {
     const trx = tx as unknown as typeof sql
@@ -47,10 +49,12 @@ export async function POST(request: NextRequest) {
     const [sequence] = await trx`select coalesce(max(right(work_order_number, 3)::int), 0) + 1 as value from public.job_schedule where work_order_number like ${`WO-${stamp.day}-${prefix}-%`}`
     const number = `WO-${stamp.day}-${prefix}-${String(Number(sequence.value)).padStart(3, '0')}`
     const [created] = await trx`
-      INSERT INTO public.job_schedule (site_id, pm_id, work_order_number, job_name, job_type, contract_number, priority, status, notes)
+      INSERT INTO public.job_schedule (site_id, pm_id, work_order_number, job_name, job_type, contract_number, priority, status, notes, unit_scope_mode)
       VALUES (${body.site_id}, ${body.pm_id ?? null}, ${number}, ${body.job_name}, ${jobType}, ${body.contract_number ?? null},
-        COALESCE(${body.priority ?? null}, 3), COALESCE(${body.status ?? null}, 'scheduled'), ${body.notes ?? null}) RETURNING *
+        COALESCE(${body.priority ?? null}, 3), COALESCE(${body.status ?? null}, 'scheduled'), ${body.notes ?? null}, ${scopeMode}) RETURNING *
     `
+    const unitIds = await resolveWorkOrderUnitIds(trx, body.site_id, scopeMode, body.unit_ids)
+    for (const unitId of unitIds) await trx`insert into public.job_schedule_units (job_id, unit_id) values (${created.id}, ${unitId}) on conflict do nothing`
     return created
   })
   return NextResponse.json(await getJobSchedule(job.id), { status: 201 })

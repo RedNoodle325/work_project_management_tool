@@ -5,7 +5,7 @@ import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, ListChecks, Penc
 import { V2 } from '@/api/v2'
 import { Ops } from '@/api/ops'
 import type { JobAssignmentLine, JobSchedule, JobStatus, Technician, TechnicianCalendarEvent, TechnicianEventType } from '@/types/ops'
-import type { SiteSummaryV2 } from '@/types/v2'
+import type { SiteSummaryV2, UnitV2 } from '@/types/v2'
 
 const JOB_TYPES = ['Warranty', 'Billable service', 'Billable startup', 'Other']
 const STATUSES: JobStatus[] = ['scheduled', 'in_progress', 'on_hold', 'closed', 'cancelled']
@@ -143,7 +143,7 @@ export function Scheduler() {
       <div className="x-lean-issues x-work-orders">
         <div className="x-work-order-head"><span>Work order</span><span>Site</span><span>Dates</span><span>Techs</span><span>Status</span><span /></div>
         {filteredOrders.map(job => <div className="x-work-order-row" key={job.id}>
-          <span><strong>{job.work_order_number}</strong><small>{job.job_name} · {job.job_type}{job.contract_number ? ` · ${job.contract_number}` : ''}</small></span>
+          <span><strong>{job.work_order_number}</strong><small>{job.job_name} · {job.job_type}{job.contract_number ? ` · ${job.contract_number}` : ''} · {job.unit_scope_mode === 'site_wide' ? 'Site-wide' : `${job.units.length} unit${job.units.length === 1 ? '' : 's'}`}</small></span>
           <span>{job.site_name}<small>{[job.site_city, job.site_state].filter(Boolean).join(', ')}</small></span>
           <span>{job.start_date ? new Date(`${job.start_date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'No visits yet'}{job.end_date ? ` – ${new Date(`${job.end_date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}<small>{job.assignment_lines.length} assignment {job.assignment_lines.length === 1 ? 'line' : 'lines'}</small></span>
           <span className="x-work-order-techs">{job.technicians.length ? job.technicians.map(t => <b key={t.id} style={{ background: techColor(t, technicians) }} title={t.name}>{t.name.split(' ').map(p => p[0]).join('').slice(0, 2)}</b>) : <em>Unassigned</em>}</span>
@@ -354,7 +354,10 @@ function JobModal({ job, sites, technicians, events, close, changed }: { job: Jo
     site_id: job?.site_id || '', job_name: job?.job_name || '', job_type: job?.job_type || 'Warranty',
     contract_number: job?.contract_number || '', priority: job?.priority ?? 3,
     status: job?.status || 'scheduled' as JobStatus, notes: job?.notes || '',
+    unit_scope_mode: job?.unit_scope_mode || 'site_wide' as JobSchedule['unit_scope_mode'],
   })
+  const [siteUnits, setSiteUnits] = useState<UnitV2[]>([])
+  const [unitIds, setUnitIds] = useState<string[]>(job?.units.map(unit => unit.id) || [])
   const [editLine, setEditLine] = useState<JobAssignmentLine | 'new' | null>(null)
   const [showSiteCreator, setShowSiteCreator] = useState(false)
   const [projectNumber, setProjectNumber] = useState('')
@@ -362,6 +365,15 @@ function JobModal({ job, sites, technicians, events, close, changed }: { job: Jo
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const set = <K extends keyof typeof form>(field: K) => (value: typeof form[K]) => setForm(current => ({ ...current, [field]: value }))
+  useEffect(() => {
+    if (!form.site_id) return
+    Ops.units.forSite(form.site_id).then(setSiteUnits).catch(() => setSiteUnits([]))
+  }, [form.site_id])
+
+  const scopedUnits = form.unit_scope_mode === 'all_units' ? siteUnits
+    : form.unit_scope_mode === 'all_fans' ? siteUnits.filter(unit => `${unit.unit_type || ''} ${unit.tag}`.toLowerCase().includes('fan'))
+    : form.unit_scope_mode === 'selected_units' ? siteUnits.filter(unit => unitIds.includes(unit.id)) : []
+  const toggleUnit = (id: string) => setUnitIds(current => current.includes(id) ? current.filter(unitId => unitId !== id) : [...current, id])
 
   async function createSite(attach: boolean) {
     if (!projectNumber.trim()) return setError('Project number is required to make a job site.')
@@ -375,8 +387,9 @@ function JobModal({ job, sites, technicians, events, close, changed }: { job: Jo
   async function submit(e: FormEvent) {
     e.preventDefault(); setSaving(true); setError('')
     try {
-      const result = currentJob ? await Ops.jobSchedule.update(currentJob.id, form) : await Ops.jobSchedule.create(form)
-      setCurrentJob(result); changed()
+      const payload = { ...form, unit_ids: unitIds }
+      const result = currentJob ? await Ops.jobSchedule.update(currentJob.id, payload) : await Ops.jobSchedule.create(payload)
+      setCurrentJob(result); setUnitIds(result.units.map(unit => unit.id)); changed()
     } catch (err) { setError((err as Error).message) } finally { setSaving(false) }
   }
   async function refresh() {
@@ -395,11 +408,14 @@ function JobModal({ job, sites, technicians, events, close, changed }: { job: Jo
   return <><div className="x-modal-backdrop" onMouseDown={e => e.target === e.currentTarget && close()}><div className="x-modal x-modal-wide x-work-order-modal">
     <form onSubmit={submit}>
       <header><div><span className="x-kicker">{currentJob?.work_order_number || 'New work order'}</span><h2>{currentJob?.job_name || 'Create work order'}</h2></div><button type="button" onClick={close}><X size={18} /></button></header>
-      <div className="x-job-site-field"><label className="x-field"><span>Job site</span><select value={form.site_id} onChange={e => set('site_id')(e.target.value)} required disabled={!!currentJob}><option value="">Choose a site</option>{siteOptions.map(site => <option value={site.id} key={site.id}>{site.name}{site.project_number ? ` · Project ${site.project_number}` : ''}</option>)}</select></label>{!currentJob && <button type="button" className="x-inline-create" onClick={() => setShowSiteCreator(value => !value)}><Plus size={14} /> {showSiteCreator ? 'Cancel' : 'Create job site'}</button>}</div>
+      <div className="x-job-site-field"><label className="x-field"><span>Job site</span><select value={form.site_id} onChange={e => { set('site_id')(e.target.value); if (!e.target.value) setSiteUnits([]) }} required disabled={!!currentJob}><option value="">Choose a site</option>{siteOptions.map(site => <option value={site.id} key={site.id}>{site.name}{site.project_number ? ` · Project ${site.project_number}` : ''}</option>)}</select></label>{!currentJob && <button type="button" className="x-inline-create" onClick={() => setShowSiteCreator(value => !value)}><Plus size={14} /> {showSiteCreator ? 'Cancel' : 'Create job site'}</button>}</div>
       {showSiteCreator && <div className="x-job-site-create"><div className="x-form-row"><label className="x-field"><span>Project number</span><input value={projectNumber} onChange={e => setProjectNumber(e.target.value)} required /></label><label className="x-field"><span>Site ZIP (optional)</span><input value={siteZip} onChange={e => setSiteZip(e.target.value)} /></label></div><p>Only the project number is required. The ZIP enables technician mileage.</p><div>{form.site_id && <button type="button" onClick={() => void createSite(true)}>Add number to selected site</button>}<button type="button" className="primary" onClick={() => void createSite(false)}>Create and use site</button></div></div>}
       <label className="x-field"><span>Job name</span><input value={form.job_name} onChange={e => set('job_name')(e.target.value)} required placeholder="e.g. RTU-4 warranty repair" /></label>
       <div className="x-form-row"><label className="x-field"><span>Type</span><select value={form.job_type} onChange={e => set('job_type')(e.target.value)} disabled={!!currentJob}>{JOB_TYPES.map(type => <option key={type}>{type}</option>)}</select></label><label className="x-field"><span>Priority (1 highest–5 lowest)</span><input type="number" min={1} max={5} value={form.priority} onChange={e => set('priority')(Number(e.target.value))} /></label></div>
       <div className="x-form-row"><label className="x-field"><span>Status</span><select value={form.status} onChange={e => set('status')(e.target.value as JobStatus)}>{STATUSES.map(status => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select></label><label className="x-field"><span>Contract / PO number</span><input value={form.contract_number} onChange={e => set('contract_number')(e.target.value)} /></label></div>
+      <label className="x-field"><span>Affected equipment</span><select value={form.unit_scope_mode} onChange={e => set('unit_scope_mode')(e.target.value as JobSchedule['unit_scope_mode'])} disabled={!form.site_id}><option value="site_wide">Site-wide / no specific units</option><option value="selected_units">Selected units</option><option value="all_units">All units at this site</option><option value="all_fans">All fans at this site</option></select></label>
+      {form.unit_scope_mode === 'selected_units' && <div className="x-unit-scope-picker">{siteUnits.map(unit => <label key={unit.id} className={unitIds.includes(unit.id) ? 'is-picked' : ''}><input type="checkbox" checked={unitIds.includes(unit.id)} onChange={() => toggleUnit(unit.id)} /><span><strong>{unit.tag}</strong><small>{unit.unit_type || 'Unit'}{unit.serial_number ? ` · ${unit.serial_number}` : ''}</small></span></label>)}{!siteUnits.length && <p>No units have been added to this site yet.</p>}</div>}
+      {(form.unit_scope_mode === 'all_units' || form.unit_scope_mode === 'all_fans') && <p className="x-unit-scope-summary"><strong>{scopedUnits.length}</strong> {form.unit_scope_mode === 'all_fans' ? 'fan' : 'unit'}{scopedUnits.length === 1 ? '' : 's'} will be attached to this work order.{scopedUnits.length ? ` ${scopedUnits.map(unit => unit.tag).join(', ')}` : ''}</p>}
       <label className="x-field"><span>Work-order notes</span><textarea rows={2} value={form.notes} onChange={e => set('notes')(e.target.value)} /></label>
       {error && <p className="x-error">{error}</p>}
       <footer>{currentJob && <button type="button" onClick={remove} className="x-danger-text"><Trash2 size={13} /> Delete</button>}<span style={{ flex: 1 }} /><button type="button" onClick={close}>{currentJob ? 'Done' : 'Cancel'}</button><button className="primary" disabled={saving}>{saving ? 'Saving…' : currentJob ? 'Save work order' : 'Create work order'}</button></footer>
