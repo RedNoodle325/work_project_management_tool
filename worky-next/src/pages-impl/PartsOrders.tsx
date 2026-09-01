@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { Package, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import { V2 } from '@/api/v2'
 import { Ops } from '@/api/ops'
 import type { PartsOrder, PartsOrderStatus } from '@/types/ops'
@@ -48,10 +48,10 @@ export function PartsOrders() {
       <div className="x-issue-actions"><button className="primary" onClick={() => setEditOrder('new')}><Plus size={16} /> New part order</button></div>
     </header>
 
-    <div className="x-stat-row" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-      <div className="x-stat"><span><Package size={18} /></span><div><strong>{orders.length}</strong><small>Total part orders</small></div></div>
-      <div className="x-stat is-warn"><span><Package size={18} /></span><div><strong>{openCount}</strong><small>Still open</small></div></div>
-      <div className="x-stat is-live"><span><Package size={18} /></span><div><strong>{orders.filter(o => o.status === 'installed').length}</strong><small>Installed</small></div></div>
+    <div className="x-parts-summary" aria-label="Part order summary">
+      <div><strong>{orders.length}</strong><span>Total orders</span></div>
+      <div className="is-open"><strong>{openCount}</strong><span>Still open</span></div>
+      <div className="is-installed"><strong>{orders.filter(o => o.status === 'installed').length}</strong><span>Installed</span></div>
     </div>
 
     <div className="x-issue-toolbar">
@@ -62,7 +62,7 @@ export function PartsOrders() {
 
     {error && <div className="x-load-panel"><strong>Couldn&apos;t load part orders</strong><p>{error}</p></div>}
     {!error && loading && <div className="x-state"><h1>Loading part orders</h1><p>Gathering the latest orders…</p></div>}
-    {!error && !loading && <div className="x-lean-issues x-parts-orders">
+    {!error && !loading && filtered.length > 0 && <div className="x-lean-issues x-parts-orders">
       <div className="x-parts-order-head"><span>Part</span><span>Site</span><span>Qty</span><span>Supplier / Order #</span><span>Status</span><span /></div>
       {filtered.map(order => <div className="x-parts-order-row" key={order.id}>
         <span><strong>{order.description}</strong><small>{order.part_number || 'No part #'}{order.job_name ? ` · ${order.job_name}` : ''}</small></span>
@@ -72,8 +72,13 @@ export function PartsOrders() {
         <span><em className={`x-wo-status is-${order.status}`}>{STATUS_LABELS[order.status]}</em></span>
         <span><button className="x-issue-icon-action" onClick={() => setEditOrder(order)} title="Edit"><Pencil size={14} /></button></span>
       </div>)}
-      {!filtered.length && <div className="x-resource-empty"><Package size={30} /><strong>No part orders found</strong><p>Add a part order to start tracking it.</p><button onClick={() => setEditOrder('new')}><Plus size={15} /> New part order</button></div>}
     </div>}
+    {!error && !loading && filtered.length === 0 && <section className="x-parts-empty">
+      <span>{orders.length ? 'No matches' : 'Ready when you are'}</span>
+      <h2>{orders.length ? 'No part orders match these filters' : 'No part orders yet'}</h2>
+      <p>{orders.length ? 'Choose a different site or status to see more orders.' : 'Create the first order and track it from needed through installation.'}</p>
+      <div>{orders.length && <button type="button" onClick={() => setFilter({ siteId: '', status: '' })}>Clear filters</button>}<button type="button" className="primary" onClick={() => setEditOrder('new')}><Plus size={15} /> New part order</button></div>
+    </section>}
 
     {editOrder && <PartsOrderModal order={editOrder === 'new' ? null : editOrder} sites={sites} close={() => setEditOrder(null)} saved={() => { setEditOrder(null); load() }} />}
   </div>

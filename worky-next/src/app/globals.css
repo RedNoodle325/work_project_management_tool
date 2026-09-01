@@ -906,11 +906,38 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* Readable application rhythm and open-workspace screens. */
 .x-page, .x-site-page { max-width: 1280px; padding: 42px 40px 84px; }
 .x-scheduler-ops-page { max-width: 1500px; }
-.x-parts-orders-page { max-width: 1220px; }
-.x-parts-orders-page .x-directory-head { margin-bottom: 26px; }
-.x-parts-orders-page .x-stat-row { gap: 16px; margin-bottom: 24px; }
-.x-parts-orders-page .x-stat { min-height: 104px; padding: 20px; }
-.x-parts-orders-page .x-issue-toolbar { margin: 0 0 18px; }
+.x-parts-orders-page { max-width: 1420px; padding-top: 54px; }
+.x-parts-orders-page .x-directory-head { margin-bottom: 38px; padding-bottom: 28px; }
+.x-parts-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 36px; border-block: 1px solid var(--border-subtle); }
+.x-parts-summary > div { min-height: 112px; display: grid; align-content: center; gap: 9px; padding: 24px 30px; }
+.x-parts-summary > div + div { border-left: 1px solid var(--border-subtle); }
+.x-parts-summary strong { color: var(--text-primary); font-size: 38px; font-weight: 650; line-height: 1; }
+.x-parts-summary span { color: var(--text-tertiary); font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.x-parts-summary .is-open strong { color: var(--amber); }
+.x-parts-summary .is-installed strong { color: var(--terra); }
+.x-parts-orders-page .x-issue-toolbar { gap: 12px; margin: 0 0 24px; }
+.x-parts-orders-page .x-issue-toolbar select { min-width: 220px; min-height: 44px; padding-inline: 15px 38px; }
+.x-parts-orders-page .x-issue-toolbar > span { margin-left: auto; }
+.x-parts-orders-page .x-parts-order-head, .x-parts-orders-page .x-parts-order-row { grid-template-columns: minmax(240px, 1.6fr) minmax(170px, 1.1fr) 70px minmax(190px, 1fr) 120px 36px; gap: 28px; }
+.x-parts-orders-page .x-parts-order-head { padding: 14px 20px; }
+.x-parts-orders-page .x-parts-order-row { min-height: 76px; padding: 18px 20px; }
+.x-parts-empty { min-height: 340px; display: grid; justify-items: start; align-content: center; padding: 64px; border: 1px solid var(--border-subtle); background: var(--surface-card); }
+.x-parts-empty > span { color: var(--lime); font-size: 9px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
+.x-parts-empty h2 { margin: 13px 0 10px; color: var(--text-primary); font: 650 30px/1.15 var(--font); }
+.x-parts-empty p { max-width: 520px; margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.65; }
+.x-parts-empty div { display: flex; gap: 10px; margin-top: 26px; }
+.x-parts-empty button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 0 16px; color: var(--text-primary); border: 1px solid var(--border-default); background: transparent; cursor: pointer; font-size: 11px; font-weight: 750; }
+.x-parts-empty button.primary { color: #081207; border-color: var(--lime); background: var(--lime); }
+
+@media (max-width: 760px) {
+  .x-parts-orders-page { padding-top: 34px; }
+  .x-parts-summary { grid-template-columns: 1fr; }
+  .x-parts-summary > div { min-height: 84px; padding: 18px 20px; }
+  .x-parts-summary > div + div { border-top: 1px solid var(--border-subtle); border-left: 0; }
+  .x-parts-orders-page .x-issue-toolbar select { width: 100%; min-width: 0; }
+  .x-parts-orders-page .x-issue-toolbar > span { width: 100%; margin: 4px 0 0; }
+  .x-parts-empty { min-height: 300px; padding: 34px 24px; }
+}
 .x-load-panel { padding: 22px 24px; color: var(--text-primary); border-color: var(--border-subtle); border-radius: 0; background: var(--surface-card); }
 .x-load-panel strong { color: var(--text-primary); font-size: 17px; }
 .x-load-panel p { color: var(--text-tertiary); }
