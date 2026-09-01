@@ -10,18 +10,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const body = await request.json()
   if (!body.start_date || !body.end_date || body.end_date < body.start_date) return NextResponse.json({ error: 'Enter a valid start and end date' }, { status: 400 })
   const result = await sql.begin(async tx => {
-    const [job] = await tx`select status from public.job_schedule where id = ${id} for update`
+    const trx = tx as unknown as typeof sql
+    const [job] = await trx`select status from public.job_schedule where id = ${id} for update`
     if (!job) return null
     if (job.status === 'closed' || job.status === 'cancelled') throw new Error('Reopen this work order before changing assignments.')
-    const [line] = await tx`
+    const [line] = await trx`
       update public.job_schedule_lines set start_date=${body.start_date}, end_date=${body.end_date},
         techs_needed=${body.techs_needed ?? 1}, scope=${body.scope ?? null}, notes=${body.notes ?? null}, updated_at=now()
       where id=${lineId} and job_id=${id} returning *
     `
     if (!line) return null
-    await tx`delete from public.job_schedule_line_techs where line_id=${lineId}`
+    await trx`delete from public.job_schedule_line_techs where line_id=${lineId}`
     const technicianIds: string[] = Array.isArray(body.technician_ids) ? body.technician_ids : []
-    for (const technicianId of technicianIds) await tx`insert into public.job_schedule_line_techs (line_id, technician_id) values (${lineId}, ${technicianId}) on conflict do nothing`
+    for (const technicianId of technicianIds) await trx`insert into public.job_schedule_line_techs (line_id, technician_id) values (${lineId}, ${technicianId}) on conflict do nothing`
     return line
   }).catch(errorValue => ({ error: errorValue instanceof Error ? errorValue.message : 'Could not update assignment' }))
   if (!result) return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })

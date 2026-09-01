@@ -40,12 +40,13 @@ export async function POST(request: NextRequest) {
   const jobType = String(body.job_type || 'Warranty')
   const prefix = jobType === 'Warranty' ? 'WAR' : jobType === 'Billable service' ? 'BSV' : jobType === 'Billable startup' ? 'BSU' : 'OTH'
   const job = await sql.begin(async tx => {
-    const [stamp] = await tx`select to_char(now() at time zone 'America/New_York', 'YYYYMMDD') as day`
+    const trx = tx as unknown as typeof sql
+    const [stamp] = await trx`select to_char(now() at time zone 'America/New_York', 'YYYYMMDD') as day`
     const lockKey = `work-order:${stamp.day}:${prefix}`
-    await tx`select pg_advisory_xact_lock(hashtext(${lockKey}))`
-    const [sequence] = await tx`select coalesce(max(right(work_order_number, 3)::int), 0) + 1 as value from public.job_schedule where work_order_number like ${`WO-${stamp.day}-${prefix}-%`}`
+    await trx`select pg_advisory_xact_lock(hashtext(${lockKey}))`
+    const [sequence] = await trx`select coalesce(max(right(work_order_number, 3)::int), 0) + 1 as value from public.job_schedule where work_order_number like ${`WO-${stamp.day}-${prefix}-%`}`
     const number = `WO-${stamp.day}-${prefix}-${String(Number(sequence.value)).padStart(3, '0')}`
-    const [created] = await tx`
+    const [created] = await trx`
       INSERT INTO public.job_schedule (site_id, pm_id, work_order_number, job_name, job_type, contract_number, priority, status, notes)
       VALUES (${body.site_id}, ${body.pm_id ?? null}, ${number}, ${body.job_name}, ${jobType}, ${body.contract_number ?? null},
         COALESCE(${body.priority ?? null}, 3), COALESCE(${body.status ?? null}, 'scheduled'), ${body.notes ?? null}) RETURNING *
