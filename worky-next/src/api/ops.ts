@@ -1,5 +1,6 @@
 import { getToken } from './index'
 import type { JobSchedule, PartsOrder, Technician } from '@/types/ops'
+import type { SiteSummaryV2 } from '@/types/v2'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken()
@@ -20,8 +21,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const Ops = {
+  jobSites: {
+    create: (projectNumber: string, siteId?: string, siteZip?: string) => request<{ site: SiteSummaryV2; created_site: boolean; added_project: boolean }>('/api/job-sites', {
+      method: 'POST',
+      body: JSON.stringify({ project_number: projectNumber, site_id: siteId || undefined, site_zip: siteZip || undefined }),
+    }),
+  },
   technicians: {
     list: () => request<Technician[]>('/api/technicians'),
+    forSite: (siteId: string) => request<Technician[]>(`/api/dispatch/techs-for-site/${siteId}`),
     create: (data: Record<string, unknown>) => request<Technician>('/api/technicians', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, unknown>) => request<Technician>(`/api/technicians/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => request<void>(`/api/technicians/${id}`, { method: 'DELETE' }),

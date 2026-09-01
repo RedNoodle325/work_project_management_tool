@@ -7,11 +7,21 @@ async function initialize() {
   await sql`alter table public.sites add column if not exists longitude numeric(9,6)`
   await sql`
     create table if not exists public.technicians (
-      id uuid primary key default gen_random_uuid(), name text not null, phone text, email text,
+      id uuid primary key default gen_random_uuid(), name text not null, first_name text, last_name text,
+      phone text, email text, home_zip text,
       location_city text, location_state text, latitude numeric(9,6), longitude numeric(9,6),
       color text, is_active boolean not null default true, notes text,
       created_at timestamptz not null default now(), updated_at timestamptz not null default now()
     )
+  `
+  await sql`alter table public.technicians add column if not exists first_name text`
+  await sql`alter table public.technicians add column if not exists last_name text`
+  await sql`alter table public.technicians add column if not exists home_zip text`
+  await sql`
+    update public.technicians
+    set first_name = coalesce(first_name, split_part(name, ' ', 1)),
+        last_name = coalesce(last_name, case when position(' ' in name) > 0 then btrim(substr(name, position(' ' in name) + 1)) else '' end)
+    where first_name is null or last_name is null
   `
   await sql`
     create table if not exists public.job_schedule (
@@ -40,6 +50,7 @@ async function initialize() {
     )
   `
   await sql`create index if not exists job_schedule_site_idx on public.job_schedule(site_id)`
+  await sql`create index if not exists technicians_home_zip_idx on public.technicians(home_zip) where home_zip is not null`
   await sql`create index if not exists job_schedule_dates_idx on public.job_schedule(start_date, end_date)`
   await sql`create index if not exists job_schedule_techs_tech_idx on public.job_schedule_techs(technician_id)`
   await sql`create index if not exists parts_orders_site_status_idx on public.parts_orders(site_id, status)`

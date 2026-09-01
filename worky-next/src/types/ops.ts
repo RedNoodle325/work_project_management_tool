@@ -1,12 +1,17 @@
 export interface Technician {
   id: string
   name: string
+  first_name?: string
+  last_name?: string
   phone?: string
   email?: string
+  home_zip?: string
   location_city?: string
   location_state?: string
   latitude?: number
   longitude?: number
+  distance_miles?: number | string | null
+  distance_kind?: 'driving' | 'straight_line'
   color?: string
   is_active: boolean
   notes?: string

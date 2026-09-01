@@ -28,6 +28,9 @@ function techColor(tech: { id: string; color?: string } | undefined, technicians
   const idx = technicians.findIndex(t => t.id === tech?.id)
   return TECH_COLORS[idx >= 0 ? idx % TECH_COLORS.length : 0]
 }
+function technicianName(tech: Pick<Technician, 'name' | 'first_name' | 'last_name'>) {
+  return [tech.first_name, tech.last_name].filter(Boolean).join(' ') || tech.name
+}
 
 export function Scheduler() {
   const canEdit = true
@@ -102,7 +105,7 @@ export function Scheduler() {
         <div className="x-sched-corner" />
         {weekDays.map(day => <div className="x-sched-daylabel" key={toISODate(day)}>{DAY_NAMES[(day.getDay() + 6) % 7]}<span>{day.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}</span></div>)}
         {activeTechs.map(tech => <div className="x-sched-row" key={tech.id}>
-          <div className="x-sched-tech"><i style={{ background: techColor(tech, technicians) }} />{tech.name}<small>{[tech.location_city, tech.location_state].filter(Boolean).join(', ') || 'No home base set'}</small></div>
+          <div className="x-sched-tech"><i style={{ background: techColor(tech, technicians) }} />{technicianName(tech)}<small>{tech.home_zip ? `Home ZIP ${tech.home_zip}` : [tech.location_city, tech.location_state].filter(Boolean).join(', ') || 'No home ZIP set'}</small></div>
           {weekDays.map(day => {
             const dayJobs = weekJobs.filter(job => job.technicians.some(t => t.id === tech.id) && jobActiveOn(job, day))
             return <div className="x-sched-cell" key={toISODate(day)}>
@@ -158,7 +161,7 @@ function TechniciansModal({ technicians, close, changed }: { technicians: Techni
     catch (err) { setError((err as Error).message) }
   }
   async function remove(tech: Technician) {
-    if (!confirm(`Remove ${tech.name} from the technician roster?`)) return
+    if (!confirm(`Remove ${technicianName(tech)} from the technician roster?`)) return
     try { await Ops.technicians.delete(tech.id); changed() }
     catch (err) { setError((err as Error).message) }
   }
@@ -169,7 +172,7 @@ function TechniciansModal({ technicians, close, changed }: { technicians: Techni
       {error && <p className="x-error">{error}</p>}
       <div className="x-tech-list">
         {technicians.map(tech => <div className="x-tech-row" key={tech.id}>
-          <div><strong>{tech.name}</strong><small>{[tech.location_city, tech.location_state].filter(Boolean).join(', ') || 'No home base set'}{tech.phone ? ` · ${tech.phone}` : ''}</small></div>
+          <div><strong>{technicianName(tech)}</strong><small>{tech.home_zip ? `Home ZIP ${tech.home_zip}` : 'No home ZIP set'}{[tech.location_city, tech.location_state].filter(Boolean).length ? ` · ${[tech.location_city, tech.location_state].filter(Boolean).join(', ')}` : ''}{tech.phone ? ` · ${tech.phone}` : ''}</small></div>
           <div className="x-tech-row-actions">
             <button onClick={() => toggleActive(tech)}>{tech.is_active ? 'Deactivate' : 'Reactivate'}</button>
             <button onClick={() => setEditing(tech)}><Pencil size={13} /></button>
@@ -185,9 +188,10 @@ function TechniciansModal({ technicians, close, changed }: { technicians: Techni
 }
 
 function TechnicianForm({ technician, cancel, saved }: { technician: Technician | null; cancel: () => void; saved: () => void }) {
+  const legacyParts = (technician?.name || '').trim().split(/\s+/)
   const [form, setForm] = useState({
-    name: technician?.name || '', phone: technician?.phone || '', email: technician?.email || '',
-    location_city: technician?.location_city || '', location_state: technician?.location_state || '', notes: technician?.notes || '',
+    first_name: technician?.first_name || legacyParts[0] || '', last_name: technician?.last_name || legacyParts.slice(1).join(' '),
+    phone: technician?.phone || '', email: technician?.email || '', home_zip: technician?.home_zip || '', notes: technician?.notes || '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -203,8 +207,8 @@ function TechnicianForm({ technician, cancel, saved }: { technician: Technician 
   }
 
   return <form className="x-tech-form" onSubmit={submit}>
-    <div className="x-form-row"><label className="x-field"><span>Name</span><input value={form.name} onChange={e => set('name')(e.target.value)} required /></label><label className="x-field"><span>Phone</span><input value={form.phone} onChange={e => set('phone')(e.target.value)} /></label></div>
-    <div className="x-form-row"><label className="x-field"><span>Home city</span><input value={form.location_city} onChange={e => set('location_city')(e.target.value)} /></label><label className="x-field"><span>Home state</span><input value={form.location_state} onChange={e => set('location_state')(e.target.value)} maxLength={2} /></label></div>
+    <div className="x-form-row"><label className="x-field"><span>First name</span><input value={form.first_name} onChange={e => set('first_name')(e.target.value)} required /></label><label className="x-field"><span>Last name</span><input value={form.last_name} onChange={e => set('last_name')(e.target.value)} required /></label></div>
+    <div className="x-form-row"><label className="x-field"><span>Home ZIP</span><input inputMode="numeric" pattern="[0-9]{5}(-[0-9]{4})?" value={form.home_zip} onChange={e => set('home_zip')(e.target.value)} placeholder="e.g. 21201" required /></label><label className="x-field"><span>Phone</span><input value={form.phone} onChange={e => set('phone')(e.target.value)} /></label></div>
     <label className="x-field"><span>Email</span><input type="email" value={form.email} onChange={e => set('email')(e.target.value)} /></label>
     <label className="x-field"><span>Notes</span><textarea rows={2} value={form.notes} onChange={e => set('notes')(e.target.value)} /></label>
     {error && <p className="x-error">{error}</p>}
@@ -213,18 +217,53 @@ function TechnicianForm({ technician, cancel, saved }: { technician: Technician 
 }
 
 function JobModal({ job, sites, technicians, close, saved }: { job: JobSchedule | null; sites: SiteSummaryV2[]; technicians: Technician[]; close: () => void; saved: () => void }) {
+  const [siteOptions, setSiteOptions] = useState(sites)
   const [form, setForm] = useState({
     site_id: job?.site_id || '', job_name: job?.job_name || '', job_type: job?.job_type || 'Warranty',
     contract_number: job?.contract_number || '', priority: job?.priority ?? 3, start_date: job?.start_date || '', end_date: job?.end_date || '',
     status: job?.status || 'scheduled', scope: job?.scope || '', notes: job?.notes || '', techs_needed: job?.techs_needed ?? 1,
   })
   const [technicianIds, setTechnicianIds] = useState<string[]>(job?.technicians.map(t => t.id) || [])
+  const [siteTechnicians, setSiteTechnicians] = useState<{ siteId: string; rows: Technician[] } | null>(null)
+  const [showSiteCreator, setShowSiteCreator] = useState(false)
+  const [projectNumber, setProjectNumber] = useState('')
+  const [siteZip, setSiteZip] = useState('')
+  const [creatingSite, setCreatingSite] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const set = <K extends keyof typeof form>(field: K) => (value: typeof form[K]) => setForm(current => ({ ...current, [field]: value }))
 
+  useEffect(() => {
+    if (!form.site_id) return
+    let current = true
+    Ops.technicians.forSite(form.site_id)
+      .then(rows => { if (current) setSiteTechnicians({ siteId: form.site_id, rows }) })
+      .catch(() => undefined)
+    return () => { current = false }
+  }, [form.site_id])
+
+  const assignmentTechs = siteTechnicians?.siteId === form.site_id ? siteTechnicians.rows : technicians
+
   function toggleTech(id: string) {
     setTechnicianIds(current => current.includes(id) ? current.filter(t => t !== id) : [...current, id])
+  }
+
+  async function createJobSite(attachToSelected: boolean) {
+    const number = projectNumber.trim()
+    if (!number) return setError('Project number is required to make a job site.')
+    setCreatingSite(true); setError('')
+    try {
+      const result = await Ops.jobSites.create(number, attachToSelected ? form.site_id : undefined, siteZip.trim())
+      setSiteOptions(current => current.some(site => site.id === result.site.id)
+        ? current.map(site => site.id === result.site.id
+          ? { ...site, project_numbers: Array.from(new Set([...(site.project_numbers || (site.project_number ? [site.project_number] : [])), number])) }
+          : site)
+        : [...current, { ...result.site, project_numbers: [number] }].sort((a, b) => a.name.localeCompare(b.name)))
+      set('site_id')(result.site.id)
+      setProjectNumber('')
+      setSiteZip('')
+      setShowSiteCreator(false)
+    } catch (err) { setError((err as Error).message) } finally { setCreatingSite(false) }
   }
 
   async function submit(e: FormEvent) {
@@ -247,7 +286,18 @@ function JobModal({ job, sites, technicians, close, saved }: { job: JobSchedule 
   return <div className="x-modal-backdrop" onMouseDown={e => e.target === e.currentTarget && close()}>
     <form className="x-modal x-modal-wide" onSubmit={submit}>
       <header><div><span className="x-kicker">{job ? 'Edit' : 'New'} work order</span><h2>{job ? job.job_name : 'New work order'}</h2></div><button type="button" onClick={close}><X size={18} /></button></header>
-      <label className="x-field"><span>Site</span><select value={form.site_id} onChange={e => set('site_id')(e.target.value)} required><option value="">Choose a site</option>{sites.map(s => <option value={s.id} key={s.id}>{s.name}</option>)}</select></label>
+      <div className="x-job-site-field">
+        <label className="x-field"><span>Job site</span><select value={form.site_id} onChange={e => set('site_id')(e.target.value)} required><option value="">Choose a site</option>{siteOptions.map(s => <option value={s.id} key={s.id}>{s.name}{(s.project_numbers?.length || s.project_number) ? ` · Project ${(s.project_numbers?.length ? s.project_numbers : [s.project_number]).filter(Boolean).join(', ')}` : ''}</option>)}</select></label>
+        <button type="button" className="x-inline-create" onClick={() => setShowSiteCreator(value => !value)}><Plus size={14} /> {showSiteCreator ? 'Cancel' : 'Create job site'}</button>
+      </div>
+      {showSiteCreator && <div className="x-job-site-create">
+        <div className="x-form-row"><label className="x-field"><span>Project number</span><input autoFocus value={projectNumber} onChange={event => setProjectNumber(event.target.value)} placeholder="e.g. 10024" /></label><label className="x-field"><span>Site ZIP (optional)</span><input inputMode="numeric" value={siteZip} onChange={event => setSiteZip(event.target.value)} placeholder="Enables mileage" /></label></div>
+        <p>Only the project number is required. A site ZIP lets the scheduler calculate technician mileage immediately; everything else can be completed later.</p>
+        <div>
+          {form.site_id && <button type="button" disabled={creatingSite || !projectNumber.trim()} onClick={() => void createJobSite(true)}>Add number to selected site</button>}
+          <button type="button" className="primary" disabled={creatingSite || !projectNumber.trim()} onClick={() => void createJobSite(false)}>{creatingSite ? 'Creating…' : 'Create and use new site'}</button>
+        </div>
+      </div>}
       <label className="x-field"><span>Job name</span><input value={form.job_name} onChange={e => set('job_name')(e.target.value)} required placeholder="e.g. Q3 PM visit, RTU-4 warranty repair" /></label>
       <div className="x-form-row">
         <label className="x-field"><span>Type</span><select value={form.job_type} onChange={e => set('job_type')(e.target.value)}>{JOB_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></label>
@@ -265,9 +315,9 @@ function JobModal({ job, sites, technicians, close, saved }: { job: JobSchedule 
       <label className="x-field"><span>Scope of work</span><textarea rows={3} value={form.scope} onChange={e => set('scope')(e.target.value)} /></label>
       <label className="x-field"><span>Notes</span><textarea rows={2} value={form.notes} onChange={e => set('notes')(e.target.value)} /></label>
       <label className="x-field"><span>Assign technicians</span>
-        <div className="x-tech-picker">{technicians.map(tech => <label key={tech.id} className={technicianIds.includes(tech.id) ? 'is-picked' : ''}>
-          <input type="checkbox" checked={technicianIds.includes(tech.id)} onChange={() => toggleTech(tech.id)} />{tech.name}
-        </label>)}{!technicians.length && <small>No active technicians yet.</small>}</div>
+        <div className="x-tech-picker">{assignmentTechs.map(tech => <label key={tech.id} className={technicianIds.includes(tech.id) ? 'is-picked' : ''}>
+          <input type="checkbox" checked={technicianIds.includes(tech.id)} onChange={() => toggleTech(tech.id)} /><span>{technicianName(tech)}<small>{tech.distance_miles == null ? (tech.home_zip ? 'Site ZIP needed for mileage' : 'Home ZIP needed') : `${tech.distance_kind === 'driving' ? 'Approx.' : 'Est.'} ${Math.round(Number(tech.distance_miles))} mi from site`}</small></span>
+        </label>)}{!assignmentTechs.length && <small>No active technicians yet.</small>}</div>
       </label>
       {error && <p className="x-error">{error}</p>}
       <footer>

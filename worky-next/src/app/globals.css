@@ -856,6 +856,26 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .x-status-dot { border: 0; border-radius: 0; box-shadow: none !important; }
 .x-modal-backdrop { background: rgba(0,0,0,.78); }
 .x-modal footer button { border-radius: 0; background: transparent; }
+
+.x-job-site-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
+.x-job-site-field .x-field { margin-bottom: 0; }
+.x-inline-create { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 39px; padding: 0 12px; color: var(--lime); border: 1px solid var(--border-default); background: transparent; cursor: pointer; font: 700 11px/1 var(--font); text-transform: uppercase; letter-spacing: .05em; }
+.x-inline-create:hover { border-color: var(--lime); }
+.x-job-site-create { margin: 10px 0 17px; padding: 14px; border: 1px solid var(--border-default); background: var(--surface-soft); }
+.x-job-site-create .x-field { margin: 0; }
+.x-job-site-create p { margin: 8px 0 12px; color: var(--text-secondary); font-size: 12px; }
+.x-job-site-create > div { display: flex; justify-content: flex-end; gap: 8px; }
+.x-job-site-create button { padding: 9px 11px; color: var(--text-primary); border: 1px solid var(--border-default); background: transparent; cursor: pointer; font-size: 11px; font-weight: 700; }
+.x-job-site-create button.primary { color: #071006; border-color: var(--lime); background: var(--lime); }
+.x-job-site-create button:disabled { cursor: not-allowed; opacity: .45; }
+.x-tech-picker label > span { display: grid; gap: 2px; }
+.x-tech-picker label > span small { color: var(--text-secondary); font-size: 10px; font-weight: 500; }
+.x-tech-picker label.is-picked > span small { color: inherit; opacity: .72; }
+
+@media (max-width: 680px) {
+  .x-job-site-field { grid-template-columns: 1fr; }
+  .x-job-site-create > div { align-items: stretch; flex-direction: column; }
+}
 .x-sched-toolbar button, .x-sched-tech, .x-sched-cell, .x-sched-chip, .x-sched-unassigned,
 .x-tech-row-actions button, .x-tech-picker label, .x-commissioning-card, .x-stage-dot,
 .x-commissioning-unit-row select, .x-warranty-row input[type="date"] {

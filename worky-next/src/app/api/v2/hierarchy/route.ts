@@ -10,7 +10,12 @@ export async function GET(request: NextRequest) {
     const [customers, locations, sites] = await Promise.all([
       sql`select id, name, code, status from public.customers order by name`,
       sql`select id, customer_id, campus_code, name, city, state, status from public.locations order by campus_code`,
-      sql`select * from public.site_overview order by customer_name, campus_code nulls first, name`,
+      sql`
+        select so.*,
+          coalesce((select json_agg(p.project_number order by p.is_primary desc, p.created_at) from public.projects p where p.site_id = so.id), '[]'::json) as project_numbers
+        from public.site_overview so
+        order by so.customer_name, so.campus_code nulls first, so.name
+      `,
     ])
 
     return NextResponse.json(customers.map(customer => ({

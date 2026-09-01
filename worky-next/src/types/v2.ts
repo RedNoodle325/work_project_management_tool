@@ -27,6 +27,7 @@ export interface SiteSummaryV2 {
   customer_id: string
   customer_name?: string
   project_number?: string
+  project_numbers?: string[]
   representative_name?: string
   name: string
   site_code?: string

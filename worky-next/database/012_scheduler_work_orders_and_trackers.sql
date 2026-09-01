@@ -12,8 +12,11 @@ alter table public.sites add column if not exists longitude numeric(9,6);
 create table if not exists public.technicians (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  first_name text,
+  last_name text,
   phone text,
   email text,
+  home_zip text,
   location_city text,
   location_state text,
   latitude numeric(9,6),
