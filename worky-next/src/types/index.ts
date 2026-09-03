@@ -344,6 +344,7 @@ export interface ProjectManager {
 export interface ProjectJobSite {
   id: string
   name: string
+  customer_id?: string
   customer_name?: string
   city?: string
   state?: string
@@ -354,6 +355,11 @@ export interface ProjectJob {
   job_number: string
   project_code: string
   representative_code?: string
+  representative_id?: string
+  representative_name?: string
+  assigned_representative_code?: string
+  customer_id?: string
+  customer_name?: string
   name: string
   assigned_pm_id?: string
   assigned_pm_name?: string
@@ -371,6 +377,8 @@ export interface ProjectJobsResponse {
   jobs: ProjectJob[]
   project_managers: ProjectManager[]
   sites: ProjectJobSite[]
+  representatives: { id: string; name: string; code?: string }[]
+  customers: { id: string; name: string }[]
   current_user?: ProjectManager
 }
 

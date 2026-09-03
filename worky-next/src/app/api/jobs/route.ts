@@ -8,16 +8,19 @@ export async function GET(req: NextRequest) {
   if (error) return error
   await ensureProjectJobs()
 
-  const [jobs, projectManagers, sites, currentUser] = await Promise.all([
+  const [jobs, projectManagers, sites, representatives, customers, currentUser] = await Promise.all([
     sql`
       SELECT j.*, u.display_name AS assigned_pm_name, u.email AS assigned_pm_email,
+        r.name AS representative_name, r.code AS assigned_representative_code,
+        c.name AS customer_name,
         s.name AS site_name, c.name AS site_customer_name,
         COALESCE(s.city, l.city) AS site_city, COALESCE(s.state, l.state) AS site_state
       FROM public.project_jobs j
       LEFT JOIN public.users u ON u.id = j.assigned_pm_id
+      LEFT JOIN public.representatives r ON r.id = j.representative_id
       LEFT JOIN public.sites s ON s.id = j.site_id
       LEFT JOIN public.locations l ON l.id = s.location_id
-      LEFT JOIN public.customers c ON c.id = s.customer_id
+      LEFT JOIN public.customers c ON c.id = COALESCE(j.customer_id, s.customer_id)
       ORDER BY j.job_number::integer ASC, j.project_code ASC
     `,
     sql`
@@ -27,6 +30,7 @@ export async function GET(req: NextRequest) {
     `,
     sql`
       SELECT s.id, s.name, c.name AS customer_name,
+        s.customer_id,
         COALESCE(s.city, l.city) AS city, COALESCE(s.state, l.state) AS state
       FROM public.sites s
       LEFT JOIN public.locations l ON l.id = s.location_id
@@ -34,8 +38,10 @@ export async function GET(req: NextRequest) {
       WHERE s.status <> 'inactive'
       ORDER BY c.name ASC NULLS LAST, s.name ASC
     `,
+    sql`SELECT id, name, code FROM public.representatives ORDER BY name ASC`,
+    sql`SELECT id, name FROM public.customers WHERE status <> 'inactive' ORDER BY name ASC`,
     currentProjectManager(claims),
   ])
 
-  return NextResponse.json({ jobs, project_managers: projectManagers, sites, current_user: currentUser })
+  return NextResponse.json({ jobs, project_managers: projectManagers, sites, representatives, customers, current_user: currentUser })
 }

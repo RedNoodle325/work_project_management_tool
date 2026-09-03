@@ -83,6 +83,10 @@ export const API = {
       apiFetch<ProjectJob>(`/jobs/${id}`, { method: 'PATCH', body: JSON.stringify({ project_manager_id: projectManagerId }) }),
     assignSite: (id: string, siteId: string | null) =>
       apiFetch<ProjectJob>(`/jobs/${id}`, { method: 'PATCH', body: JSON.stringify({ site_id: siteId }) }),
+    assignRepresentative: (id: string, representativeId: string | null) =>
+      apiFetch<ProjectJob>(`/jobs/${id}`, { method: 'PATCH', body: JSON.stringify({ representative_id: representativeId }) }),
+    assignCustomer: (id: string, customerId: string | null) =>
+      apiFetch<ProjectJob>(`/jobs/${id}`, { method: 'PATCH', body: JSON.stringify({ customer_id: customerId }) }),
   },
 
   // Sites

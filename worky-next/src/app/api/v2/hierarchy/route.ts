@@ -12,7 +12,10 @@ export async function GET(request: NextRequest) {
       sql`select id, customer_id, campus_code, name, city, state, status from public.locations order by campus_code`,
       sql`
         select so.*,
-          coalesce((select json_agg(p.project_number order by p.is_primary desc, p.created_at) from public.projects p where p.site_id = so.id), '[]'::json) as project_numbers
+          coalesce((
+            select json_agg(j.job_number order by j.job_number::integer)
+            from (select distinct job_number from public.project_jobs where site_id = so.id) j
+          ), '[]'::json) as project_numbers
         from public.site_overview so
         order by so.customer_name, so.campus_code nulls first, so.name
       `,
@@ -64,24 +67,11 @@ export async function POST(request: NextRequest) {
       }
       if (!customerId) return NextResponse.json({ error: 'Customer is required' }, { status: 400 })
       if (!locationId && (!body.city || !body.state)) return NextResponse.json({ error: 'City and state are required for a standalone site' }, { status: 400 })
-      const projectNumber = String(body.project_number || '').trim()
-      const representativeName = String(body.representative_name || '').trim()
-      const row = await sql.begin(async tx => {
-        const trx = tx as unknown as typeof sql
-        const [site] = await trx`
-          insert into public.sites (location_id, customer_id, name, site_code, building, city, state, address, postal_code, lifecycle_phase, status, notes)
-          values (${locationId}, ${customerId}, ${body.name}, ${body.site_code ?? null}, ${body.building ?? null}, ${locationId ? null : body.city}, ${locationId ? null : body.state}, ${locationId ? null : body.address ?? null}, ${locationId ? null : body.postal_code ?? null}, ${body.lifecycle_phase ?? 'planning'}, ${body.status ?? 'planning'}, ${body.notes ?? null})
-          returning *
-        `
-        if (projectNumber) {
-          const representativeId = representativeName ? await findOrCreateRepresentative(trx, representativeName) : null
-          await trx`
-            insert into public.projects (site_id, representative_id, project_number, name, status, is_primary, notes)
-            values (${site.id}, ${representativeId}, ${projectNumber}, ${body.project_name || body.name}, ${body.project_status ?? 'active'}, true, ${body.project_notes ?? null})
-          `
-        }
-        return site
-      })
+      const [row] = await sql`
+        insert into public.sites (location_id, customer_id, name, site_code, building, city, state, address, postal_code, lifecycle_phase, status, notes)
+        values (${locationId}, ${customerId}, ${body.name}, ${body.site_code ?? null}, ${body.building ?? null}, ${locationId ? null : body.city}, ${locationId ? null : body.state}, ${locationId ? null : body.address ?? null}, ${locationId ? null : body.postal_code ?? null}, ${body.lifecycle_phase ?? 'planning'}, ${body.status ?? 'planning'}, ${body.notes ?? null})
+        returning *
+      `
       return NextResponse.json(row, { status: 201 })
     }
     return NextResponse.json({ error: 'Unsupported hierarchy entity' }, { status: 400 })
@@ -95,10 +85,4 @@ function databaseErrorMessage(error: unknown) {
   const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : ''
   if (code === '23505') return 'That record already exists.'
   return 'Database operation failed. Check the server log for details.'
-}
-
-async function findOrCreateRepresentative(trx: typeof sql, name: string) {
-  await trx`insert into public.representatives (name) values (${name}) on conflict do nothing`
-  const [representative] = await trx`select id from public.representatives where lower(name) = lower(${name})`
-  return representative.id
 }

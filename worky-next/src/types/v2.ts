@@ -80,6 +80,10 @@ export interface ReleasedJobV2 {
   job_number: string
   project_code: string
   representative_code?: string
+  representative_id?: string
+  representative_name?: string
+  customer_id?: string
+  customer_name?: string
   name: string
   assigned_pm_name?: string
   assigned_pm_email?: string

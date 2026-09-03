@@ -14,8 +14,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     sql`select * from public.site_overview where id = ${id}`,
     sql`select p.*, r.name as representative_name from public.projects p left join public.representatives r on r.id = p.representative_id where p.site_id = ${id} order by p.is_primary desc, p.created_at desc`,
     sql`
-      select j.*, u.display_name as assigned_pm_name, u.email as assigned_pm_email
-      from public.project_jobs j left join public.users u on u.id = j.assigned_pm_id
+      select j.*, u.display_name as assigned_pm_name, u.email as assigned_pm_email,
+        r.name as representative_name, c.name as customer_name
+      from public.project_jobs j
+      left join public.users u on u.id = j.assigned_pm_id
+      left join public.representatives r on r.id = j.representative_id
+      left join public.customers c on c.id = j.customer_id
       where j.site_id = ${id} order by j.job_number::integer, j.project_code
     `,
     sql`select * from public.units where site_id = ${id} order by tag`,
@@ -144,17 +148,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         notes = ${body.notes || null}
       where id = ${id}
     `
-    const projectNumber = String(body.project_number || '').trim()
-    if (projectNumber) {
-      const representativeName = String(body.representative_name || '').trim()
-      const representativeId = representativeName ? await findOrCreateRepresentative(trx, representativeName) : null
-      const [project] = await trx`select id from public.projects where site_id = ${id} order by is_primary desc, created_at desc limit 1`
-      if (project) {
-        await trx`update public.projects set project_number = ${projectNumber}, name = ${String(body.name).trim()}, representative_id = ${representativeId} where id = ${project.id}`
-      } else {
-        await trx`insert into public.projects (site_id, representative_id, project_number, name, status, is_primary) values (${id}, ${representativeId}, ${projectNumber}, ${String(body.name).trim()}, 'active', true)`
-      }
-    }
   })
   const [row] = await sql`select * from public.site_overview where id = ${id}`
   return NextResponse.json(row)

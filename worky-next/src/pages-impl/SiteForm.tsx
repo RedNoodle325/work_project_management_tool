@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect, type FormEvent } from 'react'
-import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { API } from '../api'
-import type { Site, JobNumber } from '../types'
+import type { Site } from '../types'
 import { useToastFn } from '@/app/providers'
 
 const US_STATES = [
@@ -14,38 +13,19 @@ const US_STATES = [
   'VA','WA','WV','WI','WY','DC',
 ]
 
-const REGIONS = ['Northeast','Southeast','Midwest','Southwest','Northwest','Mountain','Pacific','Canada','International']
-
-const SITE_TYPES = [
-  { value: 'data_center', label: 'Data Center' },
-  { value: 'industrial', label: 'Industrial' },
-  { value: 'commercial', label: 'Commercial' },
-  { value: 'healthcare', label: 'Healthcare' },
-  { value: 'government', label: 'Government' },
-  { value: 'other', label: 'Other' },
-]
-
-interface JobRow {
-  id?: string
-  job_number: string
-  description: string
-  is_primary: boolean
-}
-
 export function SiteForm() {
   const { id } = useParams<{ id?: string }>()
   const router = useRouter()
   const toast = useToastFn()
   const isEditing = !!id
 
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [, setError] = useState('')
 
   // Form fields
   const [name, setName] = useState('')
   const [projectName, setProjectName] = useState('')
-  const [projectNumber, setProjectNumber] = useState('')
   const [unitModels, setUnitModels] = useState('')
   const [unitCounts, setUnitCounts] = useState('')
   const [address, setAddress] = useState('')
@@ -61,21 +41,13 @@ export function SiteForm() {
   const [shippingName, setShippingName] = useState('')
   const [shippingContact, setShippingContact] = useState('')
 
-  const [jobRows, setJobRows] = useState<JobRow[]>([
-    { job_number: '', description: '', is_primary: true },
-  ])
-
   useEffect(() => {
     async function load() {
       try {
         if (isEditing && id) {
-          const [site, existingJobs] = await Promise.all([
-            API.sites.get(id),
-            API.jobNumbers.list(id).catch(() => [] as JobNumber[]),
-          ])
+          const site = await API.sites.get(id)
           setName(site.name || '')
           setProjectName(site.project_name || '')
-          setProjectNumber(site.project_number || '')
           setAddress(site.address || '')
           setCity(site.city || '')
           setState(site.state || '')
@@ -88,14 +60,6 @@ export function SiteForm() {
           setOwner(site.owner || '')
           setShippingName(site.shipping_name || '')
           setShippingContact(site.shipping_contact || '')
-          if (existingJobs.length) {
-            setJobRows(existingJobs.map(j => ({
-              id: j.id,
-              job_number: j.job_number,
-              description: j.description || '',
-              is_primary: false,
-            })))
-          }
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load site')
@@ -110,7 +74,7 @@ export function SiteForm() {
     e.preventDefault()
     
     // Validation
-    if (!projectName || !projectNumber || !unitModels || !unitCounts || !address || !city || !state || !zip) {
+    if (!projectName || !unitModels || !unitCounts || !address || !city || !state || !zip) {
       toast('Please fill in all required fields.', 'error')
       return
     }
@@ -120,7 +84,6 @@ export function SiteForm() {
     const data: Partial<Site> = {
       name: name || projectName || undefined,
       project_name: projectName,
-      project_number: projectNumber,
       address,
       city,
       state,
@@ -147,17 +110,6 @@ export function SiteForm() {
         toast('Site created')
       }
 
-      // Save job numbers
-      const validJobs = jobRows.filter(j => j.job_number.trim())
-      for (const job of validJobs) {
-        const payload = { job_number: job.job_number.trim(), description: job.description.trim() || undefined }
-        if (job.id) {
-          await API.jobNumbers.update(siteId, job.id, payload).catch(() => null)
-        } else {
-          await API.jobNumbers.create(siteId, payload).catch(() => null)
-        }
-      }
-
       router.push(`/sites/${siteId}`)
     } catch (err) {
       toast('Error: ' + (err instanceof Error ? err.message : String(err)), 'error')
@@ -181,9 +133,8 @@ export function SiteForm() {
               <label>Project Name *</label>
               <input required value={projectName} onChange={e => setProjectName(e.target.value)} />
             </div>
-            <div className="form-group">
-              <label>Project Number *</label>
-              <input required value={projectNumber} onChange={e => setProjectNumber(e.target.value)} placeholder="5-digit #"/>
+            <div className="form-group full">
+              <p className="x-form-help">Job numbers are added automatically when jobs are assigned to this site from the Jobs page.</p>
             </div>
             <div className="form-group">
               <label>Unit Models *</label>

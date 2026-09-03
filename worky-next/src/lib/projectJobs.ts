@@ -17,33 +17,67 @@ export function ensureProjectJobs() {
 }
 
 async function setup() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS public.project_jobs (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      job_number text NOT NULL,
-      project_code text NOT NULL UNIQUE,
-      representative_code text,
-      name text NOT NULL,
-      assigned_pm_id uuid REFERENCES public.users(id) ON DELETE SET NULL,
-      site_id uuid REFERENCES public.sites(id) ON DELETE SET NULL,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
-    )
+  const [schema] = await sql`
+    SELECT
+      to_regclass('public.project_jobs') IS NOT NULL AS has_jobs,
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'project_jobs' AND column_name = 'site_id') AS has_job_site,
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'project_jobs' AND column_name = 'customer_id') AS has_job_customer,
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'project_jobs' AND column_name = 'representative_id') AS has_job_representative,
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'issues' AND column_name = 'project_job_id') AS has_issue_job,
+      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'site_updates' AND column_name = 'project_job_id') AS has_milestone_job
   `
-  await sql`ALTER TABLE public.project_jobs ADD COLUMN IF NOT EXISTS site_id uuid REFERENCES public.sites(id) ON DELETE SET NULL`
-  await sql`CREATE INDEX IF NOT EXISTS project_jobs_number_idx ON public.project_jobs(job_number)`
-  await sql`CREATE INDEX IF NOT EXISTS project_jobs_pm_idx ON public.project_jobs(assigned_pm_id)`
-  await sql`CREATE INDEX IF NOT EXISTS project_jobs_site_idx ON public.project_jobs(site_id)`
-  await sql`ALTER TABLE public.issues ADD COLUMN IF NOT EXISTS project_job_id uuid REFERENCES public.project_jobs(id) ON DELETE RESTRICT`
-  await sql`ALTER TABLE public.site_updates ADD COLUMN IF NOT EXISTS project_job_id uuid REFERENCES public.project_jobs(id) ON DELETE SET NULL`
-  await sql`CREATE INDEX IF NOT EXISTS issues_project_job_idx ON public.issues(project_job_id)`
-  await sql`CREATE INDEX IF NOT EXISTS site_updates_project_job_idx ON public.site_updates(project_job_id)`
+  if (!schema.has_jobs || !schema.has_job_site || !schema.has_job_customer || !schema.has_job_representative || !schema.has_issue_job || !schema.has_milestone_job) {
+    await sql`
+      CREATE TABLE IF NOT EXISTS public.project_jobs (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        job_number text NOT NULL,
+        project_code text NOT NULL UNIQUE,
+        representative_code text,
+        name text NOT NULL,
+        assigned_pm_id uuid REFERENCES public.users(id) ON DELETE SET NULL,
+        site_id uuid REFERENCES public.sites(id) ON DELETE SET NULL,
+        customer_id uuid REFERENCES public.customers(id) ON DELETE SET NULL,
+        representative_id uuid REFERENCES public.representatives(id) ON DELETE SET NULL,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )
+    `
+    await sql`ALTER TABLE public.project_jobs ADD COLUMN IF NOT EXISTS site_id uuid REFERENCES public.sites(id) ON DELETE SET NULL`
+    await sql`ALTER TABLE public.project_jobs ADD COLUMN IF NOT EXISTS customer_id uuid REFERENCES public.customers(id) ON DELETE SET NULL`
+    await sql`ALTER TABLE public.project_jobs ADD COLUMN IF NOT EXISTS representative_id uuid REFERENCES public.representatives(id) ON DELETE SET NULL`
+    await sql`CREATE INDEX IF NOT EXISTS project_jobs_number_idx ON public.project_jobs(job_number)`
+    await sql`CREATE INDEX IF NOT EXISTS project_jobs_pm_idx ON public.project_jobs(assigned_pm_id)`
+    await sql`CREATE INDEX IF NOT EXISTS project_jobs_site_idx ON public.project_jobs(site_id)`
+    await sql`CREATE INDEX IF NOT EXISTS project_jobs_customer_idx ON public.project_jobs(customer_id)`
+    await sql`CREATE INDEX IF NOT EXISTS project_jobs_representative_idx ON public.project_jobs(representative_id)`
+    await sql`ALTER TABLE public.issues ADD COLUMN IF NOT EXISTS project_job_id uuid REFERENCES public.project_jobs(id) ON DELETE RESTRICT`
+    await sql`ALTER TABLE public.site_updates ADD COLUMN IF NOT EXISTS project_job_id uuid REFERENCES public.project_jobs(id) ON DELETE SET NULL`
+    await sql`CREATE INDEX IF NOT EXISTS issues_project_job_idx ON public.issues(project_job_id)`
+    await sql`CREATE INDEX IF NOT EXISTS site_updates_project_job_idx ON public.site_updates(project_job_id)`
+  }
 
   const jobs = await loadSeedJobs()
-  for (const job of jobs) {
+  const [catalog] = await sql`
+    SELECT
+      (SELECT count(*)::int FROM public.project_jobs) AS job_count,
+      (SELECT count(*)::int FROM public.project_jobs WHERE representative_id IS NULL AND representative_code IS NOT NULL AND btrim(representative_code) <> '') AS missing_representatives,
+      (SELECT count(*)::int FROM public.project_jobs j JOIN public.sites s ON s.id = j.site_id WHERE j.customer_id IS DISTINCT FROM s.customer_id) AS mismatched_customers,
+      (SELECT count(*)::int FROM public.issues i WHERE project_job_id IS NULL AND site_id IS NOT NULL AND (SELECT count(*) FROM public.project_jobs j WHERE j.site_id = i.site_id) = 1) AS legacy_issues
+  `
+  const catalogNeedsSeed = Number(catalog.job_count) < jobs.length
+  if (catalogNeedsSeed) {
+    const seed = jobs.map(job => ({
+      job_number: job.jobNumber,
+      project_code: job.projectCode,
+      representative_code: job.representativeCode,
+      name: job.name,
+    }))
     await sql`
       INSERT INTO public.project_jobs (job_number, project_code, representative_code, name)
-      VALUES (${job.jobNumber}, ${job.projectCode}, ${job.representativeCode}, ${job.name})
+      SELECT row.job_number, row.project_code, row.representative_code, row.name
+      FROM jsonb_to_recordset(${JSON.stringify(seed)}::jsonb) AS row(
+        job_number text, project_code text, representative_code text, name text
+      )
       ON CONFLICT (project_code) DO UPDATE SET
         job_number = EXCLUDED.job_number,
         representative_code = EXCLUDED.representative_code,
@@ -51,17 +85,48 @@ async function setup() {
     `
   }
 
-  await sql`
-    UPDATE public.issues i
-    SET project_job_id = j.id
-    FROM public.project_jobs j
-    WHERE i.project_job_id IS NULL
-      AND j.site_id = i.site_id
-      AND NOT EXISTS (
-        SELECT 1 FROM public.project_jobs other_job
-        WHERE other_job.site_id = j.site_id AND other_job.id <> j.id
-      )
-  `
+  if (catalogNeedsSeed || Number(catalog.missing_representatives) > 0) {
+    await sql`
+      INSERT INTO public.representatives (name, code)
+      SELECT DISTINCT representative_code, representative_code
+      FROM public.project_jobs
+      WHERE representative_code IS NOT NULL AND btrim(representative_code) <> ''
+        AND NOT EXISTS (
+          SELECT 1 FROM public.representatives r
+          WHERE lower(r.code) = lower(project_jobs.representative_code)
+             OR lower(r.name) = lower(project_jobs.representative_code)
+        )
+      ON CONFLICT DO NOTHING
+    `
+    await sql`
+      UPDATE public.project_jobs j
+      SET representative_id = r.id
+      FROM public.representatives r
+      WHERE j.representative_id IS NULL
+        AND (lower(r.code) = lower(j.representative_code) OR lower(r.name) = lower(j.representative_code))
+    `
+  }
+  if (Number(catalog.mismatched_customers) > 0) {
+    await sql`
+      UPDATE public.project_jobs j
+      SET customer_id = s.customer_id
+      FROM public.sites s
+      WHERE j.site_id = s.id AND j.customer_id IS DISTINCT FROM s.customer_id
+    `
+  }
+  if (Number(catalog.legacy_issues) > 0) {
+    await sql`
+      UPDATE public.issues i
+      SET project_job_id = j.id
+      FROM public.project_jobs j
+      WHERE i.project_job_id IS NULL
+        AND j.site_id = i.site_id
+        AND NOT EXISTS (
+          SELECT 1 FROM public.project_jobs other_job
+          WHERE other_job.site_id = j.site_id AND other_job.id <> j.id
+        )
+    `
+  }
 }
 
 async function loadSeedJobs(): Promise<SeedJob[]> {
