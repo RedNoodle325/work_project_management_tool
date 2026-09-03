@@ -53,7 +53,7 @@ async function setup() {
 
   await sql`
     UPDATE public.issues i SET project_job_id = (
-      SELECT min(j.id) FROM public.project_jobs j WHERE j.site_id = i.site_id
+      SELECT j.id FROM public.project_jobs j WHERE j.site_id = i.site_id LIMIT 1
     )
     WHERE i.project_job_id IS NULL
       AND 1 = (SELECT count(*) FROM public.project_jobs j WHERE j.site_id = i.site_id)
