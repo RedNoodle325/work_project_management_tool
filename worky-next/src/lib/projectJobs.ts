@@ -52,11 +52,15 @@ async function setup() {
   }
 
   await sql`
-    UPDATE public.issues i SET project_job_id = (
-      SELECT j.id FROM public.project_jobs j WHERE j.site_id = i.site_id LIMIT 1
-    )
+    UPDATE public.issues i
+    SET project_job_id = j.id
+    FROM public.project_jobs j
     WHERE i.project_job_id IS NULL
-      AND 1 = (SELECT count(*) FROM public.project_jobs j WHERE j.site_id = i.site_id)
+      AND j.site_id = i.site_id
+      AND NOT EXISTS (
+        SELECT 1 FROM public.project_jobs other_job
+        WHERE other_job.site_id = j.site_id AND other_job.id <> j.id
+      )
   `
 }
 
