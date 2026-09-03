@@ -8,7 +8,7 @@ import { V2 } from '@/api/v2'
 import type { AttachmentV2, SiteScheduleChangeV2, SiteScheduleEventV2, SiteWorkspaceV2 } from '@/types/v2'
 import { Job10266Brief } from '@/components/Job10266Brief'
 
-type Tab = 'brief' | 'updates' | 'schedule' | 'issues' | 'parts' | 'units' | 'contacts' | 'files'
+type Tab = 'brief' | 'updates' | 'jobs' | 'schedule' | 'issues' | 'parts' | 'units' | 'contacts' | 'files'
 const categories = ['other', 'po', 'quote', 'invoice', 'submittal', 'email', 'photo', 'report']
 
 export function XnrgySiteWorkspace() {
@@ -24,7 +24,7 @@ export function XnrgySiteWorkspace() {
   if (error) return <div className="x-state"><h1>Couldn’t open this site</h1><p>{error}</p></div>
   if (!data) return <div className="x-state"><h1>Opening site</h1><p>Gathering notes, equipment, and documents…</p></div>
   const site = data.site
-  const hasJobBrief = data.projects.some(project => project.project_number === '10266') || site.project_number === '10266'
+  const hasJobBrief = data.projects.some(project => project.project_number === '10266') || data.released_jobs.some(job => job.job_number === '10266') || site.project_number === '10266'
   const activeTab: Tab = tab || (hasJobBrief ? 'brief' : 'updates')
   const openIssues = data.issues.filter(issue => !['resolved', 'closed'].includes(issue.status))
   const mailingAddress = [site.address, [site.city, site.state].filter(Boolean).join(', ') + (site.postal_code ? ` ${site.postal_code}` : '')].filter(Boolean).join('\n')
@@ -41,11 +41,12 @@ export function XnrgySiteWorkspace() {
       <div className="x-site-summary"><p>{site.latest_update || site.status_summary || site.notes || 'No current status has been posted yet.'}</p><div><span><AlertTriangle size={15} /> {openIssues.length} open issues</span><span><Boxes size={15} /> {data.units.length} units</span><span><Paperclip size={15} /> {data.attachments.length} files</span></div></div>
     </header>
 
-    <nav className="x-tabs">{([...(hasJobBrief ? ['brief'] as const : []), 'updates','schedule','issues','parts','units','contacts','files'] as Tab[]).map(item => <button className={activeTab === item ? 'active' : ''} onClick={() => setTab(item)} key={item}>{item === 'brief' ? 'Command brief' : item === 'parts' ? 'Parts & service' : item}<Count value={item === 'updates' ? data.updates.length : item === 'issues' ? openIssues.length : item === 'parts' ? data.part_orders.length + data.service_visits.length : item === 'units' ? data.units.length : item === 'contacts' ? data.contacts.length : item === 'files' ? data.attachments.length : 0} /></button>)}</nav>
+    <nav className="x-tabs">{([...(hasJobBrief ? ['brief'] as const : []), 'updates','jobs','schedule','issues','parts','units','contacts','files'] as Tab[]).map(item => <button className={activeTab === item ? 'active' : ''} onClick={() => setTab(item)} key={item}>{item === 'brief' ? 'Command brief' : item === 'parts' ? 'Parts & service' : item}<Count value={item === 'updates' ? data.updates.length : item === 'jobs' ? data.released_jobs.length : item === 'issues' ? openIssues.length : item === 'parts' ? data.part_orders.length + data.service_visits.length : item === 'units' ? data.units.length : item === 'contacts' ? data.contacts.length : item === 'files' ? data.attachments.length : 0} /></button>)}</nav>
 
     <main className="x-site-content">
       {activeTab === 'brief' && hasJobBrief && <Job10266Brief />}
       {activeTab === 'updates' && <Updates data={data} siteId={id} reload={load} />}
+      {activeTab === 'jobs' && <SiteJobs data={data} />}
       {activeTab === 'schedule' && <SiteSchedule siteId={id} />}
       {activeTab === 'issues' && <Issues data={data} />}
       {activeTab === 'parts' && <Parts data={data} />}
@@ -55,6 +56,20 @@ export function XnrgySiteWorkspace() {
     </main>
     {editing && <SiteEditor data={data} close={() => setEditing(false)} saved={() => { setEditing(false); load() }} />}
   </div>
+}
+
+function SiteJobs({ data }: { data: SiteWorkspaceV2 }) {
+  return <Section title="Jobs at this site" intro="A site can carry multiple project numbers for original work, rework, renovations, and later phases." action={<Link className="x-site-jobs-manage" href="/jobs">Manage assignments</Link>}>
+    <div className="x-site-jobs">
+      {data.released_jobs.map(job => <article key={job.id}>
+        <strong>{job.job_number}</strong>
+        <div><h3>{job.name}</h3><p>{job.project_code}</p></div>
+        <span>{job.representative_code || 'No representative'}</span>
+        <span>{job.assigned_pm_name || job.assigned_pm_email || 'No PM assigned'}</span>
+      </article>)}
+    </div>
+    {!data.released_jobs.length && <Empty text="No released jobs are assigned to this site yet. Use the Jobs page to link one." />}
+  </Section>
 }
 
 function Updates({ data, siteId, reload }: { data: SiteWorkspaceV2; siteId: string; reload: () => void }) {

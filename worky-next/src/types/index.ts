@@ -341,6 +341,14 @@ export interface ProjectManager {
   access_role: string
 }
 
+export interface ProjectJobSite {
+  id: string
+  name: string
+  customer_name?: string
+  city?: string
+  state?: string
+}
+
 export interface ProjectJob {
   id: string
   job_number: string
@@ -350,6 +358,11 @@ export interface ProjectJob {
   assigned_pm_id?: string
   assigned_pm_name?: string
   assigned_pm_email?: string
+  site_id?: string
+  site_name?: string
+  site_customer_name?: string
+  site_city?: string
+  site_state?: string
   created_at?: string
   updated_at?: string
 }
@@ -357,6 +370,7 @@ export interface ProjectJob {
 export interface ProjectJobsResponse {
   jobs: ProjectJob[]
   project_managers: ProjectManager[]
+  sites: ProjectJobSite[]
   current_user?: ProjectManager
 }
 

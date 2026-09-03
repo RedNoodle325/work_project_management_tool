@@ -8,9 +8,11 @@ CREATE TABLE IF NOT EXISTS public.project_jobs (
   representative_code text,
   name text NOT NULL,
   assigned_pm_id uuid REFERENCES public.users(id) ON DELETE SET NULL,
+  site_id uuid REFERENCES public.sites(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS project_jobs_number_idx ON public.project_jobs(job_number);
 CREATE INDEX IF NOT EXISTS project_jobs_pm_idx ON public.project_jobs(assigned_pm_id);
+CREATE INDEX IF NOT EXISTS project_jobs_site_idx ON public.project_jobs(site_id);

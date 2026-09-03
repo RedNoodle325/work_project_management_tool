@@ -74,6 +74,17 @@ export interface ProjectV2 {
   is_primary: boolean
 }
 
+export interface ReleasedJobV2 {
+  id: string
+  site_id: string
+  job_number: string
+  project_code: string
+  representative_code?: string
+  name: string
+  assigned_pm_name?: string
+  assigned_pm_email?: string
+}
+
 export interface UnitV2 {
   id: string
   site_id: string
@@ -198,6 +209,7 @@ export interface AttachmentV2 {
 export interface SiteWorkspaceV2 {
   site: SiteSummaryV2 & { customer_name: string; campus_code?: string; city: string; state: string }
   projects: ProjectV2[]
+  released_jobs: ReleasedJobV2[]
   units: UnitV2[]
   contacts: ContactV2[]
   updates: SiteUpdateV2[]

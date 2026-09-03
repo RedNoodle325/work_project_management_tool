@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/requireAuth'
 import { deleteFile } from '@/lib/storage'
+import { ensureProjectJobs } from '@/lib/projectJobs'
 import sql from '@/lib/db'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { error } = await requireAuth(request)
   if (error) return error
   const { id } = await params
+  await ensureProjectJobs()
 
-  const [siteRows, projects, units, contacts, updates, asrs, issues, partOrders, serviceVisits, attachments] = await Promise.all([
+  const [siteRows, projects, releasedJobs, units, contacts, updates, asrs, issues, partOrders, serviceVisits, attachments] = await Promise.all([
     sql`select * from public.site_overview where id = ${id}`,
     sql`select p.*, r.name as representative_name from public.projects p left join public.representatives r on r.id = p.representative_id where p.site_id = ${id} order by p.is_primary desc, p.created_at desc`,
+    sql`
+      select j.*, u.display_name as assigned_pm_name, u.email as assigned_pm_email
+      from public.project_jobs j left join public.users u on u.id = j.assigned_pm_id
+      where j.site_id = ${id} order by j.job_number::integer, j.project_code
+    `,
     sql`select * from public.units where site_id = ${id} order by tag`,
     sql`select c.*, sc.role, sc.is_primary from public.site_contacts sc join public.contacts c on c.id = sc.contact_id where sc.site_id = ${id} order by sc.is_primary desc, c.name`,
     sql`select su.*, (select count(*)::int from public.attachments a where a.update_id = su.id) as attachment_count from public.site_updates su where site_id = ${id} order by is_pinned desc, created_at desc limit 100`,
@@ -22,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   ])
 
   if (!siteRows[0]) return NextResponse.json({ error: 'Site not found' }, { status: 404 })
-  return NextResponse.json({ site: siteRows[0], projects, units, contacts, updates, asrs, issues, part_orders: partOrders, service_visits: serviceVisits, attachments })
+  return NextResponse.json({ site: siteRows[0], projects, released_jobs: releasedJobs, units, contacts, updates, asrs, issues, part_orders: partOrders, service_visits: serviceVisits, attachments })
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

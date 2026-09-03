@@ -8,11 +8,16 @@ export async function GET(req: NextRequest) {
   if (error) return error
   await ensureProjectJobs()
 
-  const [jobs, projectManagers, currentUser] = await Promise.all([
+  const [jobs, projectManagers, sites, currentUser] = await Promise.all([
     sql`
-      SELECT j.*, u.display_name AS assigned_pm_name, u.email AS assigned_pm_email
+      SELECT j.*, u.display_name AS assigned_pm_name, u.email AS assigned_pm_email,
+        s.name AS site_name, c.name AS site_customer_name,
+        COALESCE(s.city, l.city) AS site_city, COALESCE(s.state, l.state) AS site_state
       FROM public.project_jobs j
       LEFT JOIN public.users u ON u.id = j.assigned_pm_id
+      LEFT JOIN public.sites s ON s.id = j.site_id
+      LEFT JOIN public.locations l ON l.id = s.location_id
+      LEFT JOIN public.customers c ON c.id = s.customer_id
       ORDER BY j.job_number::integer ASC, j.project_code ASC
     `,
     sql`
@@ -20,8 +25,17 @@ export async function GET(req: NextRequest) {
       WHERE access_role IN ('owner', 'admin', 'project_manager')
       ORDER BY display_name ASC NULLS LAST, email ASC
     `,
+    sql`
+      SELECT s.id, s.name, c.name AS customer_name,
+        COALESCE(s.city, l.city) AS city, COALESCE(s.state, l.state) AS state
+      FROM public.sites s
+      LEFT JOIN public.locations l ON l.id = s.location_id
+      LEFT JOIN public.customers c ON c.id = s.customer_id
+      WHERE s.status <> 'inactive'
+      ORDER BY c.name ASC NULLS LAST, s.name ASC
+    `,
     currentProjectManager(claims),
   ])
 
-  return NextResponse.json({ jobs, project_managers: projectManagers, current_user: currentUser })
+  return NextResponse.json({ jobs, project_managers: projectManagers, sites, current_user: currentUser })
 }
