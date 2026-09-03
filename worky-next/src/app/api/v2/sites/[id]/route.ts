@@ -20,9 +20,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     `,
     sql`select * from public.units where site_id = ${id} order by tag`,
     sql`select c.*, sc.role, sc.is_primary from public.site_contacts sc join public.contacts c on c.id = sc.contact_id where sc.site_id = ${id} order by sc.is_primary desc, c.name`,
-    sql`select su.*, (select count(*)::int from public.attachments a where a.update_id = su.id) as attachment_count from public.site_updates su where site_id = ${id} order by is_pinned desc, created_at desc limit 100`,
+    sql`select su.*, j.job_number, j.name as project_name, (select count(*)::int from public.attachments a where a.update_id = su.id) as attachment_count from public.site_updates su left join public.project_jobs j on j.id = su.project_job_id where su.site_id = ${id} order by su.is_pinned desc, su.created_at desc limit 100`,
     sql`select a.*, p.project_number, (select count(*) from public.issues i where i.asr_id = a.id) as issue_count from public.asrs a join public.projects p on p.id = a.project_id where a.site_id = ${id} order by a.created_at desc`,
-    sql`select i.*, a.asr_number, coalesce(i.equipment_name, u.tag) as unit_tag from public.issues i left join public.asrs a on a.id = i.asr_id left join public.units u on u.id = i.unit_id where i.site_id = ${id} order by i.reported_at desc`,
+    sql`select i.*, a.asr_number, j.job_number, j.name as project_name, coalesce(i.equipment_name, u.tag) as unit_tag from public.issues i left join public.asrs a on a.id = i.asr_id left join public.project_jobs j on j.id = i.project_job_id left join public.units u on u.id = i.unit_id where i.site_id = ${id} order by i.reported_at desc`,
     sql`select po.*, a.asr_number from public.part_orders po join public.asrs a on a.id = po.asr_id where a.site_id = ${id} order by po.created_at desc`,
     sql`select sv.*, a.asr_number from public.service_visits sv join public.asrs a on a.id = sv.asr_id where a.site_id = ${id} order by coalesce(sv.scheduled_for, sv.created_at) desc`,
     sql`select * from public.attachments where site_id = ${id} order by created_at desc`,
@@ -36,10 +36,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const { error } = await requireAuth(request)
   if (error) return error
   const { id } = await params
+  await ensureProjectJobs()
   const body = await request.json()
 
   if (body.kind === 'update') {
-    const [row] = await sql`insert into public.site_updates (site_id, status, summary, title, details, update_type, is_pinned, author_name) values (${id}, ${body.status ?? null}, ${body.summary}, ${body.title ?? null}, ${body.details ?? null}, ${body.update_type ?? 'general'}, ${body.is_pinned ?? false}, ${body.author_name ?? null}) returning *`
+    const updateType = body.update_type ?? 'general'
+    const projectJobId = updateType === 'milestone' && body.project_job_id ? String(body.project_job_id) : null
+    if (projectJobId) {
+      const [job] = await sql`select id from public.project_jobs where id = ${projectJobId} and site_id = ${id}`
+      if (!job) return NextResponse.json({ error: 'The selected job does not belong to this site.' }, { status: 400 })
+    }
+    const [row] = await sql`insert into public.site_updates (site_id, project_job_id, status, summary, title, details, update_type, is_pinned, author_name) values (${id}, ${projectJobId}, ${body.status ?? null}, ${body.summary}, ${body.title ?? null}, ${body.details ?? null}, ${updateType}, ${body.is_pinned ?? false}, ${body.author_name ?? null}) returning *`
     return NextResponse.json(row, { status: 201 })
   }
   if (body.kind === 'project') {
@@ -87,9 +94,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json(asr, { status: 201 })
   }
   if (body.kind === 'issue') {
-    const [asr] = await sql`select id from public.asrs where id = ${body.asr_id} and site_id = ${id}`
-    if (!asr) return NextResponse.json({ error: 'ASR is required and must belong to this site' }, { status: 400 })
-    const [row] = await sql`insert into public.issues (site_id, unit_id, asr_id, title, description, priority, status, source, external_reference) values (${id}, ${body.unit_id ?? null}, ${body.asr_id}, ${body.title}, ${body.description ?? null}, ${body.priority ?? 'normal'}, ${body.status ?? 'open'}, ${body.source ?? null}, ${body.external_reference ?? null}) returning *`
+    const projectJobId = String(body.project_job_id || '')
+    const [job] = await sql`select id from public.project_jobs where id = ${projectJobId} and site_id = ${id}`
+    if (!job) return NextResponse.json({ error: 'Choose a job assigned to this site.' }, { status: 400 })
+    if (body.asr_id) {
+      const [asr] = await sql`select id from public.asrs where id = ${body.asr_id} and site_id = ${id}`
+      if (!asr) return NextResponse.json({ error: 'The selected ASR does not belong to this site.' }, { status: 400 })
+    }
+    const [row] = await sql`insert into public.issues (site_id, project_job_id, unit_id, asr_id, title, description, priority, status, source, external_reference) values (${id}, ${projectJobId}, ${body.unit_id ?? null}, ${body.asr_id ?? null}, ${body.title}, ${body.description ?? null}, ${body.priority ?? 'normal'}, ${body.status ?? 'open'}, ${body.source ?? null}, ${body.external_reference ?? null}) returning *`
     return NextResponse.json(row, { status: 201 })
   }
   if (body.kind === 'part_order') {

@@ -115,6 +115,9 @@ export interface AsrV2 {
 export interface IssueV2 {
   id: string
   site_id: string
+  project_job_id?: string
+  job_number?: string
+  project_name?: string
   unit_id?: string
   asr_id?: string
   title: string
@@ -130,6 +133,10 @@ export interface LeanIssueV2 {
   id: string
   site_id: string
   site_name: string
+  project_job_id?: string
+  job_number?: string
+  project_code?: string
+  project_name?: string
   issue_number: string
   description?: string
   equipment_name?: string
@@ -165,6 +172,9 @@ export interface SiteUpdateV2 {
   update_type?: 'general' | 'status' | 'service' | 'parts' | 'commercial' | 'milestone'
   is_pinned?: boolean
   attachment_count?: number
+  project_job_id?: string
+  job_number?: string
+  project_name?: string
 }
 
 export interface SiteScheduleEventV2 {

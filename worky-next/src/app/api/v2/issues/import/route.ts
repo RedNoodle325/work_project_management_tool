@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs'
 import { requireAuth } from '@/lib/requireAuth'
 import sql from '@/lib/db'
 import { upsertLeanIssues, type LeanIssueInput } from '@/lib/issueImport'
+import { ensureProjectJobs } from '@/lib/projectJobs'
 
 const issueKeys = ['name', 'issue number', 'issue #', 'issue id', 'number']
 const descriptionKeys = ['description', 'details']
@@ -46,13 +47,15 @@ function findColumn(headers: Map<string, number>, keys: string[]) {
 export async function POST(request: NextRequest) {
   const { error } = await requireAuth(request)
   if (error) return error
+  await ensureProjectJobs()
   const form = await request.formData()
   const file = form.get('file')
-  const siteId = String(form.get('site_id') || '')
+  const projectJobId = String(form.get('project_job_id') || '')
   if (!(file instanceof File)) return NextResponse.json({ error: 'Choose a CxAlloy Excel export.' }, { status: 400 })
-  if (!siteId) return NextResponse.json({ error: 'Choose a site.' }, { status: 400 })
-  const [site] = await sql`select id from public.sites where id = ${siteId}`
-  if (!site) return NextResponse.json({ error: 'Site not found.' }, { status: 404 })
+  if (!projectJobId) return NextResponse.json({ error: 'Choose a job / project number.' }, { status: 400 })
+  const [projectJob] = await sql`select id, site_id from public.project_jobs where id = ${projectJobId}`
+  if (!projectJob) return NextResponse.json({ error: 'Job not found.' }, { status: 404 })
+  if (!projectJob.site_id) return NextResponse.json({ error: 'Assign this job to a site before importing issues.' }, { status: 400 })
 
   const workbook = new ExcelJS.Workbook()
   const fileBuffer = await file.arrayBuffer() as Parameters<typeof workbook.xlsx.load>[0]
@@ -94,6 +97,6 @@ export async function POST(request: NextRequest) {
   }
   if (!issues.length) return NextResponse.json({ error: 'No issue rows were found.' }, { status: 400 })
 
-  const result = await upsertLeanIssues(siteId, issues)
+  const result = await upsertLeanIssues(projectJobId, String(projectJob.site_id), issues)
   return NextResponse.json({ ...result, serialColumnFound: Boolean(serialColumn) })
 }

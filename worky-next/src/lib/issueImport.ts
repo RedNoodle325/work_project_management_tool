@@ -8,7 +8,7 @@ export interface LeanIssueInput {
   sourceUrl?: string
 }
 
-export async function upsertLeanIssues(siteId: string, issues: LeanIssueInput[], source = 'cxalloy') {
+export async function upsertLeanIssues(projectJobId: string, siteId: string, issues: LeanIssueInput[], source = 'cxalloy') {
   const units = await sql`
     select id, tag, serial_number
     from public.units
@@ -24,7 +24,7 @@ export async function upsertLeanIssues(siteId: string, issues: LeanIssueInput[],
     const existing = await sql`
       select id
       from public.issues
-      where site_id = ${siteId}
+      where project_job_id = ${projectJobId}
         and source = ${source}
         and external_reference = ${issue.issueNumber}
       limit 1
@@ -33,6 +33,8 @@ export async function upsertLeanIssues(siteId: string, issues: LeanIssueInput[],
     if (existing[0]) {
       await sql`
         update public.issues set
+          site_id = ${siteId},
+          project_job_id = ${projectJobId},
           unit_id = ${unit?.id || null},
           title = ${issue.issueNumber},
           description = ${issue.description || null},
@@ -46,10 +48,10 @@ export async function upsertLeanIssues(siteId: string, issues: LeanIssueInput[],
     } else {
       await sql`
         insert into public.issues
-          (site_id, unit_id, title, description, equipment_name, equipment_serial_number,
+          (site_id, project_job_id, unit_id, title, description, equipment_name, equipment_serial_number,
            status, priority, source, external_reference, source_url)
         values
-          (${siteId}, ${unit?.id || null}, ${issue.issueNumber}, ${issue.description || null},
+          (${siteId}, ${projectJobId}, ${unit?.id || null}, ${issue.issueNumber}, ${issue.description || null},
            ${issue.equipmentName || null}, ${serialNumber}, 'open', 'normal', ${source},
            ${issue.issueNumber}, ${issue.sourceUrl || null})
       `

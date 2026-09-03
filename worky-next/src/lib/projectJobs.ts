@@ -34,6 +34,10 @@ async function setup() {
   await sql`CREATE INDEX IF NOT EXISTS project_jobs_number_idx ON public.project_jobs(job_number)`
   await sql`CREATE INDEX IF NOT EXISTS project_jobs_pm_idx ON public.project_jobs(assigned_pm_id)`
   await sql`CREATE INDEX IF NOT EXISTS project_jobs_site_idx ON public.project_jobs(site_id)`
+  await sql`ALTER TABLE public.issues ADD COLUMN IF NOT EXISTS project_job_id uuid REFERENCES public.project_jobs(id) ON DELETE RESTRICT`
+  await sql`ALTER TABLE public.site_updates ADD COLUMN IF NOT EXISTS project_job_id uuid REFERENCES public.project_jobs(id) ON DELETE SET NULL`
+  await sql`CREATE INDEX IF NOT EXISTS issues_project_job_idx ON public.issues(project_job_id)`
+  await sql`CREATE INDEX IF NOT EXISTS site_updates_project_job_idx ON public.site_updates(project_job_id)`
 
   const jobs = await loadSeedJobs()
   for (const job of jobs) {
@@ -46,6 +50,14 @@ async function setup() {
         name = EXCLUDED.name
     `
   }
+
+  await sql`
+    UPDATE public.issues i SET project_job_id = (
+      SELECT min(j.id) FROM public.project_jobs j WHERE j.site_id = i.site_id
+    )
+    WHERE i.project_job_id IS NULL
+      AND 1 = (SELECT count(*) FROM public.project_jobs j WHERE j.site_id = i.site_id)
+  `
 }
 
 async function loadSeedJobs(): Promise<SeedJob[]> {

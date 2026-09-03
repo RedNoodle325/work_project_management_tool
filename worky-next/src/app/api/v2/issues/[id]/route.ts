@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/requireAuth'
 import { ISSUE_PRIORITIES, ISSUE_STATUSES, issueRowsById, nextIssueNumber } from '@/lib/leanIssues'
+import { ensureProjectJobs } from '@/lib/projectJobs'
 import sql from '@/lib/db'
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { error } = await requireAuth(request)
   if (error) return error
+  await ensureProjectJobs()
   const { id } = await params
   const body = await request.json()
 
@@ -24,8 +26,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const saved = await sql.begin(async tx => {
     const trx = tx as unknown as typeof sql
-    const siteId = String(body.site_id || current.site_id).trim()
-    await trx`select pg_advisory_xact_lock(hashtext(${siteId}))`
+    const projectJobId = String(body.project_job_id || current.project_job_id || '').trim()
+    if (!projectJobId) throw new Error('Job / project number is required.')
+    const [projectJob] = await trx`select id, site_id from public.project_jobs where id = ${projectJobId}`
+    if (!projectJob) throw new Error('Job not found.')
+    if (!projectJob.site_id) throw new Error('Assign this job to a site before saving issues.')
+    const siteId = String(projectJob.site_id)
+    await trx`select pg_advisory_xact_lock(hashtext(${projectJobId}))`
     const equipmentName = body.equipment_name === undefined ? current.equipment_name : String(body.equipment_name || '').trim()
     const serialNumber = body.serial_number === undefined ? current.equipment_serial_number : String(body.serial_number || '').trim()
     const [unit] = equipmentName
@@ -33,22 +40,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       : []
     const issueNumber = body.issue_number === undefined
       ? String(current.external_reference || current.title || '').trim()
-      : String(body.issue_number || '').trim() || await nextIssueNumber(trx, siteId)
+      : String(body.issue_number || '').trim() || await nextIssueNumber(trx, projectJobId)
     const source = String(current.source || 'manual')
     const [duplicate] = await trx`
       select id from public.issues
       where id <> ${id}
-        and site_id = ${siteId}
+        and project_job_id = ${projectJobId}
         and coalesce(source, 'manual') = ${source}
         and external_reference = ${issueNumber}
       limit 1
     `
-    if (duplicate) throw new Error(`Issue ${issueNumber} already exists for this site.`)
+    if (duplicate) throw new Error(`Issue ${issueNumber} already exists for this job.`)
     const status = ISSUE_STATUSES.includes(body.status) ? body.status : current.status
     const priority = ISSUE_PRIORITIES.includes(body.priority) ? body.priority : current.priority
     const [row] = await trx`
       update public.issues set
         site_id = ${siteId},
+        project_job_id = ${projectJobId},
         unit_id = ${unit?.id || (equipmentName ? null : current.unit_id)},
         title = ${issueNumber},
         description = ${body.description === undefined ? current.description : String(body.description || '').trim() || null},

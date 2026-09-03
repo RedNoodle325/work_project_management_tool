@@ -206,6 +206,9 @@ button.primary, .x-library-tools button { color: #fff; border-color: var(--ameth
 .x-site-jobs article > span { color: var(--text-secondary); font-size: 10px; font-weight: 650; }
 .x-site-jobs-manage { display: inline-flex; align-items: center; min-height: 34px; padding: 0 11px; border: 1px solid var(--border-default); color: var(--text-primary); font-size: 10px; font-weight: 700; text-decoration: none; }
 .x-site-jobs-manage:hover { border-color: var(--jobs-accent, #9fca35); color: var(--jobs-accent, #9fca35); }
+.x-milestone-scope { display: grid; grid-template-columns: auto minmax(180px, 1fr); align-items: center; gap: 10px; margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--border-default); background: var(--surface-soft); }
+.x-milestone-scope span { color: var(--text-secondary); font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .07em; }
+.x-milestone-scope select { min-width: 0; height: 32px; border: 1px solid var(--border-default); background: var(--surface-card); color: var(--text-primary); font-size: 11px; }
 
 @media (max-width: 900px) {
   .x-jobs-toolbar { grid-template-columns: 1fr; }
