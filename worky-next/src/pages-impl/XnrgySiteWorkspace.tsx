@@ -6,8 +6,9 @@ import { useParams, useRouter } from 'next/navigation'
 import { AlertTriangle, ArrowLeft, Boxes, CalendarDays, Check, Copy, Download, FileText, Mail, MapPin, Paperclip, Pencil, Phone, Plus, Send, Trash2, Upload, UserRound, Wrench, X } from 'lucide-react'
 import { V2 } from '@/api/v2'
 import type { AttachmentV2, SiteScheduleChangeV2, SiteScheduleEventV2, SiteWorkspaceV2 } from '@/types/v2'
+import { Job10266Brief } from '@/components/Job10266Brief'
 
-type Tab = 'updates' | 'schedule' | 'issues' | 'parts' | 'units' | 'contacts' | 'files'
+type Tab = 'brief' | 'updates' | 'schedule' | 'issues' | 'parts' | 'units' | 'contacts' | 'files'
 const categories = ['other', 'po', 'quote', 'invoice', 'submittal', 'email', 'photo', 'report']
 
 export function XnrgySiteWorkspace() {
@@ -16,13 +17,15 @@ export function XnrgySiteWorkspace() {
   const [data, setData] = useState<SiteWorkspaceV2 | null>(null)
   const [editing, setEditing] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [tab, setTab] = useState<Tab>('updates')
+  const [tab, setTab] = useState<Tab | null>(null)
   const [error, setError] = useState('')
   const load = () => V2.sites.get(id).then(setData).catch(error => setError(error.message))
   useEffect(() => { V2.sites.get(id).then(setData).catch(error => setError(error.message)) }, [id])
   if (error) return <div className="x-state"><h1>Couldn’t open this site</h1><p>{error}</p></div>
   if (!data) return <div className="x-state"><h1>Opening site</h1><p>Gathering notes, equipment, and documents…</p></div>
   const site = data.site
+  const hasJobBrief = data.projects.some(project => project.project_number === '10266') || site.project_number === '10266'
+  const activeTab: Tab = tab || (hasJobBrief ? 'brief' : 'updates')
   const openIssues = data.issues.filter(issue => !['resolved', 'closed'].includes(issue.status))
   const mailingAddress = [site.address, [site.city, site.state].filter(Boolean).join(', ') + (site.postal_code ? ` ${site.postal_code}` : '')].filter(Boolean).join('\n')
   async function copyAddress() { await navigator.clipboard.writeText(mailingAddress); setCopied(true); window.setTimeout(() => setCopied(false), 1600) }
@@ -38,16 +41,17 @@ export function XnrgySiteWorkspace() {
       <div className="x-site-summary"><p>{site.latest_update || site.status_summary || site.notes || 'No current status has been posted yet.'}</p><div><span><AlertTriangle size={15} /> {openIssues.length} open issues</span><span><Boxes size={15} /> {data.units.length} units</span><span><Paperclip size={15} /> {data.attachments.length} files</span></div></div>
     </header>
 
-    <nav className="x-tabs">{(['updates','schedule','issues','parts','units','contacts','files'] as Tab[]).map(item => <button className={tab === item ? 'active' : ''} onClick={() => setTab(item)} key={item}>{item === 'parts' ? 'Parts & service' : item}<Count value={item === 'updates' ? data.updates.length : item === 'issues' ? openIssues.length : item === 'parts' ? data.part_orders.length + data.service_visits.length : item === 'units' ? data.units.length : item === 'contacts' ? data.contacts.length : item === 'files' ? data.attachments.length : 0} /></button>)}</nav>
+    <nav className="x-tabs">{([...(hasJobBrief ? ['brief'] as const : []), 'updates','schedule','issues','parts','units','contacts','files'] as Tab[]).map(item => <button className={activeTab === item ? 'active' : ''} onClick={() => setTab(item)} key={item}>{item === 'brief' ? 'Command brief' : item === 'parts' ? 'Parts & service' : item}<Count value={item === 'updates' ? data.updates.length : item === 'issues' ? openIssues.length : item === 'parts' ? data.part_orders.length + data.service_visits.length : item === 'units' ? data.units.length : item === 'contacts' ? data.contacts.length : item === 'files' ? data.attachments.length : 0} /></button>)}</nav>
 
     <main className="x-site-content">
-      {tab === 'updates' && <Updates data={data} siteId={id} reload={load} />}
-      {tab === 'schedule' && <SiteSchedule siteId={id} />}
-      {tab === 'issues' && <Issues data={data} />}
-      {tab === 'parts' && <Parts data={data} />}
-      {tab === 'units' && <Units data={data} siteId={id} reload={load} />}
-      {tab === 'contacts' && <Contacts data={data} />}
-      {tab === 'files' && <Files files={data.attachments} siteId={id} reload={load} />}
+      {activeTab === 'brief' && hasJobBrief && <Job10266Brief />}
+      {activeTab === 'updates' && <Updates data={data} siteId={id} reload={load} />}
+      {activeTab === 'schedule' && <SiteSchedule siteId={id} />}
+      {activeTab === 'issues' && <Issues data={data} />}
+      {activeTab === 'parts' && <Parts data={data} />}
+      {activeTab === 'units' && <Units data={data} siteId={id} reload={load} />}
+      {activeTab === 'contacts' && <Contacts data={data} />}
+      {activeTab === 'files' && <Files files={data.attachments} siteId={id} reload={load} />}
     </main>
     {editing && <SiteEditor data={data} close={() => setEditing(false)} saved={() => { setEditing(false); load() }} />}
   </div>
