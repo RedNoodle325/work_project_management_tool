@@ -334,6 +334,32 @@ export interface JobNumber {
   created_at?: string
 }
 
+export interface ProjectManager {
+  id: string
+  email: string
+  display_name?: string
+  access_role: string
+}
+
+export interface ProjectJob {
+  id: string
+  job_number: string
+  project_code: string
+  representative_code?: string
+  name: string
+  assigned_pm_id?: string
+  assigned_pm_name?: string
+  assigned_pm_email?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface ProjectJobsResponse {
+  jobs: ProjectJob[]
+  project_managers: ProjectManager[]
+  current_user?: ProjectManager
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 export interface AuthUser {

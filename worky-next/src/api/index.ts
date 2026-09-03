@@ -3,6 +3,7 @@ import type {
   Ticket, Todo, JobSchedule, Technician, MsowDraft, WarrantyClaim, BomImport,
   BomItem, Campaign, SycoolSystem, User, JobNumber, LoginResponse, ImportResult,
   ResourceLink, DailyTechReport,
+  ProjectJob, ProjectJobsResponse,
 } from '../types'
 
 const API_BASE = '/api'
@@ -74,6 +75,12 @@ export const API = {
     updateUser: (id: string, data: { display_name?: string; password?: string; access_role?: string }) =>
       apiFetch<User>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     deleteUser: (id: string) => apiFetch(`/users/${id}`, { method: 'DELETE' }),
+  },
+
+  projectJobs: {
+    list: () => apiFetch<ProjectJobsResponse>('/jobs'),
+    assign: (id: string, projectManagerId: string | null) =>
+      apiFetch<ProjectJob>(`/jobs/${id}`, { method: 'PATCH', body: JSON.stringify({ project_manager_id: projectManagerId }) }),
   },
 
   // Sites

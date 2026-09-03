@@ -9,6 +9,7 @@ import { Menu, Moon, Search, Sun, X } from 'lucide-react'
 
 const nav = [
   { href: '/dashboard', label: 'Command center' },
+  { href: '/jobs', label: 'Jobs' },
   { href: '/sites', label: 'Sites' },
   { href: '/issues', label: 'Issues' },
   { href: '/scheduler', label: 'Scheduler' },

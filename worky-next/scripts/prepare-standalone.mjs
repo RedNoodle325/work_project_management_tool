@@ -13,6 +13,11 @@ if (existsSync(publicSource)) {
   cpSync(publicSource, join(standalone, 'public'), { recursive: true, force: true })
 }
 
+const importsSource = join(root, 'imports')
+if (existsSync(importsSource)) {
+  cpSync(importsSource, join(standalone, 'imports'), { recursive: true, force: true })
+}
+
 const staticSource = join(root, '.next', 'static')
 if (existsSync(staticSource)) {
   const staticTarget = join(standalone, '.next', 'static')

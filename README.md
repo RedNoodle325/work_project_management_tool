@@ -20,6 +20,7 @@ A field service and commissioning management app for tracking HVAC/cooling syste
 - Technician scheduler: weekly calendar assigning each technician to a site, plus a full work order list (site, job type, priority, dates, scope, status)
 - Contractor and site contact management
 - Site documents, forms, and job number tracking
+- Released-job directory with project-manager assignment and All Jobs / My Jobs views
 - Notes (with email PDF import), todos, and campaigns
 
 **Supply Chain & Reporting**
