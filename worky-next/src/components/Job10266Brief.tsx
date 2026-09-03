@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardCheck, PackageSearch, Search, ShieldAlert, Wrench } from 'lucide-react'
+import { AlertTriangle, Building2, CalendarClock, CheckCircle2, ClipboardCheck, ExternalLink, PackageSearch, Search, ShieldAlert, Wrench } from 'lucide-react'
 import { job10266 } from '@/data/job10266'
 
 type BriefView = 'overview' | 'work' | 'timeline' | 'parts' | 'service'
@@ -63,6 +63,7 @@ export function Job10266Brief() {
 
 function Overview() {
   return <div className="x-brief-overview">
+    <section className="x-brief-panel x-brief-context"><header><span><Building2 size={17} /></span><div><h3>{job10266.facilityContext.title}</h3><p>Public program context · separate from field completion evidence</p></div></header><div className="x-brief-context-body"><p>{job10266.facilityContext.summary}</p><div>{job10266.facilityContext.facts.map(fact => <article key={fact.label}><span>{fact.label}</span><p>{fact.value}</p></article>)}</div></div><footer>{job10266.facilityContext.sources.map(source => <a href={source[1]} target="_blank" rel="noreferrer" key={source[1]}>{source[0]} <ExternalLink size={11} /></a>)}</footer></section>
     <section className="x-brief-panel x-brief-actions"><header><span><ClipboardCheck size={17} /></span><div><h3>Recommended next moves</h3><p>Ordered to remove safety and execution blockers first.</p></div></header><ol>{job10266.immediatePlan.map((item, index) => <li key={item}><b>{String(index + 1).padStart(2, '0')}</b><span>{item}</span></li>)}</ol></section>
     <aside>
       <section className="x-brief-panel x-brief-gaps"><header><span><AlertTriangle size={17} /></span><div><h3>Evidence gaps</h3><p>Treat these as verification tasks.</p></div></header>{job10266.gaps.map(gap => <p key={gap}>{gap}</p>)}</section>

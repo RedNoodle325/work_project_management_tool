@@ -9,6 +9,38 @@ export const job10266 = {
   reviewedThrough: '2026-09-02',
   source: 'Outlook messages and attachments plus Teams messages and files found by searching for 10266.',
   statusRule: 'Corrected means direct evidence shows the corrective work was completed. Approved, ordered, and shipping do not mean installed or field-verified.',
+  facilityContext: {
+    title: 'LG Energy Solution Arizona · Project Alpha',
+    summary: 'Project Alpha is Phase I of LG Energy Solution’s advanced-manufacturing complex in Queen Creek, Arizona. This public background explains the facility served by Job 10266; it is not evidence that XNRGY field work, startup, or commissioning is complete.',
+    facts: [
+      {
+        label: 'Facility',
+        value: 'A roughly 1.3-million-square-foot cylindrical EV-battery manufacturing plant in Queen Creek. Earlier public plans described a footprint of more than 1 million square feet.',
+      },
+      {
+        label: 'Purpose',
+        value: 'Production of advanced 46-Series cylindrical batteries for electric vehicles, forming LG Energy Solution’s first standalone cylindrical-battery plant in North America.',
+      },
+      {
+        label: 'Schedule trail',
+        value: 'Public targets have moved: LG said in April 2025 that sample production was planned for mid-2026 and commercial production by year-end; Queen Creek later reported a summer 2026 opening target; a March 2026 LGES offering document schedules mass production for 2027.',
+      },
+      {
+        label: 'Phase II',
+        value: 'The adjacent Project Gemini phase is the LFP battery facility for energy-storage systems. Public reporting in 2024 said that phase was paused while cylindrical-plant construction continued.',
+      },
+    ],
+    sources: [
+      ['Town of Queen Creek · project status', 'https://www.queencreekaz.gov/business/economic-development/strategic-plan/vision-for-northeastern-area-of-town/proposed-advanced-manufacturing-lg-energy-solution'],
+      ['Town of Queen Creek · 2024 project update', 'https://www.queencreekaz.gov/Home/Components/News/News/13041/'],
+      ['LG Energy Solution · April 2025 update', 'https://www.lgcorp.com/media/release/28823'],
+      ['LG Energy Solution · March 2026 offering circular', 'https://links.sgx.com/FileOpen/LGES%20-%20Final%20Offering%20Circular%20%28March%2025%202026%29.ashx?App=Prospectus&FileID=69099'],
+      ['Honeywell · facility footprint and automation scope', 'https://www.honeywell.com/us/en/news/press-releases/2025/05/honeywell-named-building-automation-provider-for-lg-energy-solutions-standalone-north-american-ev-battery-plant'],
+      ['Construction Dive · Phase II pause', 'https://www.constructiondive.com/news/lg-pauses-arizona-battery-plant-queen-creek/720215/'],
+      ['AZBEX · Project Alpha development history', 'https://azbex.com/planning-development/no-news-but-high-hopes-for-lges-factory-start/'],
+      ['ABC15 · cylindrical plant construction update', 'https://www.abc15.com/news/business/lg-energys-east-valley-battery-plant-construction-pushes-ahead'],
+    ],
+  },
   executiveStatus: 'The major remaining risks are the DHU3.3 heater replacement and combustion-air correction, completion of Series 5 sensor and conduit rework, the DHU2.3 wheel and motor field repair, unresolved control-valve procurement, the DHU8.1 VFD phase-loss fault, and incomplete startup and commissioning.',
   safetyNote: 'XNRGY stated that operating heaters without startup revalidation is a fire risk and that equipment operated before completed startup or commissioning may not be covered by warranty.',
   timeline: [

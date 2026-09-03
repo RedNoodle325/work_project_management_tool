@@ -1024,6 +1024,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .x-brief-tools label svg { color: var(--text-tertiary); }
 .x-brief-overview { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(290px, .85fr); gap: 18px; align-items: start; }
 .x-brief-overview > aside, .x-brief-stack { display: grid; gap: 18px; }
+.x-brief-context { grid-column: 1 / -1; }
+.x-brief-context-body { padding: 20px 20px 4px; }
+.x-brief-context-body > p { max-width: 940px; margin: 0 0 18px; color: var(--text-secondary); font-size: 12px; line-height: 1.65; }
+.x-brief-context-body > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--border-subtle); border-left: 1px solid var(--border-subtle); }
+.x-brief-context-body article { min-height: 112px; padding: 17px 18px; border-right: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); }
+.x-brief-context-body article > span { color: var(--terra); font-size: 9px; font-weight: 750; letter-spacing: .15em; text-transform: uppercase; }
+.x-brief-context-body article p { margin: 8px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.55; }
+.x-brief-context > footer { display: flex; flex-wrap: wrap; gap: 7px; padding: 15px 20px 19px; }
+.x-brief-context > footer a { display: inline-flex; align-items: center; gap: 5px; padding: 6px 8px; color: var(--text-secondary); border: 1px solid var(--border-default); text-decoration: none; font-size: 9px; font-weight: 650; }
+.x-brief-context > footer a:hover { color: var(--terra); border-color: var(--terra); }
 .x-brief-panel { border: 1px solid var(--border-subtle); background: var(--surface-card); }
 .x-brief-panel > header { display: flex; gap: 12px; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-raised); }
 .x-brief-panel > header > span { width: 34px; height: 34px; display: grid; place-items: center; color: var(--terra); border: 1px solid var(--border-default); background: var(--surface-card); }
@@ -1079,6 +1089,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .x-brief-stats > div:nth-child(n+3) { border-top: 1px solid var(--border-subtle); }
   .x-brief-tools { align-items: stretch; flex-direction: column; border-bottom: 0; }
   .x-brief-tools > label { min-width: 0; border-bottom: 1px solid var(--border-default); }
+  .x-brief-context-body > div { grid-template-columns: 1fr; }
   .x-brief-issue-list article, .x-brief-unit-grid, .x-brief-timeline article, .x-brief-service-list article { grid-template-columns: 1fr; }
   .x-brief-issue-list article > span { padding: 10px 0 0; border-top: 1px solid var(--amber); border-left: 0; }
   .x-brief-provenance { grid-template-columns: 1fr; }
