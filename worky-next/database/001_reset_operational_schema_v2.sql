@@ -13,7 +13,7 @@ begin
   for item in
     select tablename
     from pg_tables
-    where schemaname = 'public' and tablename <> 'users'
+    where schemaname = 'public' and tablename not in ('users', 'app_migrations')
   loop
     execute format('drop table if exists public.%I cascade', item.tablename);
   end loop;
