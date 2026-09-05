@@ -8,7 +8,7 @@ export interface Claims {
   sub: string
   email: string
   name?: string
-  role: Role | 'visitor'
+  role: Role
   exp?: number
   iat?: number
 }
@@ -32,5 +32,7 @@ export async function verifyToken(token: string): Promise<Claims | null> {
 
 export function extractToken(req: NextRequest | Request): string | null {
   const auth = req.headers.get('Authorization')
-  return auth?.startsWith('Bearer ') ? auth.slice(7) : null
+  if (auth?.startsWith('Bearer ')) return auth.slice(7)
+  if ('cookies' in req) return req.cookies.get('worky_session')?.value ?? null
+  return null
 }

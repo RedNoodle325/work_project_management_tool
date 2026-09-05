@@ -205,6 +205,35 @@ export interface Schedule {
   created_at?: string
 }
 
+export interface ServiceRequest {
+  id: string
+  request_number: string
+  request_type: 'billable' | 'startup' | 'warranty'
+  site_id?: string
+  site_name: string
+  site_address: string
+  site_contact_name: string
+  site_contact_details: string
+  unit_serial_number: string
+  region: 'Americas' | 'EMEA' | 'APAC'
+  requested_scope: string
+  requested_service_date: string
+  po_number?: string
+  payment_evidence?: string
+  contract_language?: string
+  c2_number?: string
+  warranty_start_date?: string
+  warranty_end_date?: string
+  warranty_details?: string
+  status: 'pending_review' | 'returned' | 'approved' | 'cancelled'
+  requested_by: string
+  requester_name?: string
+  requester_email?: string
+  review_notes?: string
+  resulting_job_id?: string
+  created_at: string
+}
+
 // Job schedule (Operations page)
 export interface JobSchedule {
   id: string

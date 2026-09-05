@@ -2,4 +2,5 @@
 // Do not inherit a container hostname that can make Next bind too narrowly.
 process.env.HOSTNAME = '0.0.0.0'
 
+await import('./migrate.mjs')
 await import('../.next/standalone/server.js')

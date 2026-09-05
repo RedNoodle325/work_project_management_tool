@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { EditModeProvider } from '@/contexts/EditModeContext'
 import { useToast } from '@/hooks/useToast'
 import { ToastContainer } from '@/components/Toast'
+import { AuthProvider } from '@/contexts/AuthContext'
 
 type ToastFn = (message: string, type?: 'success' | 'error' | 'info') => void
 
@@ -27,9 +28,11 @@ function InnerProviders({ children }: { children: ReactNode }) {
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
-      <EditModeProvider>
-        <InnerProviders>{children}</InnerProviders>
-      </EditModeProvider>
+      <AuthProvider>
+        <EditModeProvider>
+          <InnerProviders>{children}</InnerProviders>
+        </EditModeProvider>
+      </AuthProvider>
     </ThemeProvider>
   )
 }

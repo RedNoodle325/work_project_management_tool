@@ -2,7 +2,7 @@ import type {
   Site, Unit, Contact, Contractor, Note, Issue, ServiceTicket, IssueLineLink,
   Ticket, Todo, JobSchedule, Technician, MsowDraft, WarrantyClaim, BomImport,
   BomItem, Campaign, SycoolSystem, User, JobNumber, LoginResponse, ImportResult,
-  ResourceLink, DailyTechReport,
+  ResourceLink, DailyTechReport, ServiceRequest,
   ProjectJob, ProjectJobsResponse,
 } from '../types'
 
@@ -75,6 +75,17 @@ export const API = {
     updateUser: (id: string, data: { display_name?: string; password?: string; access_role?: string }) =>
       apiFetch<User>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     deleteUser: (id: string) => apiFetch(`/users/${id}`, { method: 'DELETE' }),
+  },
+
+  serviceRequests: {
+    list: () => apiFetch<ServiceRequest[]>('/service-requests'),
+    create: (data: Partial<ServiceRequest>) =>
+      apiFetch<ServiceRequest>('/service-requests', { method: 'POST', body: JSON.stringify(data) }),
+    review: (id: string, action: 'approve' | 'return', review_notes?: string) =>
+      apiFetch<{ request: ServiceRequest; job?: unknown } | ServiceRequest>(`/service-requests/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action, review_notes }),
+      }),
   },
 
   projectJobs: {

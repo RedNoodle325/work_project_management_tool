@@ -37,5 +37,13 @@ export async function POST(req: NextRequest) {
   const access_role = user.access_role
   const token = await signToken({ sub: user.id, email: user.email, name: user.display_name, role: access_role })
 
-  return NextResponse.json({ token, email: user.email, display_name: user.display_name, access_role })
+  const response = NextResponse.json({ token, email: user.email, display_name: user.display_name, access_role })
+  response.cookies.set('worky_session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 8,
+  })
+  return response
 }

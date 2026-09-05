@@ -39,10 +39,4 @@ create index if not exists attachments_site_created_idx
 create index if not exists attachments_update_idx
   on public.attachments(update_id) where update_id is not null;
 
--- Files remain private. The application issues short-lived signed URLs.
-insert into storage.buckets (id, name, public, file_size_limit)
-values ('site-files', 'site-files', false, 52428800)
-on conflict (id) do update
-set public = false, file_size_limit = excluded.file_size_limit;
-
 commit;

@@ -5,9 +5,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useState, type ReactNode } from 'react'
-import { Menu, Moon, Search, Sun, X } from 'lucide-react'
+import { LogOut, Menu, Moon, Search, Sun, X } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
 const nav = [
+  { href: '/service-requests', label: 'Service intake' },
   { href: '/dashboard', label: 'Command center' },
   { href: '/jobs', label: 'Jobs' },
   { href: '/sites', label: 'Sites' },
@@ -23,6 +25,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const path = usePathname()
   const { theme, toggle } = useTheme()
   const [open, setOpen] = useState(false)
+  const { user, logout } = useAuth()
 
   return <div className="x-shell">
     {open && <button className="x-mobile-shade" aria-label="Close menu" onClick={() => setOpen(false)} />}
@@ -31,7 +34,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <nav><span>Program</span>{nav.map(item => { const active = path === item.href || path.startsWith(`${item.href}/`); return <Link key={item.href} href={item.href} className={active ? 'active' : ''} onClick={() => setOpen(false)}><i /><span>{item.label}</span></Link> })}</nav>
       <div className="x-sidebar-bottom">
         <button className="x-theme-toggle" onClick={toggle}><span>{theme === 'dark' ? 'Light canvas' : 'Dark canvas'}</span>{theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}</button>
-        <footer><div className="x-user-mark">X</div><div><strong>Program workspace</strong><span>Open access</span></div></footer>
+        <footer><div className="x-user-mark">{(user?.name||user?.email||'U').slice(0,1).toUpperCase()}</div><div><strong>{user?.name||user?.email}</strong><span>{user?.role?.replace('_',' ')}</span></div><button onClick={logout} aria-label="Sign out"><LogOut size={15}/></button></footer>
       </div>
     </aside>
     <section className="x-main"><div className="x-brand-topline" />
